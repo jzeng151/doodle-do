@@ -22,4 +22,5 @@ declare module 'gifenc' {
 		rgba: Uint8Array | Uint8ClampedArray,
 		palette: number[][]
 	): Uint8Array;
+	export function nearestColorIndex(palette: number[][], pixel: number[]): number;
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import { downloadBlob, openProjectFromDisk, saveProjectToDisk } from '$lib/io/files';
+	import { downloadBlob, importStripFromDisk, openProjectFromDisk, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
 	import { doodledoJson, renderSheet, sheetLayout, texturePackerJson } from '$lib/io/export/spritesheet';
 	import type { Doc } from '$lib/core/document';
@@ -52,6 +52,11 @@
 
 	const saveClick = () => run('Save', () => saveProjectToDisk(session.doc));
 	const openClick = () => run('Open', async () => onOpenDoc(await openProjectFromDisk()));
+	const importClick = () =>
+		run('Import', async () => {
+			const doc = await importStripFromDisk();
+			if (doc) onOpenDoc(doc);
+		});
 
 	function newClick() {
 		if (confirm('Start a new document? The current one stays in browser autosave until you draw again.')) {
@@ -74,6 +79,13 @@
 	<div class="actions">
 		<button onclick={newClick}>New</button>
 		<button onclick={openClick} disabled={busy}>Open</button>
+		<button
+			onclick={importClick}
+			disabled={busy}
+			title="Import a sprite strip PNG (select its animations.json too for frame timing)"
+		>
+			Import strip
+		</button>
 		<button
 			onclick={saveClick}
 			disabled={busy}

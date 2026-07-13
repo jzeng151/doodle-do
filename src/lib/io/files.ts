@@ -3,6 +3,7 @@
 
 import type { Doc } from '../core/document';
 import { PROJECT_EXTENSION, parseProject, serializeProject } from './project';
+import { detectStrip, manifestEntryFor, stripToDoc } from './import/strip';
 
 const PICKER_TYPES = [
 	{
@@ -57,6 +58,53 @@ export async function openProjectFromDisk(): Promise<Doc | null> {
 			if (!file) return resolve(null);
 			try {
 				resolve(parseProject(await file.text()));
+			} catch (e) {
+				reject(e);
+			}
+		};
+		input.oncancel = () => resolve(null);
+		input.click();
+	});
+}
+
+// Sprite strip import: a horizontal strip PNG, optionally together with its
+// animations.json manifest for frame timing. Plain <input> on purpose —
+// for reading it is equivalent to the FS Access picker and stays testable.
+export function importStripFromDisk(): Promise<Doc | null> {
+	return new Promise((resolve, reject) => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = 'image/png,.json';
+		input.multiple = true;
+		input.onchange = async () => {
+			try {
+				const files = Array.from(input.files ?? []);
+				const png = files.find((f) => f.name.toLowerCase().endsWith('.png'));
+				if (!png) return resolve(null);
+				const manifestFile = files.find((f) => f.name.toLowerCase().endsWith('.json'));
+
+				const bitmap = await createImageBitmap(png);
+				const canvas = document.createElement('canvas');
+				canvas.width = bitmap.width;
+				canvas.height = bitmap.height;
+				const ctx = canvas.getContext('2d')!;
+				ctx.drawImage(bitmap, 0, 0);
+				const img = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+
+				let frameMs: number | undefined;
+				if (manifestFile) {
+					const entry = manifestEntryFor(await manifestFile.text(), png.name);
+					if (entry) {
+						const detected = detectStrip(img).frameCount;
+						if (entry.frames && entry.frames !== detected) {
+							throw new Error(
+								`manifest says ${entry.frames} frames but the strip splits into ${detected}`
+							);
+						}
+						if (entry.frameMs) frameMs = entry.frameMs;
+					}
+				}
+				resolve(stripToDoc(img, png.name.replace(/\.png$/i, ''), { frameMs }));
 			} catch (e) {
 				reject(e);
 			}
