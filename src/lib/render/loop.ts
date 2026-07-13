@@ -20,6 +20,7 @@ export class LoopPlayer {
 		this.stop();
 		this.lastTime = performance.now();
 		const tick = (now: number) => {
+			if (this.frame >= this.doc.frames.length) this.frame = 0; // frame was deleted
 			this.acc += now - this.lastTime;
 			this.lastTime = now;
 			let duration = frameDurationMs(this.doc, this.frame);
@@ -40,6 +41,7 @@ export class LoopPlayer {
 	}
 
 	blit(): void {
+		if (this.frame >= this.doc.frames.length) this.frame = 0; // frame was deleted
 		const ctx = this.target.getContext('2d')!;
 		ctx.imageSmoothingEnabled = false;
 		ctx.clearRect(0, 0, this.target.width, this.target.height);

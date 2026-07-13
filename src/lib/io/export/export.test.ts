@@ -1,0 +1,70 @@
+import { describe, expect, it } from 'vitest';
+import { createDoc } from '../../core/document';
+import { DEFAULT_PALETTE } from '../../core/palette';
+import { flattenFrameIndices } from '../../core/flatten';
+import { doodledoJson, sheetLayout, texturePackerJson } from './spritesheet';
+
+describe('flattenFrameIndices', () => {
+	it('topmost visible non-transparent wins; hidden layers skipped', () => {
+		const doc = createDoc({ width: 2, height: 1, palette: DEFAULT_PALETTE, layerCount: 3 });
+		doc.frames[0].layers[0].pixels[0] = 1;
+		doc.frames[0].layers[1].pixels[0] = 2;
+		doc.frames[0].layers[2].pixels[1] = 3;
+		doc.frames[0].layers[1].visible = false;
+		expect(Array.from(flattenFrameIndices(doc, 0))).toEqual([1, 3]);
+	});
+});
+
+describe('sheetLayout', () => {
+	it('packs 4 frames of 32×32 into a 2×2 grid', () => {
+		const layout = sheetLayout(4, 32, 32);
+		expect(layout).toMatchObject({ columns: 2, rows: 2, width: 64, height: 64 });
+		expect(layout.rects[3]).toEqual({ x: 32, y: 32, w: 32, h: 32 });
+	});
+
+	it('handles non-square counts without overlap', () => {
+		const layout = sheetLayout(5, 16, 16);
+		expect(layout.rects).toHaveLength(5);
+		const keys = new Set(layout.rects.map((r) => `${r.x},${r.y}`));
+		expect(keys.size).toBe(5);
+		for (const r of layout.rects) {
+			expect(r.x + r.w).toBeLessThanOrEqual(layout.width);
+			expect(r.y + r.h).toBeLessThanOrEqual(layout.height);
+		}
+	});
+});
+
+describe('export metadata schemas', () => {
+	const doc = createDoc({
+		name: 'strut',
+		width: 32,
+		height: 32,
+		fps: 8,
+		palette: DEFAULT_PALETTE,
+		frameCount: 4
+	});
+	doc.frames[2].durationMs = 250;
+	const layout = sheetLayout(4, 32, 32);
+
+	it('TexturePacker JSON-hash has the fields Phaser expects', () => {
+		const parsed = JSON.parse(texturePackerJson(doc, layout, 'strut.png'));
+		expect(Object.keys(parsed.frames)).toHaveLength(4);
+		const frame = parsed.frames['frame-0'];
+		expect(frame.frame).toEqual({ x: 0, y: 0, w: 32, h: 32 });
+		expect(frame.rotated).toBe(false);
+		expect(frame.trimmed).toBe(false);
+		expect(frame.sourceSize).toEqual({ w: 32, h: 32 });
+		expect(parsed.meta.image).toBe('strut.png');
+		expect(parsed.meta.size).toEqual({ w: 64, h: 64 });
+		expect(parsed.meta.scale).toBe('1');
+	});
+
+	it('doodledo.json carries fps and per-frame durations', () => {
+		const parsed = JSON.parse(doodledoJson(doc, layout, 'strut.png'));
+		expect(parsed.format).toBe('doodledo-sheet');
+		expect(parsed.fps).toBe(8);
+		expect(parsed.frames[0].durationMs).toBe(125); // 1000/8
+		expect(parsed.frames[2].durationMs).toBe(250); // per-frame override
+		expect(parsed.frames[3]).toMatchObject({ x: 32, y: 32, w: 32, h: 32 });
+	});
+});

@@ -24,8 +24,13 @@ export class Compositor {
 	}
 
 	invalidate(region: DirtyRegion): void {
+		if (region.palette) {
+			this.invalidatePalette();
+			return;
+		}
 		if (region.frame === null) {
-			for (const entry of this.cache) entry.dirty = 'all';
+			// structural change: frame indices may have shifted — drop the cache
+			this.cache = [];
 			return;
 		}
 		const entry = this.cache[region.frame];
@@ -39,7 +44,7 @@ export class Compositor {
 
 	invalidatePalette(): void {
 		this.lut = buildLut(this.doc.palette);
-		this.invalidate({ frame: null, rect: null });
+		this.cache = [];
 	}
 
 	frameCanvas(frameIndex: number): HTMLCanvasElement {

@@ -12,10 +12,13 @@ export interface Rect {
 }
 
 // Where a command touched the document, for dirty-rect invalidation.
-// rect === null means "whole frame"; frame === null means "whole document".
+// rect === null means "whole frame"; frame === null means "whole document"
+// (structural change — cached frame indices may have shifted).
+// palette means the color LUT itself changed.
 export interface DirtyRegion {
 	frame: number | null;
 	rect: Rect | null;
+	palette?: boolean;
 }
 
 export interface Command {

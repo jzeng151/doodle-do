@@ -15,7 +15,8 @@ export class StrokeBuilder {
 		private readonly frameIndex: number,
 		private readonly layerIndex: number,
 		private readonly value: number, // pixel value to place; 0 = eraser
-		private readonly size = 1
+		private readonly size = 1,
+		private readonly mirrorX = false // mirror-draw toggle (§4.1)
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -56,6 +57,12 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
+		const rect = this.stampOne(cx, cy);
+		if (!this.mirrorX) return rect;
+		return unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+	}
+
+	private stampOne(cx: number, cy: number): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
