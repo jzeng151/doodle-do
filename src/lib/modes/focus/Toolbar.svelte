@@ -7,7 +7,8 @@
 		{ id: 'pencil', label: 'Pencil', key: 'B' },
 		{ id: 'eraser', label: 'Eraser', key: 'E' },
 		{ id: 'fill', label: 'Fill', key: 'G' },
-		{ id: 'eyedropper', label: 'Pick', key: 'I' }
+		{ id: 'eyedropper', label: 'Pick', key: 'I' },
+		{ id: 'select', label: 'Select', key: 'M' }
 	];
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
@@ -20,7 +21,7 @@
 			<button
 				class:active={session.tool === t.id}
 				title="{t.label} ({t.key})"
-				onclick={() => (session.tool = t.id)}
+				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}
 			</button>

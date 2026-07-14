@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
-import { CommandBus } from '../core/commands';
+import { CommandBus, type Rect } from '../core/commands';
 import {
 	FpsCommand,
 	FrameAddCommand,
@@ -24,9 +24,10 @@ import { floodFill } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { StrokeBuilder } from '../tools/pencil';
+import { FloatingSelection, clampRect } from '../tools/selection';
 import { DEFAULT_PALETTE } from '../core/palette';
 
-export type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper';
+export type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
 export function createDefaultDoc(): Doc {
 	// Smart defaults (§4.5): 32×32, 8 FPS, 2 frames, starter palette.
@@ -52,6 +53,12 @@ export class EditorSession {
 	onionOpacity = $state(0.35);
 	autosavedAt = $state<Date | null>(null);
 
+	// selection (B5): marquee and floating buffer are view state until
+	// commit, when the whole move becomes one command
+	marquee = $state<Rect | null>(null);
+	floating = $state<FloatingSelection | null>(null);
+	overlayVersion = $state(0); // bumps on marquee/floating changes only
+
 	private stroke: StrokeBuilder | null = null;
 
 	constructor(doc: Doc) {
@@ -74,9 +81,102 @@ export class EditorSession {
 		return this.doc.frames[this.currentFrame];
 	}
 
+	// --- view transitions that must resolve a pending selection first (B5) ---
+
+	setTool(tool: Tool): void {
+		if (tool === this.tool) return;
+		this.commitFloating();
+		this.marquee = null;
+		this.overlayVersion++;
+		this.tool = tool;
+	}
+
+	selectFrame(index: number): void {
+		this.commitFloating(); // B5: frame change commits
+		this.currentFrame = index;
+	}
+
+	selectLayer(index: number): void {
+		this.commitFloating(); // selection lives on the active layer
+		this.currentLayer = index;
+	}
+
+	// --- selection (B5) ---
+
+	beginMarquee(x: number, y: number): void {
+		this.commitFloating();
+		this.marquee = { x, y, w: 1, h: 1 };
+		this.marqueeAnchor = { x, y };
+		this.overlayVersion++;
+	}
+
+	private marqueeAnchor = { x: 0, y: 0 };
+
+	updateMarquee(x: number, y: number): void {
+		if (!this.marquee) return;
+		const a = this.marqueeAnchor;
+		this.marquee = {
+			x: Math.min(a.x, x),
+			y: Math.min(a.y, y),
+			w: Math.abs(x - a.x) + 1,
+			h: Math.abs(y - a.y) + 1
+		};
+		this.overlayVersion++;
+	}
+
+	endMarquee(): void {
+		if (!this.marquee) return;
+		this.marquee = clampRect(this.marquee, this.doc.meta.width, this.doc.meta.height);
+		this.overlayVersion++;
+	}
+
+	// Starting a move lifts the marquee into a floating buffer — the source
+	// pixels clear and a pending command begins.
+	liftSelection(): void {
+		if (this.floating || !this.marquee) return;
+		this.floating = new FloatingSelection(
+			this.doc,
+			this.currentFrame,
+			this.currentLayer,
+			this.marquee
+		);
+		this.marquee = null;
+		this.overlayVersion++;
+		this.bus.emitChange({ frame: this.currentFrame, rect: this.floating.rect });
+	}
+
+	moveFloatingBy(dx: number, dy: number): void {
+		if (!this.floating || (dx === 0 && dy === 0)) return;
+		this.floating.moveBy(dx, dy);
+		this.overlayVersion++;
+	}
+
+	commitFloating(): void {
+		if (!this.floating) return;
+		const sel = this.floating;
+		this.floating = null;
+		this.marquee = null;
+		this.overlayVersion++;
+		const cmd = sel.commit();
+		if (cmd) this.bus.dispatch(cmd, { applied: true });
+		else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+	}
+
+	cancelFloating(): void {
+		if (this.floating) {
+			const sel = this.floating;
+			this.floating = null;
+			sel.cancel();
+			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		}
+		this.marquee = null;
+		this.overlayVersion++;
+	}
+
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
 	strokeBegin(x: number, y: number): void {
+		if (this.floating) return; // B5: drawing disabled while floating
 		const value = this.tool === 'eraser' ? 0 : this.colorValue;
 		this.stroke = new StrokeBuilder(
 			this.doc,
@@ -110,6 +210,7 @@ export class EditorSession {
 	// --- other tools ---
 
 	fill(x: number, y: number): void {
+		if (this.floating) return; // B5: drawing disabled while floating
 		const cmd = floodFill(this.doc, this.currentFrame, this.currentLayer, x, y, this.colorValue);
 		if (cmd) this.bus.dispatch(cmd);
 	}
@@ -119,13 +220,23 @@ export class EditorSession {
 		if (value !== 0) this.colorValue = value;
 	}
 
+	// B5: flips apply to the floating buffer when a selection is active
+	// (a bare marquee lifts first, keeping the one-command guarantee),
+	// else to the whole active layer.
 	flip(axis: 'horizontal' | 'vertical'): void {
+		if (this.marquee && !this.floating) this.liftSelection();
+		if (this.floating) {
+			this.floating.flip(axis);
+			this.overlayVersion++;
+			return;
+		}
 		this.bus.dispatch(new FlipLayerCommand(this.currentFrame, this.currentLayer, axis));
 	}
 
 	// --- frames ---
 
 	addFrame(duplicate: boolean): void {
+		this.commitFloating();
 		const src = this.frame;
 		const layers = duplicate
 			? src.layers.map((l) => ({ name: l.name, visible: l.visible, pixels: l.pixels.slice() }))
@@ -142,10 +253,12 @@ export class EditorSession {
 
 	deleteFrame(): void {
 		if (this.doc.frames.length <= 1) return;
+		this.cancelFloating(); // the frame under the selection is going away
 		this.bus.dispatch(new FrameDeleteCommand(this.doc, this.currentFrame));
 	}
 
 	moveFrame(delta: -1 | 1): void {
+		this.commitFloating();
 		const to = this.currentFrame + delta;
 		if (to < 0 || to >= this.doc.frames.length) return;
 		this.bus.dispatch(new FrameReorderCommand(this.currentFrame, to));
@@ -172,6 +285,7 @@ export class EditorSession {
 	// --- layers (per-frame, cap 8) ---
 
 	addLayer(): void {
+		this.commitFloating();
 		const layers = this.frame.layers;
 		if (layers.length >= MAX_LAYERS) return;
 		const index = this.currentLayer + 1;
@@ -183,10 +297,12 @@ export class EditorSession {
 
 	deleteLayer(): void {
 		if (this.frame.layers.length <= 1) return;
+		this.cancelFloating(); // the layer under the selection is going away
 		this.bus.dispatch(new LayerDeleteCommand(this.doc, this.currentFrame, this.currentLayer));
 	}
 
 	moveLayer(delta: -1 | 1): void {
+		this.commitFloating();
 		const to = this.currentLayer + delta;
 		if (to < 0 || to >= this.frame.layers.length) return;
 		this.bus.dispatch(new LayerReorderCommand(this.currentFrame, this.currentLayer, to));
@@ -219,13 +335,17 @@ export class EditorSession {
 
 	// --- history ---
 
+	// T14/B5: undo removes the whole move in one step — a pending selection
+	// commits first, so the very next undo reverts it entirely.
 	undo(): void {
 		this.strokeEnd();
+		this.commitFloating();
 		this.bus.undo();
 	}
 
 	redo(): void {
 		this.strokeEnd();
+		this.commitFloating();
 		this.bus.redo();
 	}
 }

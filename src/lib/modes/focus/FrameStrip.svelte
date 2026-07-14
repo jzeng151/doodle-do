@@ -42,7 +42,7 @@
 				class:active={i === session.currentFrame}
 				role="option"
 				aria-selected={i === session.currentFrame}
-				onclick={() => (session.currentFrame = i)}
+				onclick={() => session.selectFrame(i)}
 			>
 				<canvas
 					bind:this={thumbs[i]}

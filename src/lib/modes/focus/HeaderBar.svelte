@@ -21,6 +21,7 @@
 		busy = true;
 		error = '';
 		try {
+			session.commitFloating(); // save/export must see the stamped document
 			await fn();
 		} catch (e) {
 			error = `${label} failed: ${e instanceof Error ? e.message : e}`;

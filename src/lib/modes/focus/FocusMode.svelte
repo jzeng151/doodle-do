@@ -35,16 +35,25 @@
 		if (mod) return;
 		switch (e.key.toLowerCase()) {
 			case 'b':
-				session.tool = 'pencil';
+				session.setTool('pencil');
 				break;
 			case 'e':
-				session.tool = 'eraser';
+				session.setTool('eraser');
 				break;
 			case 'g':
-				session.tool = 'fill';
+				session.setTool('fill');
 				break;
 			case 'i':
-				session.tool = 'eyedropper';
+				session.setTool('eyedropper');
+				break;
+			case 'm':
+				session.setTool('select');
+				break;
+			case 'enter':
+				session.commitFloating(); // B5: Enter stamps the selection down
+				break;
+			case 'escape':
+				session.cancelFloating(); // B5: Escape restores the source
 				break;
 			case 'o':
 				session.onionEnabled = !session.onionEnabled;
@@ -56,11 +65,12 @@
 				session.brushSize = Math.min(4, session.brushSize + 1);
 				break;
 			case 'arrowleft':
-				session.currentFrame =
-					(session.currentFrame - 1 + session.doc.frames.length) % session.doc.frames.length;
+				session.selectFrame(
+					(session.currentFrame - 1 + session.doc.frames.length) % session.doc.frames.length
+				);
 				break;
 			case 'arrowright':
-				session.currentFrame = (session.currentFrame + 1) % session.doc.frames.length;
+				session.selectFrame((session.currentFrame + 1) % session.doc.frames.length);
 				break;
 		}
 	}

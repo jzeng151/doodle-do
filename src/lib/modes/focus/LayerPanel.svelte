@@ -37,7 +37,7 @@
 					class:active={realIndex(di) === session.currentLayer}
 					role="option"
 					aria-selected={realIndex(di) === session.currentLayer}
-					onclick={() => (session.currentLayer = realIndex(di))}
+					onclick={() => session.selectLayer(realIndex(di))}
 				>
 					{layer.name}
 				</button>
