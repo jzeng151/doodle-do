@@ -59,6 +59,21 @@ Strip sources with more than 64 colors are quantized to the palette cap
 model's transparency is 1-bit. Multi-animation master atlases without
 uniform grids are not importable — use the per-animation strips.
 
+Two consequences of the unified picker, by design:
+
+- **Open always uses a plain `<input type="file">`**, never
+  `showOpenFilePicker`. For reading, the two are equivalent (no write-back
+  handle is kept either way); the plain input supports the multi-select
+  needed for PNG + manifest pairs, works in Safari/Firefox without a
+  fallback branch, and can be driven by Playwright, so the open path stays
+  end-to-end testable. Save still uses `showSaveFilePicker` where
+  available, where the FS Access API actually adds something.
+- **Dispatch is by content, not just extension**: a `.json` selected alone
+  must parse as a project (`format: "doodledo-project"`); a `.json` with an
+  `animations` key is treated as a strip manifest and refused without its
+  PNG. Mixed or ambiguous selections (project + PNG, two PNGs, manifest
+  alone) fail with specific messages rather than guessing.
+
 ## Export formats
 
 Sprite sheet exports produce three files: the PNG sheet, a TexturePacker
