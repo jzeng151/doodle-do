@@ -1,0 +1,13 @@
+{
+	"name": "Doodle-Do",
+	"short_name": "Doodle-Do",
+	"description": "Frame-by-frame pixel animation tool that teaches you as you work",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#1a1b1e",
+	"theme_color": "#1a1b1e",
+	"icons": [
+		{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+	]
+}

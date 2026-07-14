@@ -8,16 +8,21 @@ the full spec.
 
 - **Phase 0 (rendering spike): gate passed.** Canvas 2D confirmed;
   stroke→loop p95 = 0.1ms against the 16ms budget (`bench/README.md`).
-- **Phase 1 (focus mode MVP): code complete.** Full toolset minus
-  selection, onion skinning, palette lock/swap/remove, frames and layers,
-  Appendix-B undo, OPFS autosave with IndexedDB fallback, sprite sheet
-  (TexturePacker JSON-hash + doodledo.json) and GIF export.
+- **Phase 1 (focus mode MVP): code complete.** Full toolset, onion
+  skinning, palette lock/swap/remove, frames and layers, Appendix-B undo,
+  OPFS autosave with IndexedDB fallback, sprite sheet (TexturePacker
+  JSON-hash + doodledo.json), GIF, and frame-PNG-zip export.
   - Phaser import verification: **passing** (`npm run verify:phaser`).
   - Godot import verification: **open** — no Godot binary on this machine.
   - Phase 1 gate (founder ships a 4-frame walk cycle in under 30 minutes):
     **awaiting the founder.**
-- Known gap for Phase 2: canvas-size presets on "New" (currently always
-  32×32), selection/move, tips engine, reference library, PWA.
+- **Phase 2 (learning layer + polish): code items complete.** Selection
+  per Appendix B5, canvas-size presets, tips engine per Appendix A
+  (T12 dormant until the reference library exists), sprite strip import,
+  PWA/offline via service worker.
+  - Reference animation library: **blocked on the commissioned art**
+    (§4.5 production plan).
+  - Phase 2 gate (5-participant usability protocol): **awaiting humans.**
 
 ## Layout
 
