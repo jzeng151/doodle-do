@@ -26,6 +26,7 @@ import { FlipLayerCommand } from '../tools/flip';
 import { StrokeBuilder } from '../tools/pencil';
 import { FloatingSelection, clampRect } from '../tools/selection';
 import { DEFAULT_PALETTE } from '../core/palette';
+import { tips } from '../learn/tips';
 
 export type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
@@ -59,7 +60,13 @@ export class EditorSession {
 	floating = $state<FloatingSelection | null>(null);
 	overlayVersion = $state(0); // bumps on marquee/floating changes only
 
+	// for the T15 save-to-disk reminder
+	savedToDiskAt = $state<Date | null>(null);
+	readonly startedAt = Date.now();
+	unsavedCommits = $state(0);
+
 	private stroke: StrokeBuilder | null = null;
+	private manualPaletteAdds = 0;
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -75,6 +82,7 @@ export class EditorSession {
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
 			this.version++;
 		});
+		this.bus.onCommit(() => this.unsavedCommits++);
 	}
 
 	get frame() {
@@ -94,6 +102,22 @@ export class EditorSession {
 	selectFrame(index: number): void {
 		this.commitFloating(); // B5: frame change commits
 		this.currentFrame = index;
+		if (index === 1) tips.fire('T02');
+	}
+
+	toggleOnion(): void {
+		this.onionEnabled = !this.onionEnabled;
+		if (!this.onionEnabled) tips.fire('T04');
+	}
+
+	toggleMirror(): void {
+		this.mirrorX = !this.mirrorX;
+		if (this.mirrorX) tips.fire('T13');
+	}
+
+	togglePaletteLock(): void {
+		this.paletteLocked = !this.paletteLocked;
+		if (this.paletteLocked) tips.fire('T07');
 	}
 
 	selectLayer(index: number): void {
@@ -149,6 +173,7 @@ export class EditorSession {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
 		this.floating.moveBy(dx, dy);
 		this.overlayVersion++;
+		tips.fire('T14');
 	}
 
 	commitFloating(): void {
@@ -212,7 +237,10 @@ export class EditorSession {
 	fill(x: number, y: number): void {
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmd = floodFill(this.doc, this.currentFrame, this.currentLayer, x, y, this.colorValue);
-		if (cmd) this.bus.dispatch(cmd);
+		if (cmd) {
+			this.bus.dispatch(cmd);
+			if (cmd.pixelCount < 4) tips.fire('T05');
+		}
 	}
 
 	eyedrop(x: number, y: number): void {
@@ -249,6 +277,8 @@ export class EditorSession {
 			})
 		);
 		this.currentFrame = index;
+		if (duplicate) tips.fire('T03');
+		if (this.doc.frames.length === 6) tips.fire('T10');
 	}
 
 	deleteFrame(): void {
@@ -267,7 +297,10 @@ export class EditorSession {
 
 	setFps(fps: number): void {
 		const next = Math.round(Math.min(24, Math.max(1, fps)));
-		if (next !== this.doc.meta.fps) this.bus.dispatch(new FpsCommand(this.doc.meta.fps, next));
+		if (next !== this.doc.meta.fps) {
+			this.bus.dispatch(new FpsCommand(this.doc.meta.fps, next));
+			if (next > 12) tips.fire('T09');
+		}
 	}
 
 	setFrameDuration(ms: number | undefined): void {
@@ -321,11 +354,13 @@ export class EditorSession {
 		if (this.paletteLocked || this.doc.palette.length >= MAX_PALETTE) return;
 		this.bus.dispatch(new PaletteAddCommand(hex));
 		this.colorValue = this.doc.palette.length;
+		if (++this.manualPaletteAdds >= 10) tips.fire('T06');
 	}
 
 	swapPaletteColor(index: number, hex: string): void {
 		if (this.paletteLocked || this.doc.palette[index] === hex) return;
 		this.bus.dispatch(new PaletteSwapCommand(index, this.doc.palette[index], hex));
+		tips.fire('T08');
 	}
 
 	removePaletteColor(index: number, remapTo: number): void {

@@ -40,7 +40,7 @@
 		<button
 			class:active={session.mirrorX}
 			title="Mirror-draw: paint both halves at once"
-			onclick={() => (session.mirrorX = !session.mirrorX)}
+			onclick={() => session.toggleMirror()}
 		>
 			Mirror
 		</button>
@@ -69,7 +69,7 @@
 		<button
 			class:active={session.onionEnabled}
 			title="Onion skin: previous frame red, next frame green"
-			onclick={() => (session.onionEnabled = !session.onionEnabled)}
+			onclick={() => session.toggleOnion()}
 		>
 			Onion
 		</button>

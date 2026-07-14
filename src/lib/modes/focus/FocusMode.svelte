@@ -10,12 +10,13 @@
 	import LayerPanel from './LayerPanel.svelte';
 	import LoopPreview from './LoopPreview.svelte';
 	import PalettePanel from './PalettePanel.svelte';
+	import TipToast from './TipToast.svelte';
 	import Toolbar from './Toolbar.svelte';
 
 	let {
 		session,
 		onOpenDoc
-	}: { session: EditorSession; onOpenDoc: (doc: Doc | null) => void } = $props();
+	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
 
 	function onKeyDown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
@@ -56,7 +57,7 @@
 				session.cancelFloating(); // B5: Escape restores the source
 				break;
 			case 'o':
-				session.onionEnabled = !session.onionEnabled;
+				session.toggleOnion();
 				break;
 			case '[':
 				session.brushSize = Math.max(1, session.brushSize - 1);
@@ -90,6 +91,7 @@
 		</aside>
 	</div>
 	<FrameStrip {session} />
+	<TipToast />
 </div>
 
 <style>

@@ -6,16 +6,23 @@
 	import { doodledoJson, renderSheet, sheetLayout, texturePackerJson } from '$lib/io/export/spritesheet';
 	import { createDoc, type Doc } from '$lib/core/document';
 	import { DEFAULT_PALETTE } from '$lib/core/palette';
+	import { tips } from '$lib/learn/tips';
+	import { onMount } from 'svelte';
 	import NewDocDialog from './NewDocDialog.svelte';
 
 	let {
 		session,
 		onOpenDoc
-	}: { session: EditorSession; onOpenDoc: (doc: Doc | null) => void } = $props();
+	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
 
 	let busy = $state(false);
 	let error = $state('');
 	let newDialog: NewDocDialog;
+	let tipsHidden = $state(false);
+	onMount(() => {
+		tipsHidden = tips.hideAll;
+		return tips.onChange(() => (tipsHidden = tips.hideAll));
+	});
 
 	function baseName(): string {
 		return (session.doc.meta.name || 'untitled').replace(/[^\w-]+/g, '-');
@@ -36,6 +43,7 @@
 
 	const exportSheet = () =>
 		run('Export', async () => {
+			tips.fire('T11');
 			const doc = session.doc;
 			const layout = sheetLayout(doc.frames.length, doc.meta.width, doc.meta.height);
 			const image = `${baseName()}.png`;
@@ -52,15 +60,22 @@
 
 	const exportGifClick = () =>
 		run('GIF export', async () => {
+			tips.fire('T11');
 			downloadBlob(await exportGif(session.doc), `${baseName()}.gif`);
 		});
 
 	const exportFramesClick = () =>
 		run('Frame export', async () => {
+			tips.fire('T11');
 			downloadBlob(await exportFramePngs(session.doc, session.compositor), `${baseName()}-frames.zip`);
 		});
 
-	const saveClick = () => run('Save', () => saveProjectToDisk(session.doc));
+	const saveClick = () =>
+		run('Save', async () => {
+			await saveProjectToDisk(session.doc);
+			session.savedToDiskAt = new Date(); // resets the T15 reminder clock
+			session.unsavedCommits = 0;
+		});
 	const openClick = () =>
 		run('Open', async () => {
 			const doc = await openFromDisk();
@@ -68,7 +83,7 @@
 		});
 
 	function createNew(width: number, height: number) {
-		onOpenDoc(createDoc({ width, height, palette: DEFAULT_PALETTE }));
+		onOpenDoc(createDoc({ width, height, palette: DEFAULT_PALETTE }), true);
 	}
 
 	function rename(e: Event) {
@@ -107,6 +122,13 @@
 		</button>
 		<button onclick={exportFramesClick} disabled={busy} title="Individual frame PNGs, zipped">
 			Export frames
+		</button>
+		<button
+			class:active={!tipsHidden}
+			title="Show or hide all tips"
+			onclick={() => tips.setHideAll(!tips.hideAll)}
+		>
+			Tips
 		</button>
 	</div>
 </header>

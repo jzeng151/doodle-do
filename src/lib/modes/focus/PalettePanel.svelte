@@ -34,7 +34,7 @@
 		<button
 			class:active={session.paletteLocked}
 			title="Palette lock: how artists keep a piece looking coherent"
-			onclick={() => (session.paletteLocked = !session.paletteLocked)}
+			onclick={() => session.togglePaletteLock()}
 		>
 			{session.paletteLocked ? 'Locked' : 'Lock'}
 		</button>

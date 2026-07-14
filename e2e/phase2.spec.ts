@@ -24,6 +24,30 @@ test('custom size clamps to the 128 cap', async ({ page }) => {
 	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(24 * 12));
 });
 
+test('tips: fire on triggers, cap per session, dismiss forever, hide all', async ({ page }) => {
+	await gotoApp(page);
+	const toast = page.locator('.tip');
+
+	// T01 fires on the first fresh document
+	await expect(toast).toContainText('loop preview');
+	await toast.getByRole('button', { name: 'Dismiss', exact: true }).click();
+	await expect(toast).toHaveCount(0);
+
+	// duplicating a frame fires T03
+	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await expect(toast).toContainText('duplicating and nudging');
+	await toast.getByRole('button', { name: "Don't show again" }).click();
+
+	// dismissed forever: another duplicate stays quiet
+	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await expect(toast).toHaveCount(0);
+
+	// global toggle off blocks new tips (T02 via selecting frame 2)
+	await page.getByRole('button', { name: 'Tips' }).click();
+	await page.getByRole('listbox', { name: 'Frames' }).getByRole('option').nth(1).click();
+	await expect(toast).toHaveCount(0);
+});
+
 test('frame PNGs export as a zip', async ({ page }) => {
 	await gotoApp(page);
 	const downloadPromise = page.waitForEvent('download');

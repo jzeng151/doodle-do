@@ -38,7 +38,8 @@
 			</button>
 		{/each}
 	</div>
-	<form class="custom" onsubmit={createCustom}>
+	<!-- novalidate: out-of-range sizes clamp to the cap instead of blocking -->
+	<form class="custom" novalidate onsubmit={createCustom}>
 		<label>
 			W
 			<input type="number" min="1" max={MAX_CANVAS} bind:value={customW} />

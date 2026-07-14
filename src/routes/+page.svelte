@@ -3,27 +3,44 @@
 	import type { Doc } from '$lib/core/document';
 	import { createDefaultDoc, EditorSession } from '$lib/editor/session.svelte';
 	import { attachAutosave, loadAutosave } from '$lib/io/autosave';
+	import { tips } from '$lib/learn/tips';
 	import FocusMode from '$lib/modes/focus/FocusMode.svelte';
+
+	const T15_UNSAVED_MS = 20 * 60_000;
 
 	let session = $state<EditorSession | null>(null);
 	let detachAutosave: (() => void) | null = null;
 
-	function startSession(doc: Doc) {
+	function startSession(doc: Doc, isNew: boolean) {
 		detachAutosave?.();
 		const next = new EditorSession(doc);
 		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()));
 		session = next;
+		if (isNew) tips.fire('T01');
 	}
 
-	function onOpenDoc(doc: Doc | null) {
-		// null = "New" — a fresh default document
-		if (doc) startSession(doc);
-		else startSession(createDefaultDoc());
+	function onOpenDoc(doc: Doc | null, isNew = false) {
+		if (doc) startSession(doc, isNew);
+		else startSession(createDefaultDoc(), true);
 	}
 
 	onMount(() => {
-		loadAutosave().then((saved) => startSession(saved ?? createDefaultDoc()));
-		return () => detachAutosave?.();
+		loadAutosave().then((saved) =>
+			saved ? startSession(saved, false) : startSession(createDefaultDoc(), true)
+		);
+		// T15: gentle export reminder after 20+ minutes of work not saved to
+		// disk — exempt from the frequency cap, respects the global toggle
+		let lastReminder = 0;
+		const timer = setInterval(() => {
+			const s = session;
+			if (!s || s.unsavedCommits === 0) return;
+			const clock = Math.max(s.savedToDiskAt?.getTime() ?? 0, s.startedAt, lastReminder);
+			if (Date.now() - clock > T15_UNSAVED_MS && tips.fire('T15')) lastReminder = Date.now();
+		}, 60_000);
+		return () => {
+			clearInterval(timer);
+			detachAutosave?.();
+		};
 	});
 </script>
 
