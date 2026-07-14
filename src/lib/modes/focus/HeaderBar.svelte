@@ -2,8 +2,11 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { downloadBlob, openFromDisk, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
+	import { exportFramePngs } from '$lib/io/export/frames';
 	import { doodledoJson, renderSheet, sheetLayout, texturePackerJson } from '$lib/io/export/spritesheet';
-	import type { Doc } from '$lib/core/document';
+	import { createDoc, type Doc } from '$lib/core/document';
+	import { DEFAULT_PALETTE } from '$lib/core/palette';
+	import NewDocDialog from './NewDocDialog.svelte';
 
 	let {
 		session,
@@ -12,6 +15,7 @@
 
 	let busy = $state(false);
 	let error = $state('');
+	let newDialog: NewDocDialog;
 
 	function baseName(): string {
 		return (session.doc.meta.name || 'untitled').replace(/[^\w-]+/g, '-');
@@ -51,6 +55,11 @@
 			downloadBlob(await exportGif(session.doc), `${baseName()}.gif`);
 		});
 
+	const exportFramesClick = () =>
+		run('Frame export', async () => {
+			downloadBlob(await exportFramePngs(session.doc, session.compositor), `${baseName()}-frames.zip`);
+		});
+
 	const saveClick = () => run('Save', () => saveProjectToDisk(session.doc));
 	const openClick = () =>
 		run('Open', async () => {
@@ -58,10 +67,8 @@
 			if (doc) onOpenDoc(doc);
 		});
 
-	function newClick() {
-		if (confirm('Start a new document? The current one stays in browser autosave until you draw again.')) {
-			onOpenDoc(null);
-		}
+	function createNew(width: number, height: number) {
+		onOpenDoc(createDoc({ width, height, palette: DEFAULT_PALETTE }));
 	}
 
 	function rename(e: Event) {
@@ -77,7 +84,7 @@
 		{#if error}{error}{:else if session.autosavedAt}autosaved {session.autosavedAt.toLocaleTimeString()}{/if}
 	</span>
 	<div class="actions">
-		<button onclick={newClick}>New</button>
+		<button onclick={() => newDialog.open()}>New</button>
 		<button
 			onclick={openClick}
 			disabled={busy}
@@ -98,8 +105,13 @@
 		<button onclick={exportGifClick} disabled={busy} title="Animated GIF, for showing off">
 			Export GIF
 		</button>
+		<button onclick={exportFramesClick} disabled={busy} title="Individual frame PNGs, zipped">
+			Export frames
+		</button>
 	</div>
 </header>
+
+<NewDocDialog bind:this={newDialog} onCreate={createNew} />
 
 <style>
 	.bar {
