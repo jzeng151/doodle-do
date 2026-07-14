@@ -3,7 +3,11 @@
 // animations.json manifest). Arbitrary RGBA input is quantized into the
 // indexed model: ≤64 palette entries, binary transparency.
 
-import { quantize, nearestColorIndex } from 'gifenc';
+// gifenc ships a CommonJS main build whose esbuild getter-exports aren't
+// statically detectable, so a named import breaks Vite's dev SSR (this module
+// is in the page's prerender graph via files.ts). A namespace import grabs the
+// whole exports object and sidesteps the check.
+import * as gifenc from 'gifenc';
 import { MAX_CANVAS, MAX_PALETTE, type Doc } from '../../core/document';
 
 // Doodle-Do transparency is 1-bit (index 0); GIF-style threshold.
@@ -75,7 +79,7 @@ function buildPalette(img: RgbaImage): { palette: string[]; valueAt: (i: number)
 		opaque[o + 3] = 255;
 		o += 4;
 	}
-	const table = quantize(opaque, MAX_PALETTE);
+	const table = gifenc.quantize(opaque, MAX_PALETTE);
 	const cache = new Map<number, number>();
 	return {
 		palette: table.map(([r, g, b]) => hex(r, g, b)),
@@ -84,7 +88,7 @@ function buildPalette(img: RgbaImage): { palette: string[]; valueAt: (i: number)
 			const packed = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
 			let value = cache.get(packed);
 			if (value === undefined) {
-				value = nearestColorIndex(table, [data[i], data[i + 1], data[i + 2]]) + 1;
+				value = gifenc.nearestColorIndex(table, [data[i], data[i + 1], data[i + 2]]) + 1;
 				cache.set(packed, value);
 			}
 			return value;

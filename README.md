@@ -44,16 +44,20 @@ npm run verify:phaser  # load a real export in stock Phaser
 npm run build          # static build (Cloudflare Pages target)
 ```
 
-## Import
+## Opening files
 
-"Import strip" opens a horizontal sprite strip PNG (frame width = image
-height, like typical animation-pack `sprites/` folders) and splits it
-into frames. Select the pack's `animations.json` in the same picker to
-apply its per-frame timing; the manifest's frame count is validated
-against the split. Sources with more than 64 colors are quantized to the
-palette cap (gifenc median-cut); alpha is thresholded at 128 because the
-document model's transparency is 1-bit. Multi-animation master atlases
-without uniform grids are not importable — use the per-animation strips.
+One "Open" picker handles everything and dispatches by file type:
+
+- `.doodledo` (or exported project JSON): opens as a project.
+- Horizontal sprite strip PNG (frame width = image height, like typical
+  animation-pack `sprites/` folders): splits into frames. Select the
+  pack's `animations.json` in the same picker to apply its per-frame
+  timing; the manifest's frame count is validated against the split.
+
+Strip sources with more than 64 colors are quantized to the palette cap
+(gifenc median-cut); alpha is thresholded at 128 because the document
+model's transparency is 1-bit. Multi-animation master atlases without
+uniform grids are not importable — use the per-animation strips.
 
 ## Export formats
 

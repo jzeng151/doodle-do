@@ -11,6 +11,12 @@ async function gotoApp(page: Page) {
 	await page.locator('canvas.editor').waitFor();
 }
 
+async function openFiles(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) {
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Open' }).click();
+	await (await chooser).setFiles(files);
+}
+
 // 3 frames of 8×8, one solid color each
 async function makeStripPng(page: Page): Promise<Buffer> {
 	const dataUrl = await page.evaluate(() => {
@@ -27,7 +33,7 @@ async function makeStripPng(page: Page): Promise<Buffer> {
 	return Buffer.from(dataUrl.split(',')[1], 'base64');
 }
 
-test('import a sprite strip with its manifest', async ({ page }) => {
+test('open dispatches a strip PNG + manifest to the importer', async ({ page }) => {
 	await gotoApp(page);
 	const strip = await makeStripPng(page);
 	const manifest = Buffer.from(
@@ -37,11 +43,7 @@ test('import a sprite strip with its manifest', async ({ page }) => {
 		})
 	);
 
-	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Import strip' }).click();
-	await (
-		await chooser
-	).setFiles([
+	await openFiles(page, [
 		{ name: 'hop.png', mimeType: 'image/png', buffer: strip },
 		{ name: 'animations.json', mimeType: 'application/json', buffer: manifest }
 	]);
@@ -56,17 +58,43 @@ test('import a sprite strip with its manifest', async ({ page }) => {
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
 
-test('import without manifest falls back to default timing', async ({ page }) => {
+test('open dispatches a lone PNG to the importer with default timing', async ({ page }) => {
 	await gotoApp(page);
 	const strip = await makeStripPng(page);
 
-	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Import strip' }).click();
-	await (await chooser).setFiles([{ name: 'solo.png', mimeType: 'image/png', buffer: strip }]);
+	await openFiles(page, [{ name: 'solo.png', mimeType: 'image/png', buffer: strip }]);
 
 	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(3);
 	// no per-frame duration set — input empty, placeholder shows the fps default
 	await expect(page.locator('.actions input[type="number"]')).toHaveValue('');
+});
+
+test('open dispatches a .doodledo file to the project parser', async ({ page }) => {
+	await gotoApp(page);
+	// 4×4 project, 3 frames, one red pixel in frame 1
+	const pixels = new Uint8Array(16);
+	pixels[5] = 1;
+	const project = Buffer.from(
+		JSON.stringify({
+			format: 'doodledo-project',
+			version: 1,
+			meta: { name: 'roundtrip', width: 4, height: 4, fps: 12, syncMeta: null },
+			palette: ['#ff0000'],
+			frames: [
+				{ layers: [{ name: 'Layer 1', visible: true, pixels: Buffer.from(pixels).toString('base64') }] },
+				{ layers: [{ name: 'Layer 1', visible: true, pixels: Buffer.alloc(16).toString('base64') }] },
+				{ layers: [{ name: 'Layer 1', visible: true, pixels: Buffer.alloc(16).toString('base64') }] }
+			]
+		})
+	);
+
+	await openFiles(page, [
+		{ name: 'roundtrip.doodledo', mimeType: 'application/json', buffer: project }
+	]);
+
+	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(3);
+	await expect(page.getByLabel('Document name')).toHaveValue('roundtrip');
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
 
 test('manifest frame-count mismatch surfaces an error', async ({ page }) => {
@@ -78,16 +106,25 @@ test('manifest frame-count mismatch surfaces an error', async ({ page }) => {
 		})
 	);
 
-	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Import strip' }).click();
-	await (
-		await chooser
-	).setFiles([
+	await openFiles(page, [
 		{ name: 'hop.png', mimeType: 'image/png', buffer: strip },
 		{ name: 'animations.json', mimeType: 'application/json', buffer: badManifest }
 	]);
 
-	await expect(page.locator('.status')).toContainText('Import failed');
+	await expect(page.locator('.status')).toContainText('Open failed');
 	// document untouched
 	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(2);
+});
+
+test('manifest without its PNG surfaces a pointed error', async ({ page }) => {
+	await gotoApp(page);
+	const manifest = Buffer.from(
+		JSON.stringify({ animations: { hop: { src: 'hop.png', frames: 3, frameMs: 100 } } })
+	);
+
+	await openFiles(page, [
+		{ name: 'animations.json', mimeType: 'application/json', buffer: manifest }
+	]);
+
+	await expect(page.locator('.status')).toContainText('together with its strip PNG');
 });

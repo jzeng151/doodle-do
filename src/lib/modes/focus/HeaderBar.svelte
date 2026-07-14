@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import { downloadBlob, importStripFromDisk, openProjectFromDisk, saveProjectToDisk } from '$lib/io/files';
+	import { downloadBlob, openFromDisk, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
 	import { doodledoJson, renderSheet, sheetLayout, texturePackerJson } from '$lib/io/export/spritesheet';
 	import type { Doc } from '$lib/core/document';
@@ -51,10 +51,9 @@
 		});
 
 	const saveClick = () => run('Save', () => saveProjectToDisk(session.doc));
-	const openClick = () => run('Open', async () => onOpenDoc(await openProjectFromDisk()));
-	const importClick = () =>
-		run('Import', async () => {
-			const doc = await importStripFromDisk();
+	const openClick = () =>
+		run('Open', async () => {
+			const doc = await openFromDisk();
 			if (doc) onOpenDoc(doc);
 		});
 
@@ -78,13 +77,12 @@
 	</span>
 	<div class="actions">
 		<button onclick={newClick}>New</button>
-		<button onclick={openClick} disabled={busy}>Open</button>
 		<button
-			onclick={importClick}
+			onclick={openClick}
 			disabled={busy}
-			title="Import a sprite strip PNG (select its animations.json too for frame timing)"
+			title="Open a project file, or a sprite strip PNG (select its animations.json too for frame timing)"
 		>
-			Import strip
+			Open
 		</button>
 		<button
 			onclick={saveClick}
