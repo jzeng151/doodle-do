@@ -29,6 +29,7 @@ import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
 
 export type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
+export type Mode = 'focus' | 'grid' | 'loop';
 
 export function createDefaultDoc(): Doc {
 	// Smart defaults (§4.5): 32×32, 8 FPS, 2 frames, starter palette.
@@ -43,11 +44,13 @@ export class EditorSession {
 	version = $state(0);
 	currentFrame = $state(0);
 	currentLayer = $state(0);
+	mode = $state<Mode>('focus'); // workspace mode is view state (B7), never document state
 	tool = $state<Tool>('pencil');
 	brushSize = $state(1);
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
+	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
 	showGrid = $state(false);
 	paletteLocked = $state(false);
 	onionEnabled = $state(true); // on by default (§4.5)
@@ -72,6 +75,7 @@ export class EditorSession {
 		this.doc = doc;
 		this.bus = new CommandBus(doc);
 		this.compositor = new Compositor(doc);
+		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
@@ -97,6 +101,17 @@ export class EditorSession {
 		this.marquee = null;
 		this.overlayVersion++;
 		this.tool = tool;
+	}
+
+	// Modes are pure views over this one session (§4.4): switching preserves
+	// document, current frame, zoom, and palette because nothing is rebuilt.
+	setMode(mode: Mode): void {
+		if (mode === this.mode) return;
+		this.commitFloating(); // B5: mode switch commits a pending selection
+		this.marquee = null;
+		this.overlayVersion++;
+		if (mode !== 'focus' && this.tool === 'select') this.tool = 'pencil'; // selection is focus-only
+		this.mode = mode;
 	}
 
 	selectFrame(index: number): void {

@@ -20,7 +20,10 @@
 		{#each tools as t (t.id)}
 			<button
 				class:active={session.tool === t.id}
-				title="{t.label} ({t.key})"
+				disabled={t.id === 'select' && session.mode !== 'focus'}
+				title={t.id === 'select' && session.mode !== 'focus'
+					? 'Selection works in Focus mode'
+					: `${t.label} (${t.key})`}
 				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}
@@ -60,9 +63,9 @@
 		<button class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
-		<button onclick={() => (session.zoom = Math.max(2, session.zoom - 2))}>−</button>
+		<button title="Zoom out" onclick={() => (session.zoom = Math.max(2, session.zoom - 2))}>−</button>
 		<span class="zoom">{session.zoom}×</span>
-		<button onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
+		<button title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
 	</div>
 
 	<div class="group onion">

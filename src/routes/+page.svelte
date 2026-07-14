@@ -4,7 +4,7 @@
 	import { createDefaultDoc, EditorSession } from '$lib/editor/session.svelte';
 	import { attachAutosave, loadAutosave } from '$lib/io/autosave';
 	import { tips } from '$lib/learn/tips';
-	import FocusMode from '$lib/modes/focus/FocusMode.svelte';
+	import Workspace from '$lib/modes/Workspace.svelte';
 
 	const T15_UNSAVED_MS = 20 * 60_000;
 
@@ -51,7 +51,7 @@
 
 {#if session}
 	{#key session}
-		<FocusMode {session} {onOpenDoc} />
+		<Workspace {session} {onOpenDoc} />
 	{/key}
 {/if}
 

@@ -8,6 +8,7 @@
 	import { DEFAULT_PALETTE } from '$lib/core/palette';
 	import { tips } from '$lib/learn/tips';
 	import { onMount } from 'svelte';
+	import ModeSwitcher from '../ModeSwitcher.svelte';
 	import NewDocDialog from './NewDocDialog.svelte';
 
 	let {
@@ -94,6 +95,7 @@
 
 <header class="bar">
 	<span class="brand">Doodle-Do</span>
+	<ModeSwitcher {session} />
 	<input class="name" value={session.doc.meta.name} onchange={rename} aria-label="Document name" />
 	<span class="status" aria-live="polite">
 		{#if error}{error}{:else if session.autosavedAt}autosaved {session.autosavedAt.toLocaleTimeString()}{/if}

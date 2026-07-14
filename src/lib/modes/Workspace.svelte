@@ -1,17 +1,15 @@
 <script lang="ts">
-	// Focus mode (§3.3): one large canvas + onion skin + docked live loop
-	// + frame strip. Grid and Loop modes arrive in Phase 3 as sibling views
-	// over this same session.
+	// Workspace shell (§4.4): three toggleable modes as pure views over one
+	// shared session — document, current frame, zoom, and palette persist
+	// across toggles because nothing here is rebuilt on switch.
 	import type { Doc } from '$lib/core/document';
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import EditorCanvas from './EditorCanvas.svelte';
-	import FrameStrip from './FrameStrip.svelte';
-	import HeaderBar from './HeaderBar.svelte';
-	import LayerPanel from './LayerPanel.svelte';
-	import LoopPreview from './LoopPreview.svelte';
-	import PalettePanel from './PalettePanel.svelte';
-	import TipToast from './TipToast.svelte';
-	import Toolbar from './Toolbar.svelte';
+	import HeaderBar from './focus/HeaderBar.svelte';
+	import TipToast from './focus/TipToast.svelte';
+	import Toolbar from './focus/Toolbar.svelte';
+	import FocusView from './focus/FocusView.svelte';
+	import GridView from './grid/GridView.svelte';
+	import LoopView from './loop/LoopView.svelte';
 
 	let {
 		session,
@@ -35,6 +33,15 @@
 		}
 		if (mod) return;
 		switch (e.key.toLowerCase()) {
+			case '1':
+				session.setMode('focus');
+				break;
+			case '2':
+				session.setMode('grid');
+				break;
+			case '3':
+				session.setMode('loop');
+				break;
 			case 'b':
 				session.setTool('pencil');
 				break;
@@ -48,7 +55,7 @@
 				session.setTool('eyedropper');
 				break;
 			case 'm':
-				session.setTool('select');
+				if (session.mode === 'focus') session.setTool('select');
 				break;
 			case 'enter':
 				session.commitFloating(); // B5: Enter stamps the selection down
@@ -79,39 +86,25 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
-<div class="focus">
+<div class="workspace">
 	<HeaderBar {session} {onOpenDoc} />
-	<Toolbar {session} />
-	<div class="middle">
-		<EditorCanvas {session} />
-		<aside>
-			<LoopPreview {session} />
-			<LayerPanel {session} />
-			<PalettePanel {session} />
-		</aside>
-	</div>
-	<FrameStrip {session} />
+	{#if session.mode !== 'loop'}
+		<Toolbar {session} />
+	{/if}
+	{#if session.mode === 'focus'}
+		<FocusView {session} />
+	{:else if session.mode === 'grid'}
+		<GridView {session} />
+	{:else}
+		<LoopView {session} />
+	{/if}
 	<TipToast />
 </div>
 
 <style>
-	.focus {
+	.workspace {
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-	}
-	.middle {
-		display: flex;
-		flex: 1;
-		min-height: 0;
-	}
-	aside {
-		width: 200px;
-		padding: 0.75rem;
-		border-left: 1px solid var(--edge);
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
-		overflow-y: auto;
 	}
 </style>

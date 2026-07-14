@@ -23,6 +23,12 @@ the full spec.
   - Reference animation library: **blocked on the commissioned art**
     (§4.5 production plan).
   - Phase 2 gate (5-participant usability protocol): **awaiting humans.**
+- **Phase 3 (mode toggle): code complete, gate passed.** Grid and Loop
+  modes as pure views over the same session; switcher with "great at /
+  strains when" tooltips; keys 1/2/3. Gate verified mechanically:
+  switching preserves document, current frame, zoom, and palette (e2e),
+  and the Phase 3 diff touches zero files in `src/lib/core/`
+  (`git diff 732b53f -- src/lib/core/` is empty).
 
 ## Layout
 
@@ -31,7 +37,7 @@ src/lib/core/    document model, commands, palette ops (pure TS, no DOM)
 src/lib/render/  compositor, frame cache, onion tinting, loop player
 src/lib/tools/   stroke/fill/flip/eyedropper (command factories)
 src/lib/io/      project file, OPFS autosave, exporters (GIF in a worker)
-src/lib/modes/   focus mode views (grid/loop modes arrive in Phase 3)
+src/lib/modes/   workspace shell + focus/grid/loop views over one session
 src/lib/editor/  editor session: doc + bus + non-undoable view state (B7)
 bench/           performance harness (Phase 0 gate instrument)
 scripts/         export verification against stock Phaser

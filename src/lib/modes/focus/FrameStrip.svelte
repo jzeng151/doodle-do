@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { EditorSession } from '$lib/editor/session.svelte';
 
-	let { session }: { session: EditorSession } = $props();
+	// thumbs=false renders only the action row (grid mode shows the frames itself)
+	let { session, thumbs = true }: { session: EditorSession; thumbs?: boolean } = $props();
 
-	let thumbs: (HTMLCanvasElement | undefined)[] = $state([]);
+	let thumbEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const defaultDurationMs = $derived.by(() => {
 		void session.version;
@@ -19,7 +20,7 @@
 	$effect(() => {
 		void session.version;
 		for (let i = 0; i < session.doc.frames.length; i++) {
-			const el = thumbs[i];
+			const el = thumbEls[i];
 			if (!el) continue;
 			const ctx = el.getContext('2d')!;
 			ctx.imageSmoothingEnabled = false;
@@ -35,24 +36,26 @@
 </script>
 
 <section class="strip-panel">
-	<div class="strip" role="listbox" aria-label="Frames">
-		{#each { length: frameCount } as _, i (i)}
-			<button
-				class="thumb"
-				class:active={i === session.currentFrame}
-				role="option"
-				aria-selected={i === session.currentFrame}
-				onclick={() => session.selectFrame(i)}
-			>
-				<canvas
-					bind:this={thumbs[i]}
-					width={session.doc.meta.width}
-					height={session.doc.meta.height}
-				></canvas>
-				<span>{i + 1}</span>
-			</button>
-		{/each}
-	</div>
+	{#if thumbs}
+		<div class="strip" role="listbox" aria-label="Frames">
+			{#each { length: frameCount } as _, i (i)}
+				<button
+					class="thumb"
+					class:active={i === session.currentFrame}
+					role="option"
+					aria-selected={i === session.currentFrame}
+					onclick={() => session.selectFrame(i)}
+				>
+					<canvas
+						bind:this={thumbEls[i]}
+						width={session.doc.meta.width}
+						height={session.doc.meta.height}
+					></canvas>
+					<span>{i + 1}</span>
+				</button>
+			{/each}
+		</div>
+	{/if}
 	<div class="actions">
 		<button title="Add blank frame" onclick={() => session.addFrame(false)}>New</button>
 		<button title="Duplicate frame — nudge it for smooth motion" onclick={() => session.addFrame(true)}>
