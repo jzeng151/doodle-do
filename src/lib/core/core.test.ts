@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createDoc } from './document';
+import { createDoc, resizePixels } from './document';
 import { buildLut, packColor, DEFAULT_PALETTE } from './palette';
 import { CommandBus, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
+import { ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
 
 function testDoc(width = 8, height = 8) {
@@ -20,6 +21,44 @@ describe('document', () => {
 	it('rejects out-of-range canvas sizes', () => {
 		expect(() => createDoc({ width: 129, height: 8, palette: [] })).toThrow();
 		expect(() => createDoc({ width: 0, height: 8, palette: [] })).toThrow();
+	});
+});
+
+describe('canvas resize', () => {
+	it('crop/extend keeps pixels top-left and pads new area with transparent', () => {
+		const src = new Uint8Array([1, 2, 3, 4]); // 2×2
+		expect(Array.from(resizePixels(src, 2, 2, 3, 3, 'crop'))).toEqual([1, 2, 0, 3, 4, 0, 0, 0, 0]);
+		expect(Array.from(resizePixels(src, 2, 2, 1, 1, 'crop'))).toEqual([1]); // shrink crops
+	});
+
+	it('scale resamples nearest-neighbor and preserves palette indices', () => {
+		const src = new Uint8Array([1, 2, 3, 4]); // 2×2
+		// 2× up: each source pixel becomes a 2×2 block, values unchanged
+		expect(Array.from(resizePixels(src, 2, 2, 4, 4, 'scale'))).toEqual([
+			1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 4, 4, 3, 3, 4, 4
+		]);
+	});
+
+	it('command resizes every layer of every frame and updates meta', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2, layerCount: 2 });
+		doc.frames[0].layers[0].pixels.set([1, 2, 3, 4]);
+		doc.frames[1].layers[1].pixels.set([4, 3, 2, 1]);
+		new CommandBus(doc).dispatch(new ResizeCanvasCommand(doc, 2, 2, 3, 3, 'crop'));
+		expect([doc.meta.width, doc.meta.height]).toEqual([3, 3]);
+		expect(doc.frames[0].layers[0].pixels).toHaveLength(9);
+		expect(Array.from(doc.frames[0].layers[0].pixels)).toEqual([1, 2, 0, 3, 4, 0, 0, 0, 0]);
+		expect(Array.from(doc.frames[1].layers[1].pixels)).toEqual([4, 3, 0, 2, 1, 0, 0, 0, 0]);
+	});
+
+	it('undo restores exact pixels and dimensions even when shrink dropped data', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 1 });
+		doc.frames[0].layers[0].pixels.set([1, 2, 3, 4]);
+		const bus = new CommandBus(doc);
+		bus.dispatch(new ResizeCanvasCommand(doc, 2, 2, 1, 1, 'crop'));
+		expect(Array.from(doc.frames[0].layers[0].pixels)).toEqual([1]);
+		bus.undo();
+		expect([doc.meta.width, doc.meta.height]).toEqual([2, 2]);
+		expect(Array.from(doc.frames[0].layers[0].pixels)).toEqual([1, 2, 3, 4]);
 	});
 });
 

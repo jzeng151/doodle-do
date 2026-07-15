@@ -15,8 +15,14 @@
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const heroScale = $derived(
-		Math.max(1, Math.floor(512 / Math.max(session.doc.meta.width, session.doc.meta.height)))
+		(session.version,
+		Math.max(1, Math.floor(512 / Math.max(session.doc.meta.width, session.doc.meta.height))))
 	);
+	// canvas sizes react to a resize (dims are not $state; version bumps)
+	const heroW = $derived((session.version, session.doc.meta.width * heroScale));
+	const heroH = $derived((session.version, session.doc.meta.height * heroScale));
+	const filmW = $derived((session.version, session.doc.meta.width));
+	const filmH = $derived((session.version, session.doc.meta.height));
 
 	onMount(() => {
 		player = new LoopPlayer(session.doc, session.compositor, heroEl, (f) => (playFrame = f));
@@ -62,8 +68,8 @@
 	<canvas
 		bind:this={heroEl}
 		class="hero"
-		width={session.doc.meta.width * heroScale}
-		height={session.doc.meta.height * heroScale}
+		width={heroW}
+		height={heroH}
 	></canvas>
 
 	<div class="controls">
@@ -94,11 +100,7 @@
 					player.seek(i);
 				}}
 			>
-				<canvas
-					bind:this={filmEls[i]}
-					width={session.doc.meta.width}
-					height={session.doc.meta.height}
-				></canvas>
+				<canvas bind:this={filmEls[i]} width={filmW} height={filmH}></canvas>
 				<span>{i + 1}</span>
 			</button>
 		{/each}

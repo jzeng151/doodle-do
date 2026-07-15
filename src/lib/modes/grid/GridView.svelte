@@ -12,8 +12,8 @@
 	let strokeTile = -1;
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
-	const tileW = $derived(session.doc.meta.width * session.gridZoom);
-	const tileH = $derived(session.doc.meta.height * session.gridZoom);
+	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
+	const tileH = $derived((session.version, session.doc.meta.height * session.gridZoom));
 
 	$effect(() => {
 		void session.version;

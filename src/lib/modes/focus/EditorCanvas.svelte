@@ -9,8 +9,8 @@
 	let selectDrag: 'marquee' | 'float' | null = null;
 	let lastPixel = { x: 0, y: 0 };
 
-	const cssW = $derived(session.doc.meta.width * session.zoom);
-	const cssH = $derived(session.doc.meta.height * session.zoom);
+	const cssW = $derived((session.version, session.doc.meta.width * session.zoom));
+	const cssH = $derived((session.version, session.doc.meta.height * session.zoom));
 
 	function repaint() {
 		if (!canvasEl) return;

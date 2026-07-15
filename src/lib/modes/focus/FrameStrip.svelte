@@ -6,6 +6,9 @@
 
 	let thumbEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	// thumbnail buffer size tracks the canvas dimensions across a resize
+	const thumbW = $derived((session.version, session.doc.meta.width));
+	const thumbH = $derived((session.version, session.doc.meta.height));
 	const defaultDurationMs = $derived.by(() => {
 		void session.version;
 		void session.currentFrame;
@@ -46,11 +49,7 @@
 					aria-selected={i === session.currentFrame}
 					onclick={() => session.selectFrame(i)}
 				>
-					<canvas
-						bind:this={thumbEls[i]}
-						width={session.doc.meta.width}
-						height={session.doc.meta.height}
-					></canvas>
+					<canvas bind:this={thumbEls[i]} width={thumbW} height={thumbH}></canvas>
 					<span>{i + 1}</span>
 				</button>
 			{/each}

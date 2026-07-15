@@ -3,7 +3,7 @@
 // bumps on every committed change so Svelte views can react to document
 // mutations that live outside its reactivity (Uint8Arrays).
 
-import { createDoc, createLayer, frameDurationMs, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
+import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
 import { CommandBus, type Rect } from '../core/commands';
 import {
 	FpsCommand,
@@ -17,7 +17,8 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
-	PaletteSwapCommand
+	PaletteSwapCommand,
+	ResizeCanvasCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
 import { floodFill } from '../tools/fill';
@@ -381,6 +382,22 @@ export class EditorSession {
 	removePaletteColor(index: number, remapTo: number): void {
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return;
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, remapTo));
+	}
+
+	// --- canvas ---
+
+	// Resize the canvas of the existing document (extends §4.1 beyond
+	// creation-time). 'crop' keeps the art in place; 'scale' resamples it.
+	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale'): void {
+		this.commitFloating();
+		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(width)));
+		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(height)));
+		if (w === this.doc.meta.width && h === this.doc.meta.height) return;
+		this.bus.dispatch(
+			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
+		);
+		this.marquee = null;
+		this.overlayVersion++;
 	}
 
 	// --- history ---

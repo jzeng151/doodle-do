@@ -81,3 +81,34 @@ export function createDoc(opts: {
 export function frameDurationMs(doc: Doc, frameIndex: number): number {
 	return doc.frames[frameIndex].durationMs ?? 1000 / doc.meta.fps;
 }
+
+// Resize one layer buffer to new dimensions. 'crop' keeps pixels at their
+// coordinates (top-left anchor): growth adds transparent margin, shrink clips
+// the right/bottom edges. 'scale' resamples nearest-neighbor, preserving
+// palette indices (no blending — indexed color has no in-between).
+export function resizePixels(
+	pixels: Uint8Array,
+	oldW: number,
+	oldH: number,
+	newW: number,
+	newH: number,
+	mode: 'crop' | 'scale'
+): Uint8Array {
+	const out = new Uint8Array(newW * newH);
+	if (mode === 'scale') {
+		for (let y = 0; y < newH; y++) {
+			const sy = Math.min(oldH - 1, Math.floor((y * oldH) / newH));
+			for (let x = 0; x < newW; x++) {
+				const sx = Math.min(oldW - 1, Math.floor((x * oldW) / newW));
+				out[y * newW + x] = pixels[sy * oldW + sx];
+			}
+		}
+	} else {
+		const w = Math.min(oldW, newW);
+		const h = Math.min(oldH, newH);
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) out[y * newW + x] = pixels[y * oldW + x];
+		}
+	}
+	return out;
+}

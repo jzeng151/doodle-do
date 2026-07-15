@@ -2,7 +2,7 @@
 // mutations, each one command with full before/after payloads.
 
 import type { Command, DirtyRegion } from './commands';
-import type { Doc, Frame, Layer } from './document';
+import { resizePixels, type Doc, type Frame, type Layer } from './document';
 
 const DOC_DIRTY: DirtyRegion = { frame: null, rect: null };
 const PALETTE_DIRTY: DirtyRegion = { frame: null, rect: null, palette: true };
@@ -111,6 +111,55 @@ export class FrameDurationCommand implements Command {
 	}
 	dirty(): DirtyRegion {
 		return { frame: this.index, rect: null };
+	}
+}
+
+// Canvas resize (extends §4.1 canvas presets to the existing document). One
+// command: replaces every layer's pixel buffer across all frames and updates
+// meta dimensions. Undo restores the old buffers by reference (no copy). The
+// before/after buffers are precomputed so do()/redo() is a straight swap, the
+// same pattern PixelDiffCommand uses.
+export class ResizeCanvasCommand implements Command {
+	readonly kind = 'canvas-resize';
+	readonly byteSize: number;
+	private readonly before: Uint8Array[] = [];
+	private readonly after: Uint8Array[] = [];
+
+	constructor(
+		doc: Doc,
+		private readonly oldW: number,
+		private readonly oldH: number,
+		private readonly newW: number,
+		private readonly newH: number,
+		mode: 'crop' | 'scale'
+	) {
+		for (const frame of doc.frames) {
+			for (const layer of frame.layers) {
+				this.before.push(layer.pixels);
+				this.after.push(resizePixels(layer.pixels, oldW, oldH, newW, newH, mode));
+			}
+		}
+		// both buffer sets are retained (after = live doc, before = for undo)
+		this.byteSize = this.after.reduce((n, a) => n + a.byteLength, 0) * 2 + 128;
+	}
+
+	do(doc: Doc): void {
+		doc.meta.width = this.newW;
+		doc.meta.height = this.newH;
+		let i = 0;
+		for (const frame of doc.frames) for (const layer of frame.layers) layer.pixels = this.after[i++];
+	}
+	undo(doc: Doc): void {
+		doc.meta.width = this.oldW;
+		doc.meta.height = this.oldH;
+		let i = 0;
+		for (const frame of doc.frames) for (const layer of frame.layers) layer.pixels = this.before[i++];
+	}
+	serialize(): unknown {
+		return { kind: this.kind, from: { w: this.oldW, h: this.oldH }, to: { w: this.newW, h: this.newH } };
+	}
+	dirty(): DirtyRegion {
+		return DOC_DIRTY;
 	}
 }
 

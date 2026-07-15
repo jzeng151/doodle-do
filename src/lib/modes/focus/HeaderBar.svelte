@@ -10,6 +10,8 @@
 	import { onMount } from 'svelte';
 	import ModeSwitcher from '../ModeSwitcher.svelte';
 	import NewDocDialog from './NewDocDialog.svelte';
+	import ResizeDialog from './ResizeDialog.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let {
 		session,
@@ -19,7 +21,15 @@
 	let busy = $state(false);
 	let error = $state('');
 	let newDialog: NewDocDialog;
+	let resizeDialog: ResizeDialog;
+	let confirm: ConfirmDialog;
 	let tipsHidden = $state(false);
+
+	// Guard against silently discarding work not saved to disk (unsavedCommits
+	// resets only on "Save project"). Applies to both New and Open — each
+	// replaces the session the same way.
+	const DISCARD_NEW = "You have changes that aren't saved to disk. Start a new animation anyway?";
+	const DISCARD_OPEN = "You have changes that aren't saved to disk. Open another file anyway?";
 	onMount(() => {
 		tipsHidden = tips.hideAll;
 		return tips.onChange(() => (tipsHidden = tips.hideAll));
@@ -77,14 +87,25 @@
 			session.savedToDiskAt = new Date(); // resets the T15 reminder clock
 			session.unsavedCommits = 0;
 		});
-	const openClick = () =>
+	async function openClick() {
+		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_OPEN))) return;
 		run('Open', async () => {
 			const doc = await openFromDisk();
 			if (doc) onOpenDoc(doc);
 		});
+	}
+
+	async function newClick() {
+		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_NEW))) return;
+		newDialog.open();
+	}
 
 	function createNew(width: number, height: number) {
 		onOpenDoc(createDoc({ width, height, palette: DEFAULT_PALETTE }), true);
+	}
+
+	function resizeCanvas(width: number, height: number, mode: 'crop' | 'scale') {
+		session.resizeCanvas(width, height, mode);
 	}
 
 	function rename(e: Event) {
@@ -101,7 +122,10 @@
 		{#if error}{error}{:else if session.autosavedAt}autosaved {session.autosavedAt.toLocaleTimeString()}{/if}
 	</span>
 	<div class="actions">
-		<button onclick={() => newDialog.open()}>New</button>
+		<button onclick={newClick}>New</button>
+		<button onclick={() => resizeDialog.open(session.doc.meta.width, session.doc.meta.height)} title="Change the canvas size">
+			Resize
+		</button>
 		<button
 			onclick={openClick}
 			disabled={busy}
@@ -136,6 +160,8 @@
 </header>
 
 <NewDocDialog bind:this={newDialog} onCreate={createNew} />
+<ResizeDialog bind:this={resizeDialog} onResize={resizeCanvas} />
+<ConfirmDialog bind:this={confirm} />
 
 <style>
 	.bar {

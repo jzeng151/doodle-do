@@ -10,6 +10,10 @@
 	let paused = $state(false);
 	let player: LoopPlayer;
 
+	// react to canvas resize (dims are not $state; version bumps on resize)
+	const loopW = $derived((session.version, session.doc.meta.width * 4));
+	const loopH = $derived((session.version, session.doc.meta.height * 4));
+
 	onMount(() => {
 		player = new LoopPlayer(session.doc, session.compositor, loopEl);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
@@ -35,8 +39,8 @@
 	<canvas
 		bind:this={loopEl}
 		class="loop"
-		width={session.doc.meta.width * 4}
-		height={session.doc.meta.height * 4}
+		width={loopW}
+		height={loopH}
 	></canvas>
 	<div class="controls">
 		<button onclick={togglePlay}>{paused ? 'Play' : 'Pause'}</button>
