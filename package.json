@@ -13,6 +13,7 @@
 		"test": "vitest run",
 		"bench": "node bench/run.mjs",
 		"verify:phaser": "node scripts/verify-phaser.mjs",
+		"verify:godot": "node scripts/verify-godot.mjs",
 		"test:e2e": "playwright test"
 	},
 	"devDependencies": {

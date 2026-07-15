@@ -13,7 +13,9 @@ the full spec.
   OPFS autosave with IndexedDB fallback, sprite sheet (TexturePacker
   JSON-hash + doodledo.json), GIF, and frame-PNG-zip export.
   - Phaser import verification: **passing** (`npm run verify:phaser`).
-  - Godot import verification: **open** — no Godot binary on this machine.
+  - Godot import verification: **passing** (`npm run verify:godot`), via
+    engine primitives (raw PNG + JSON-hash to AtlasTexture/SpriteFrames);
+    stock Godot ships no built-in TexturePacker importer.
   - Phase 1 gate (founder ships a 4-frame walk cycle in under 30 minutes):
     **awaiting the founder.**
 - **Phase 2 (learning layer + polish): code items complete.** Selection
@@ -52,6 +54,7 @@ npm run test           # core unit tests (vitest)
 npm run test:e2e       # Playwright end-to-end suite
 npm run bench          # performance gate (headless Chromium)
 npm run verify:phaser  # load a real export in stock Phaser
+npm run verify:godot   # load a real export in stock Godot
 npm run build          # static build (Cloudflare Pages target)
 ```
 
