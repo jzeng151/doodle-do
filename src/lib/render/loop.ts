@@ -5,6 +5,12 @@
 import { frameDurationMs, type Doc } from '../core/document';
 import type { Compositor } from '../render/compositor';
 
+// advance within an inclusive [start, end] playback range; a frame outside
+// the range (range changed, frame deleted) snaps to the start
+export function nextLoopFrame(frame: number, start: number, end: number): number {
+	return frame < start || frame >= end ? start : frame + 1;
+}
+
 export class LoopPlayer {
 	private raf = 0;
 	private frame = 0;
@@ -15,7 +21,8 @@ export class LoopPlayer {
 		private readonly doc: Doc,
 		private readonly compositor: Compositor,
 		private readonly target: HTMLCanvasElement,
-		private readonly onFrame?: (frame: number) => void
+		private readonly onFrame?: (frame: number) => void,
+		private readonly range?: () => { start: number; end: number } // live playback range, inclusive
 	) {}
 
 	get playing(): boolean {
@@ -30,14 +37,15 @@ export class LoopPlayer {
 		this.stop();
 		this.lastTime = performance.now();
 		const tick = (now: number) => {
-			if (this.frame >= this.doc.frames.length) this.frame = 0; // frame was deleted
+			const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
+			const before = this.frame;
+			if (this.frame < start || this.frame > end) this.frame = start; // range changed / frame deleted
 			this.acc += now - this.lastTime;
 			this.lastTime = now;
-			const before = this.frame;
 			let duration = frameDurationMs(this.doc, this.frame);
 			while (this.acc >= duration) {
 				this.acc -= duration;
-				this.frame = (this.frame + 1) % this.doc.frames.length;
+				this.frame = nextLoopFrame(this.frame, start, end);
 				duration = frameDurationMs(this.doc, this.frame);
 			}
 			if (this.frame !== before) this.onFrame?.(this.frame);

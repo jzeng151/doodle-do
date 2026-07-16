@@ -14,6 +14,8 @@
 	let playFrame = $state(0);
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	const rangeStart = $derived((session.version, session.loopRange, session.effectiveLoopRange().start));
+	const rangeEnd = $derived((session.version, session.loopRange, session.effectiveLoopRange().end));
 	const heroScale = $derived(
 		(session.version,
 		Math.max(1, Math.floor(512 / Math.max(session.doc.meta.width, session.doc.meta.height))))
@@ -25,7 +27,9 @@
 	const filmH = $derived((session.version, session.doc.meta.height));
 
 	onMount(() => {
-		player = new LoopPlayer(session.doc, session.compositor, heroEl, (f) => (playFrame = f));
+		player = new LoopPlayer(session.doc, session.compositor, heroEl, (f) => (playFrame = f), () =>
+			session.effectiveLoopRange()
+		);
 		playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (playing) player.start();
 		else player.blit();
@@ -85,6 +89,28 @@
 			aria-label="Scrub frames"
 		/>
 		<span class="counter">{playFrame + 1} / {frameCount}</span>
+		<label>
+			From
+			<input
+				type="number"
+				min="1"
+				max={frameCount}
+				value={rangeStart + 1}
+				onchange={(e) => session.setLoopRange(e.currentTarget.valueAsNumber - 1, rangeEnd)}
+				aria-label="Loop range start"
+			/>
+		</label>
+		<label>
+			To
+			<input
+				type="number"
+				min="1"
+				max={frameCount}
+				value={rangeEnd + 1}
+				onchange={(e) => session.setLoopRange(rangeStart, e.currentTarget.valueAsNumber - 1)}
+				aria-label="Loop range end"
+			/>
+		</label>
 	</div>
 
 	<div class="filmstrip" role="listbox" aria-label="Filmstrip">

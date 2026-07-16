@@ -15,7 +15,9 @@
 	const loopH = $derived((session.version, session.doc.meta.height * 4));
 
 	onMount(() => {
-		player = new LoopPlayer(session.doc, session.compositor, loopEl);
+		player = new LoopPlayer(session.doc, session.compositor, loopEl, undefined, () =>
+			session.effectiveLoopRange()
+		);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
 		paused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (!paused) player.start();
