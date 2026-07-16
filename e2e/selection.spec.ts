@@ -269,3 +269,71 @@ test('polygon selects via placed vertices, closed on the first vertex', async ({
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
 	expect(await page.evaluate(pixelOpaque, [8, 18] as [number, number])).toBe(false);
 });
+
+test('mirror twin: moving a selection moves its mirrored counterpart symmetrically', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.locator('canvas.editor').waitFor();
+
+	// mirror-draw a dot: (8,8) paints its twin at (23,8) on a 32px canvas
+	await page.getByRole('button', { name: 'Mirror' }).click();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(true);
+
+	// select the left dot only; the lift creates the mirrored twin
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 6, 6);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 10);
+	await page.mouse.up();
+
+	// drag the left dot by (+2,+3): the right dot must move by (-2,+3)
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 11);
+	await page.mouse.up();
+	await page.keyboard.press('Enter');
+
+	expect(await page.evaluate(pixelOpaque, [10, 11] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [21, 11] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(false);
+
+	// ONE undo restores both halves
+	await page.keyboard.press('Control+z');
+	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [10, 11] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [21, 11] as [number, number])).toBe(false);
+});
+
+test('mirror twin: dragging the twin side makes it follow the pointer', async ({ page }) => {
+	await page.goto('/');
+	await page.locator('canvas.editor').waitFor();
+
+	await page.getByRole('button', { name: 'Mirror' }).click();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 6, 6);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 10);
+	await page.mouse.up();
+
+	// grab the RIGHT (twin) dot and pull it left by 2: it follows the pointer
+	await mouseOnPixel(page, 23, 8);
+	await page.mouse.down();
+	await mouseOnPixel(page, 21, 8);
+	await page.mouse.up();
+	await page.keyboard.press('Enter');
+
+	expect(await page.evaluate(pixelOpaque, [21, 8] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [10, 8] as [number, number])).toBe(true); // main mirrored
+	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
+});

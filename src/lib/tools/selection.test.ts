@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { FloatingSelection, clampRect, maskFromPolygon, maskFromRects } from './selection';
+import { FloatingSelection, clampRect, maskFromPolygon, maskFromRects, mirrorMaskX } from './selection';
 
 function testDoc() {
 	const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
@@ -321,5 +321,87 @@ describe('extract to layer', () => {
 		const { layerPixels, sourceDiff } = sel.extract();
 		expect(sourceDiff).toBeNull();
 		expect(layerPixels.every((v) => v === 0)).toBe(true);
+	});
+});
+
+describe('mirrored twin selection', () => {
+	it('mirrorMaskX reflects the mask across the canvas centerline', () => {
+		const mask = maskFromRects([{ x: 1, y: 2, w: 2, h: 1 }], 8, 8);
+		const mirrored = mirrorMaskX(mask, 8, 8);
+		expect(mirrored[2 * 8 + 5]).toBe(1); // x=2 -> 5
+		expect(mirrored[2 * 8 + 6]).toBe(1); // x=1 -> 6
+		expect(mirrored[2 * 8 + 1]).toBe(0);
+	});
+
+	it('commitPair stamps both halves mirrored and collapses into ONE command', () => {
+		const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[1 * 8 + 1] = 3; // main content at (1,1)
+		pixels[1 * 8 + 6] = 5; // twin content at its mirror (6,1), different value
+		const bus = new CommandBus(doc);
+
+		const mask = maskFromRects([{ x: 1, y: 1, w: 1, h: 1 }], 8, 8);
+		const main = new FloatingSelection(doc, 0, 0, mask); // lifts FIRST: pristine snapshot
+		const twin = new FloatingSelection(doc, 0, 0, mirrorMaskX(mask, 8, 8));
+		main.moveBy(2, 1);
+		twin.moveBy(-2, 1);
+		bus.dispatch(main.commitPair(twin)!, { applied: true });
+
+		expect(pixels[2 * 8 + 3]).toBe(3); // main landed at (3,2)
+		expect(pixels[2 * 8 + 4]).toBe(5); // twin landed at the mirror (4,2)
+		expect(pixels[1 * 8 + 1]).toBe(0); // both sources cleared
+		expect(pixels[1 * 8 + 6]).toBe(0);
+		expect(bus.undoDepth).toBe(1);
+
+		bus.undo(); // one step restores both halves
+		expect(pixels[1 * 8 + 1]).toBe(3);
+		expect(pixels[1 * 8 + 6]).toBe(5);
+		expect(pixels[2 * 8 + 3]).toBe(0);
+	});
+
+	it('cancelling the main selection alone restores the layer exactly', () => {
+		const doc = testDoc();
+		const before = doc.frames[0].layers[0].pixels.slice();
+		const mask = maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8);
+		const main = new FloatingSelection(doc, 0, 0, mask);
+		const twin = new FloatingSelection(doc, 0, 0, mirrorMaskX(mask, 8, 8));
+		main.moveBy(1, 3);
+		twin.moveBy(-1, 3);
+		main.cancel(); // its snapshot predates the twin's lift
+		expect(doc.frames[0].layers[0].pixels).toEqual(before);
+	});
+
+	it('extractPair lifts both halves onto the new layer and clears both sources', () => {
+		const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[1 * 8 + 1] = 3;
+		pixels[1 * 8 + 6] = 5;
+		const mask = maskFromRects([{ x: 1, y: 1, w: 1, h: 1 }], 8, 8);
+		const main = new FloatingSelection(doc, 0, 0, mask);
+		const twin = new FloatingSelection(doc, 0, 0, mirrorMaskX(mask, 8, 8));
+		const { layerPixels, sourceDiff } = main.extractPair(twin);
+
+		expect(layerPixels[1 * 8 + 1]).toBe(3);
+		expect(layerPixels[1 * 8 + 6]).toBe(5);
+		expect(sourceDiff).not.toBeNull();
+		main.cancel();
+		expect(pixels[1 * 8 + 1]).toBe(3); // restored
+		sourceDiff!.do(doc);
+		expect(pixels[1 * 8 + 1]).toBe(0); // diff re-clears both
+		expect(pixels[1 * 8 + 6]).toBe(0);
+	});
+
+	it('a selection crossing the centerline lifts overlap pixels exactly once', () => {
+		const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[1 * 8 + 3] = 7;
+		pixels[1 * 8 + 4] = 9;
+		const before = pixels.slice();
+		// mask covers (3,1)-(4,1); its mirror is the same two pixels
+		const mask = maskFromRects([{ x: 3, y: 1, w: 2, h: 1 }], 8, 8);
+		const main = new FloatingSelection(doc, 0, 0, mask);
+		const twin = new FloatingSelection(doc, 0, 0, mirrorMaskX(mask, 8, 8));
+		expect(main.commitPair(twin)).toBeNull(); // untransformed pair is a no-op
+		expect(doc.frames[0].layers[0].pixels).toEqual(before);
 	});
 });

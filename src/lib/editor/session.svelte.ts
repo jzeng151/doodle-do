@@ -25,7 +25,7 @@ import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { StrokeBuilder } from '../tools/pencil';
-import { FloatingSelection, maskFromPolygon, maskFromRects } from '../tools/selection';
+import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
@@ -80,6 +80,9 @@ export class EditorSession {
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
 	polygonVerts = $state<{ x: number; y: number }[] | null>(null);
 	floating = $state<FloatingSelection | null>(null);
+	// mirror-draw's twin, for selections: lifted from the mirrored mask when
+	// Mirror is on, driven with mirrored transforms; commits with the main
+	floatingTwin = $state<FloatingSelection | null>(null);
 	overlayVersion = $state(0); // bumps on selection/floating changes only
 
 	// for the T15 save-to-disk reminder
@@ -304,21 +307,33 @@ export class EditorSession {
 	// pixels clear and a pending command begins.
 	liftSelection(): void {
 		if (this.floating || !this.selectionMask) return;
-		this.floating = new FloatingSelection(
-			this.doc,
-			this.currentFrame,
-			this.currentLayer,
-			this.selectionMask
-		);
+		const mask = this.selectionMask;
+		const { width, height } = this.doc.meta;
+		// main lifts FIRST: its snapshot is the pristine layer that pair
+		// commit/cancel run against
+		this.floating = new FloatingSelection(this.doc, this.currentFrame, this.currentLayer, mask);
+		if (this.mirrorX) {
+			this.floatingTwin = new FloatingSelection(
+				this.doc,
+				this.currentFrame,
+				this.currentLayer,
+				mirrorMaskX(mask, width, height)
+			);
+			tips.fire('T24');
+		}
 		this.selectionMask = null;
 		this.overlayVersion++;
-		this.bus.emitChange({ frame: this.currentFrame, rect: this.floating.rect });
+		this.bus.emitChange({
+			frame: this.currentFrame,
+			rect: this.floatingTwin ? null : this.floating.rect // twin: whole frame
+		});
 		tips.fire('T20'); // arrow-key nudge
 	}
 
 	moveFloatingBy(dx: number, dy: number): void {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
 		this.floating.moveBy(dx, dy);
+		this.floatingTwin?.moveBy(-dx, dy); // mirrored motion
 		this.overlayVersion++;
 		tips.fire('T14');
 	}
@@ -326,6 +341,7 @@ export class EditorSession {
 	rotateFloating(angleRad: number): void {
 		if (!this.floating || angleRad === this.floating.angle) return;
 		this.floating.rotateTo(angleRad);
+		this.floatingTwin?.rotateTo(-angleRad); // mirrored rotation
 		this.overlayVersion++;
 	}
 
@@ -342,11 +358,13 @@ export class EditorSession {
 	commitFloating(): void {
 		if (!this.floating) return;
 		const sel = this.floating;
+		const twin = this.floatingTwin;
 		this.floating = null;
+		this.floatingTwin = null;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
-		const cmd = sel.commit();
+		const cmd = twin ? sel.commitPair(twin) : sel.commit();
 		if (cmd) this.bus.dispatch(cmd, { applied: true });
 		else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
 	}
@@ -355,6 +373,7 @@ export class EditorSession {
 		if (this.floating) {
 			const sel = this.floating;
 			this.floating = null;
+			this.floatingTwin = null; // main's snapshot predates the twin's lift
 			sel.cancel();
 			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
 		}
@@ -420,6 +439,7 @@ export class EditorSession {
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
+			this.floatingTwin?.flip(axis); // each half flips in place
 			this.overlayVersion++;
 			return;
 		}
@@ -520,9 +540,11 @@ export class EditorSession {
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		const sel = this.floating;
 		if (!sel) return;
-		const { layerPixels, sourceDiff } = sel.extract();
+		const twin = this.floatingTwin;
+		const { layerPixels, sourceDiff } = twin ? sel.extractPair(twin) : sel.extract();
 		if (!sourceDiff) return; // only transparent pixels selected
 		this.floating = null;
+		this.floatingTwin = null;
 		this.overlayVersion++;
 		sel.cancel(); // restore the source; the composite re-applies the clear
 		const index = this.currentLayer + 1;

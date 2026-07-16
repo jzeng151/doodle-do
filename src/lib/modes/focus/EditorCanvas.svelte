@@ -8,6 +8,7 @@
 	let canvasEl: HTMLCanvasElement;
 	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | null = null;
 	let rotateStart: { angle0: number; grab: number } | null = null;
+	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
@@ -59,47 +60,60 @@
 		const sel = session.floating;
 		if (sel) {
 			ctx.imageSmoothingEnabled = false;
-			const r = sel.renderRect;
-			ctx.drawImage(floatingCanvas(sel), r.x * z, r.y * z, r.w * z, r.h * z);
-			// rotated group outline
-			dashedStroke(ctx, () => {
-				ctx.beginPath();
-				for (const [i, [cx, cy]] of sel.corners().entries()) {
-					if (i === 0) ctx.moveTo(cx * z, cy * z);
-					else ctx.lineTo(cx * z, cy * z);
-				}
-				ctx.closePath();
-				ctx.stroke();
-			});
+			for (const s of [session.floatingTwin, sel]) {
+				if (!s) continue;
+				const r = s.renderRect;
+				ctx.drawImage(floatingCanvas(s), r.x * z, r.y * z, r.w * z, r.h * z);
+				// rotated group outline
+				dashedStroke(ctx, () => {
+					ctx.beginPath();
+					for (const [i, [cx, cy]] of s.corners().entries()) {
+						if (i === 0) ctx.moveTo(cx * z, cy * z);
+						else ctx.lineTo(cx * z, cy * z);
+					}
+					ctx.closePath();
+					ctx.stroke();
+				});
+			}
 		} else if (session.selectionMask) {
 			// marching ants around the baked mask
 			const mask = session.selectionMask;
 			const { width: w, height: h } = session.doc.meta;
-			dashedStroke(ctx, () => {
-				ctx.beginPath();
-				for (let y = 0; y < h; y++) {
-					for (let x = 0; x < w; x++) {
-						if (!mask[y * w + x]) continue;
-						if (!mask[y * w + x - 1] || x === 0) {
-							ctx.moveTo(x * z + 0.5, y * z);
-							ctx.lineTo(x * z + 0.5, (y + 1) * z);
-						}
-						if (!mask[y * w + x + 1] || x === w - 1) {
-							ctx.moveTo((x + 1) * z - 0.5, y * z);
-							ctx.lineTo((x + 1) * z - 0.5, (y + 1) * z);
-						}
-						if (y === 0 || !mask[(y - 1) * w + x]) {
-							ctx.moveTo(x * z, y * z + 0.5);
-							ctx.lineTo((x + 1) * z, y * z + 0.5);
-						}
-						if (y === h - 1 || !mask[(y + 1) * w + x]) {
-							ctx.moveTo(x * z, (y + 1) * z - 0.5);
-							ctx.lineTo((x + 1) * z, (y + 1) * z - 0.5);
+			const ants = () =>
+				dashedStroke(ctx, () => {
+					ctx.beginPath();
+					for (let y = 0; y < h; y++) {
+						for (let x = 0; x < w; x++) {
+							if (!mask[y * w + x]) continue;
+							if (!mask[y * w + x - 1] || x === 0) {
+								ctx.moveTo(x * z + 0.5, y * z);
+								ctx.lineTo(x * z + 0.5, (y + 1) * z);
+							}
+							if (!mask[y * w + x + 1] || x === w - 1) {
+								ctx.moveTo((x + 1) * z - 0.5, y * z);
+								ctx.lineTo((x + 1) * z - 0.5, (y + 1) * z);
+							}
+							if (y === 0 || !mask[(y - 1) * w + x]) {
+								ctx.moveTo(x * z, y * z + 0.5);
+								ctx.lineTo((x + 1) * z, y * z + 0.5);
+							}
+							if (y === h - 1 || !mask[(y + 1) * w + x]) {
+								ctx.moveTo(x * z, (y + 1) * z - 0.5);
+								ctx.lineTo((x + 1) * z, (y + 1) * z - 0.5);
+							}
 						}
 					}
-				}
-				ctx.stroke();
-			});
+					ctx.stroke();
+				});
+			ants();
+			if (session.mirrorX) {
+				// the twin the selection will lift with, drawn mirrored
+				ctx.save();
+				ctx.translate(w * z, 0);
+				ctx.scale(-1, 1);
+				ants();
+				ctx.restore();
+			}
 		}
 		if (session.pendingRect) {
 			const m = session.pendingRect;
@@ -183,10 +197,12 @@
 		};
 	}
 
-	// the floating buffer rendered as RGBA, rebuilt when the content re-rasterizes
-	let floatCache: { sel: unknown; version: number; canvas: HTMLCanvasElement } | null = null;
+	// floating buffers rendered as RGBA, rebuilt when the content re-rasterizes
+	// (keyed per selection: a mirror twin renders alongside the main)
+	const floatCache = new WeakMap<object, { version: number; canvas: HTMLCanvasElement }>();
 	function floatingCanvas(sel: NonNullable<typeof session.floating>): HTMLCanvasElement {
-		if (floatCache?.sel === sel && floatCache.version === sel.version) return floatCache.canvas;
+		const cached = floatCache.get(sel);
+		if (cached && cached.version === sel.version) return cached.canvas;
 		const canvas = document.createElement('canvas');
 		const { w, h } = sel.renderRect;
 		canvas.width = w;
@@ -197,7 +213,7 @@
 		const lut = buildLut(session.doc.palette);
 		for (let i = 0; i < sel.buffer.length; i++) u32[i] = lut[sel.buffer[i]];
 		ctx.putImageData(img, 0, 0);
-		floatCache = { sel, version: sel.version, canvas };
+		floatCache.set(sel, { version: sel.version, canvas });
 		return canvas;
 	}
 
@@ -275,13 +291,19 @@
 					}
 					break;
 				}
-				// 3) click inside the selection moves it (shift starts an
-				// additive gesture instead)
-				const inside = session.floating
+				// 3) click inside the selection (or its mirror twin) moves it
+				// (shift starts an additive gesture instead)
+				const mx = session.doc.meta.width - 1 - x;
+				const insideMain = session.floating
 					? session.floating.contains(x, y)
 					: session.selectionContains(x, y);
-				if (inside && !e.shiftKey) {
+				const insideTwin = session.floating
+					? (session.floatingTwin?.contains(x, y) ?? false)
+					: session.mirrorX && session.selectionContains(mx, y);
+				if ((insideMain || insideTwin) && !e.shiftKey) {
 					session.liftSelection(); // no-op when already floating
+					// dragging the twin: mirror the deltas so it follows the pointer
+					dragMirrored = insideTwin && !insideMain;
 					selectDrag = 'float';
 					break;
 				}
@@ -321,7 +343,8 @@
 			return;
 		}
 		if (selectDrag === 'float') {
-			session.moveFloatingBy(x - lastPixel.x, y - lastPixel.y);
+			const dx = x - lastPixel.x;
+			session.moveFloatingBy(dragMirrored ? -dx : dx, y - lastPixel.y);
 			lastPixel = { x, y };
 			return;
 		}
@@ -345,6 +368,7 @@
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
 		rotateStart = null;
+		dragMirrored = false;
 		session.strokeEnd();
 	}
 

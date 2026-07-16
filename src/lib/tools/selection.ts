@@ -73,6 +73,19 @@ export function maskFromPolygon(
 	return mask;
 }
 
+// the mask reflected across the canvas X centerline (pixel x -> width-1-x),
+// for mirror-twin selections
+export function mirrorMaskX(mask: Uint8Array, width: number, height: number): Uint8Array {
+	const mirrored = new Uint8Array(width * height);
+	for (let y = 0; y < height; y++) {
+		const row = y * width;
+		for (let x = 0; x < width; x++) {
+			if (mask[row + x]) mirrored[row + (width - 1 - x)] = 1;
+		}
+	}
+	return mirrored;
+}
+
 export class FloatingSelection {
 	readonly bbox: Rect; // mask extents, source space
 	dx = 0; // integer translation, applied after rotation
@@ -301,6 +314,17 @@ export class FloatingSelection {
 		return this.diffVsSnapshot('selection-move', pixels);
 	}
 
+	// Commit this selection together with its mirror twin as ONE command.
+	// This selection must have lifted FIRST, so its snapshot is the pristine
+	// layer that the single diff runs against. The twin's own commit/cancel
+	// are never used.
+	commitPair(twin: FloatingSelection): PixelDiffCommand | null {
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		twin.stampInto(pixels);
+		this.stampInto(pixels); // main wins where the halves overlap
+		return this.diffVsSnapshot('selection-move', pixels);
+	}
+
 	// Extract-to-layer: the transformed selection stamped into a blank
 	// canvas-sized layer, plus the diff that clears the source pixels
 	// (null when the selection held only transparent pixels). Does not
@@ -308,6 +332,20 @@ export class FloatingSelection {
 	extract(): { layerPixels: Uint8Array; sourceDiff: PixelDiffCommand | null } {
 		const { width, height } = this.doc.meta;
 		const layerPixels = new Uint8Array(width * height);
+		this.stampInto(layerPixels);
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', pixels) };
+	}
+
+	// extract() for a mirror pair: both halves land on the new layer, one
+	// source diff clears both (this selection lifted first, as in commitPair)
+	extractPair(twin: FloatingSelection): {
+		layerPixels: Uint8Array;
+		sourceDiff: PixelDiffCommand | null;
+	} {
+		const { width, height } = this.doc.meta;
+		const layerPixels = new Uint8Array(width * height);
+		twin.stampInto(layerPixels);
 		this.stampInto(layerPixels);
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', pixels) };
