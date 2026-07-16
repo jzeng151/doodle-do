@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { MAX_LAYERS } from '$lib/core/document';
 	import type { EditorSession } from '$lib/editor/session.svelte';
+	import SendLayerDialog from './SendLayerDialog.svelte';
 
 	let { session }: { session: EditorSession } = $props();
+
+	let sendDialog: SendLayerDialog;
 
 	// top layer first in the list, like every art tool
 	const layers = $derived((session.version, session.currentFrame, [...session.frame.layers].reverse()));
 	const layerCount = $derived(layers.length);
+	const frameCount = $derived((session.version, session.doc.frames.length));
 
 	function realIndex(displayIndex: number): number {
 		return layerCount - 1 - displayIndex;
@@ -35,6 +39,20 @@
 		<button title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
 			↓
 		</button>
+		<button
+			title="Merge into layer below"
+			disabled={session.currentLayer === 0}
+			onclick={() => session.mergeLayerDown()}
+		>
+			⤵
+		</button>
+		<button
+			title="Send layer to another frame"
+			disabled={frameCount < 2}
+			onclick={() => sendDialog.open()}
+		>
+			⇒
+		</button>
 	</header>
 	<ul role="listbox" aria-label="Layers">
 		{#each layers as layer, di (di)}
@@ -59,6 +77,8 @@
 		{/each}
 	</ul>
 </section>
+
+<SendLayerDialog bind:this={sendDialog} {session} />
 
 <style>
 	.layers header {

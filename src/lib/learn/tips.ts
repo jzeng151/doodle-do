@@ -33,7 +33,9 @@ export const TIPS: Record<string, Tip> = Object.fromEntries(
 			['T18', 'Click to place corners. Click the first corner again, or press Enter, to close the shape. Esc discards it.', 2],
 			['T19', 'Ctrl+J lifts the selection onto its own layer, ready to move independently.', 2],
 			['T20', 'Arrow keys nudge a selection one pixel at a time.', 2],
-			['T21', 'Use From and To under the scrubber to loop just a few frames while you polish them.', 2]
+			['T21', 'Use From and To under the scrubber to loop just a few frames while you polish them.', 2],
+			['T22', 'Done sketching on a separate layer? Merge down flattens it into the layer below in one step.', 2],
+			['T23', 'Send to frame copies or moves a layer to another frame. Handy for reusing a background everywhere.', 2]
 		] as [string, string, number | null][]
 	).map(([id, copy, cap]) => [id, { id, copy, cap }])
 );

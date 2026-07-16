@@ -67,7 +67,7 @@ describe('TipsEngine', () => {
 	});
 
 	it('catalog matches Appendix A caps plus the feature tips', () => {
-		expect(Object.keys(TIPS)).toHaveLength(21); // T01-T15 Appendix A, T16-T21 features
+		expect(Object.keys(TIPS)).toHaveLength(23); // T01-T15 Appendix A, T16-T23 features
 		expect(TIPS.T04.cap).toBe(1);
 		expect(TIPS.T09.cap).toBe(2);
 		expect(TIPS.T15.cap).toBeNull();
@@ -76,7 +76,7 @@ describe('TipsEngine', () => {
 
 describe('feature tip catalog (selection, layers, loop range)', () => {
 	it('defines capped tips for the new features', () => {
-		for (const id of ['T16', 'T17', 'T18', 'T19', 'T20', 'T21']) {
+		for (const id of ['T16', 'T17', 'T18', 'T19', 'T20', 'T21', 'T22', 'T23']) {
 			expect(TIPS[id], id).toBeDefined();
 			expect(TIPS[id].copy.length, id).toBeGreaterThan(20);
 			expect(TIPS[id].cap, id).not.toBeNull();

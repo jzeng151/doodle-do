@@ -26,6 +26,7 @@ import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { StrokeBuilder } from '../tools/pencil';
 import { FloatingSelection, maskFromPolygon, maskFromRects } from '../tools/selection';
+import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
 
@@ -507,6 +508,8 @@ export class EditorSession {
 			new LayerAddCommand(this.currentFrame, index, createLayer(this.doc, `Layer ${layers.length + 1}`))
 		);
 		this.currentLayer = index;
+		tips.fire('T22'); // merge-down exists once there are two layers
+		if (this.doc.frames.length > 1) tips.fire('T23'); // send-to-frame (queues behind T22)
 	}
 
 	// Extract the selection onto a new layer above the current one: clear the
@@ -540,6 +543,24 @@ export class EditorSession {
 		if (this.frame.layers.length <= 1) return;
 		this.cancelFloating(); // the layer under the selection is going away
 		this.bus.dispatch(new LayerDeleteCommand(this.doc, this.currentFrame, this.currentLayer));
+	}
+
+	// Flatten the active layer into the one below it, as ONE composite command.
+	mergeLayerDown(): void {
+		this.commitFloating();
+		const cmd = mergeDownCommand(this.doc, this.currentFrame, this.currentLayer);
+		if (!cmd) return;
+		this.bus.dispatch(cmd);
+		this.currentLayer -= 1; // the merged layer stays active
+	}
+
+	// Copy (or move) the active layer onto the top of another frame's stack,
+	// as ONE composite command.
+	sendLayerToFrame(targetFrame: number, move: boolean): void {
+		this.commitFloating();
+		const cmd = sendLayerCommand(this.doc, this.currentFrame, this.currentLayer, targetFrame, move);
+		if (!cmd) return;
+		this.bus.dispatch(cmd);
 	}
 
 	moveLayer(delta: -1 | 1): void {
