@@ -17,6 +17,13 @@
 	<header>
 		<h2>Layers</h2>
 		<button title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
+		<button
+			title="Extract selection to layer (Ctrl+J)"
+			disabled={layerCount >= MAX_LAYERS || !session.hasSelection}
+			onclick={() => session.extractSelectionToLayer()}
+		>
+			⇱
+		</button>
 		<button title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
 		<button
 			title="Move layer up"

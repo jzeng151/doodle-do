@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createDoc, resizePixels } from './document';
 import { buildLut, packColor, DEFAULT_PALETTE } from './palette';
-import { CommandBus, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
-import { ResizeCanvasCommand } from './structural';
+import { CommandBus, CompositeCommand, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
+import { LayerAddCommand, ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
 
 function testDoc(width = 8, height = 8) {
@@ -189,5 +189,56 @@ describe('CommandBus (B4 budget)', () => {
 		bus.undo();
 		bus.redo();
 		expect(commits).toBe(3);
+	});
+});
+
+describe('CompositeCommand', () => {
+	it('does children in order, undoes in reverse, as ONE bus entry', () => {
+		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE, frameCount: 1 });
+		const bus = new CommandBus(doc);
+		doc.frames[0].layers[0].pixels[5] = 3;
+		const clear = new PixelDiffCommand(
+			'extract-clear',
+			0,
+			0,
+			new Uint32Array([5]),
+			new Uint8Array([3]),
+			new Uint8Array([0]),
+			4
+		);
+		const lifted = new Uint8Array(16);
+		lifted[5] = 3;
+		const add = new LayerAddCommand(0, 1, { name: 'Layer 2', visible: true, pixels: lifted });
+		bus.dispatch(new CompositeCommand('extract-layer', [clear, add]));
+
+		expect(doc.frames[0].layers[0].pixels[5]).toBe(0);
+		expect(doc.frames[0].layers.length).toBe(2);
+		expect(bus.undoDepth).toBe(1);
+		bus.undo(); // one step reverts both mutations
+		expect(doc.frames[0].layers.length).toBe(1);
+		expect(doc.frames[0].layers[0].pixels[5]).toBe(3);
+	});
+
+	it('sums byteSize and unions dirty regions', () => {
+		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE, frameCount: 2 });
+		const diff = (frame: number) =>
+			new PixelDiffCommand(
+				'x',
+				frame,
+				0,
+				new Uint32Array([0]),
+				new Uint8Array([0]),
+				new Uint8Array([1]),
+				4
+			);
+		const sameFrame = new CompositeCommand('k', [
+			diff(0),
+			new LayerAddCommand(0, 1, { name: 'L', visible: true, pixels: new Uint8Array(16) })
+		]);
+		expect(sameFrame.byteSize).toBeGreaterThanOrEqual(diff(0).byteSize);
+		expect(sameFrame.dirty()).toEqual({ frame: 0, rect: null });
+		const crossFrame = new CompositeCommand('k', [diff(0), diff(1)]);
+		expect(crossFrame.dirty()).toEqual({ frame: null, rect: null });
+		void doc;
 	});
 });

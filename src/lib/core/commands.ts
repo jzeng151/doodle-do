@@ -99,6 +99,39 @@ export class PixelDiffCommand implements Command {
 	}
 }
 
+// Several mutations as ONE undo step (extract-to-layer, layer merge, ...):
+// do runs children in order, undo in reverse.
+export class CompositeCommand implements Command {
+	readonly byteSize: number;
+
+	constructor(
+		readonly kind: string,
+		private readonly commands: Command[]
+	) {
+		this.byteSize = commands.reduce((sum, c) => sum + c.byteSize, 0) + 64;
+	}
+
+	do(doc: Doc): void {
+		for (const c of this.commands) c.do(doc);
+	}
+
+	undo(doc: Doc): void {
+		for (let i = this.commands.length - 1; i >= 0; i--) this.commands[i].undo(doc);
+	}
+
+	serialize(): unknown {
+		return { kind: this.kind, commands: this.commands.map((c) => c.serialize()) };
+	}
+
+	dirty(): DirtyRegion {
+		// whole frame when children agree on one, whole document otherwise
+		const regions = this.commands.map((c) => c.dirty());
+		const palette = regions.some((r) => r.palette);
+		const frame = regions.every((r) => r.frame === regions[0]?.frame) ? (regions[0]?.frame ?? null) : null;
+		return { frame, rect: null, ...(palette && { palette: true }) };
+	}
+}
+
 // B4: 200 commands or 8MB per document, whichever hits first; evict oldest.
 export const UNDO_MAX_COMMANDS = 200;
 export const UNDO_MAX_BYTES = 8 * 1024 * 1024;

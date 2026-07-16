@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { EditorSession, Tool } from '$lib/editor/session.svelte';
+	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -8,7 +8,10 @@
 		{ id: 'eraser', label: 'Eraser', key: 'E' },
 		{ id: 'fill', label: 'Fill', key: 'G' },
 		{ id: 'eyedropper', label: 'Pick', key: 'I' },
-		{ id: 'select', label: 'Select', key: 'M' }
+		{ id: 'select', label: 'Select', key: 'M' },
+		{ id: 'lasso', label: 'Lasso', key: 'L' },
+		{ id: 'wand', label: 'Wand', key: 'W' },
+		{ id: 'polygon', label: 'Polygon', key: 'P' }
 	];
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
@@ -20,8 +23,8 @@
 		{#each tools as t (t.id)}
 			<button
 				class:active={session.tool === t.id}
-				disabled={t.id === 'select' && session.mode !== 'focus'}
-				title={t.id === 'select' && session.mode !== 'focus'
+				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'}
+				title={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'
 					? 'Selection works in Focus mode'
 					: `${t.label} (${t.key})`}
 				onclick={() => session.setTool(t.id)}

@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
-import { CommandBus, type Rect } from '../core/commands';
+import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
 import {
 	FpsCommand,
 	FrameAddCommand,
@@ -21,16 +21,27 @@ import {
 	ResizeCanvasCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
-import { floodFill } from '../tools/fill';
+import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { StrokeBuilder } from '../tools/pencil';
-import { FloatingSelection, clampRect } from '../tools/selection';
+import { FloatingSelection, maskFromPolygon, maskFromRects } from '../tools/selection';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
 
-export type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
+export type Tool =
+	| 'pencil'
+	| 'eraser'
+	| 'fill'
+	| 'eyedropper'
+	| 'select'
+	| 'lasso'
+	| 'wand'
+	| 'polygon';
 export type Mode = 'focus' | 'grid' | 'loop';
+
+// selection gestures are focus-mode only (B5)
+export const SELECT_TOOLS: readonly Tool[] = ['select', 'lasso', 'wand', 'polygon'];
 
 export function createDefaultDoc(): Doc {
 	// Smart defaults (§4.5): 32×32, 8 FPS, 2 frames, starter palette.
@@ -57,12 +68,18 @@ export class EditorSession {
 	onionEnabled = $state(true); // on by default (§4.5)
 	onionOpacity = $state(0.35);
 	autosavedAt = $state<Date | null>(null);
+	// playback range (view state, B7): null = all frames; clamped on read
+	loopRange = $state<{ start: number; end: number } | null>(null);
 
-	// selection (B5): marquee and floating buffer are view state until
-	// commit, when the whole move becomes one command
-	marquee = $state<Rect | null>(null);
+	// selection (B5): the baked mask, in-progress gesture previews, and the
+	// floating buffer are view state until commit, when the whole move
+	// becomes one command
+	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
+	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
+	lassoPath = $state<{ x: number; y: number }[] | null>(null);
+	polygonVerts = $state<{ x: number; y: number }[] | null>(null);
 	floating = $state<FloatingSelection | null>(null);
-	overlayVersion = $state(0); // bumps on marquee/floating changes only
+	overlayVersion = $state(0); // bumps on selection/floating changes only
 
 	// for the T15 save-to-disk reminder
 	savedToDiskAt = $state<Date | null>(null);
@@ -99,9 +116,12 @@ export class EditorSession {
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
 		this.commitFloating();
-		this.marquee = null;
+		this.selectionMask = null;
+		this.clearGestures();
 		this.overlayVersion++;
 		this.tool = tool;
+		if (tool === 'select') tips.fire('T17'); // lasso/wand/polygon exist
+		if (tool === 'polygon') tips.fire('T18'); // how to close the shape
 	}
 
 	// Modes are pure views over this one session (§4.4): switching preserves
@@ -109,10 +129,12 @@ export class EditorSession {
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
 		this.commitFloating(); // B5: mode switch commits a pending selection
-		this.marquee = null;
+		this.selectionMask = null;
+		this.clearGestures();
 		this.overlayVersion++;
-		if (mode !== 'focus' && this.tool === 'select') this.tool = 'pencil'; // selection is focus-only
+		if (mode !== 'focus' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil'; // selection is focus-only
 		this.mode = mode;
+		if (mode === 'loop') tips.fire('T21'); // playback range
 	}
 
 	selectFrame(index: number): void {
@@ -143,9 +165,31 @@ export class EditorSession {
 
 	// --- selection (B5) ---
 
-	beginMarquee(x: number, y: number): void {
-		this.commitFloating();
-		this.marquee = { x, y, w: 1, h: 1 };
+	// a non-additive gesture replaces the selection; shift keeps it and adds
+	private startGesture(additive: boolean): void {
+		if (!additive) {
+			this.commitFloating();
+			this.selectionMask = null;
+		}
+	}
+
+	// OR a gesture's mask into the baked selection (empty adds are dropped)
+	private bakeMask(add: Uint8Array): void {
+		if (!add.some((v) => v !== 0)) return;
+		if (!this.selectionMask) {
+			this.selectionMask = add;
+		} else {
+			const merged = this.selectionMask.slice();
+			for (let i = 0; i < merged.length; i++) if (add[i]) merged[i] = 1;
+			this.selectionMask = merged;
+		}
+		tips.fire('T16'); // shift-add + rotate handle
+		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
+	}
+
+	beginMarquee(x: number, y: number, additive = false): void {
+		this.startGesture(additive);
+		this.pendingRect = { x, y, w: 1, h: 1 };
 		this.marqueeAnchor = { x, y };
 		this.overlayVersion++;
 	}
@@ -153,9 +197,9 @@ export class EditorSession {
 	private marqueeAnchor = { x: 0, y: 0 };
 
 	updateMarquee(x: number, y: number): void {
-		if (!this.marquee) return;
+		if (!this.pendingRect) return;
 		const a = this.marqueeAnchor;
-		this.marquee = {
+		this.pendingRect = {
 			x: Math.min(a.x, x),
 			y: Math.min(a.y, y),
 			w: Math.abs(x - a.x) + 1,
@@ -165,24 +209,110 @@ export class EditorSession {
 	}
 
 	endMarquee(): void {
-		if (!this.marquee) return;
-		this.marquee = clampRect(this.marquee, this.doc.meta.width, this.doc.meta.height);
+		if (!this.pendingRect) return;
+		this.bakeMask(maskFromRects([this.pendingRect], this.doc.meta.width, this.doc.meta.height));
+		this.pendingRect = null;
 		this.overlayVersion++;
 	}
 
-	// Starting a move lifts the marquee into a floating buffer — the source
+	// lasso: freehand path in float pixel coords, auto-closed on release
+	beginLasso(x: number, y: number, additive = false): void {
+		this.startGesture(additive);
+		this.lassoPath = [{ x, y }];
+		this.overlayVersion++;
+	}
+
+	updateLasso(x: number, y: number): void {
+		if (!this.lassoPath) return;
+		this.lassoPath = [...this.lassoPath, { x, y }];
+		this.overlayVersion++;
+	}
+
+	endLasso(): void {
+		if (!this.lassoPath) return;
+		this.bakeMask(maskFromPolygon(this.lassoPath, this.doc.meta.width, this.doc.meta.height));
+		this.lassoPath = null;
+		this.overlayVersion++;
+	}
+
+	// wand: the 4-connected same-color region on the active layer
+	wandSelect(x: number, y: number, additive = false): void {
+		this.startGesture(additive);
+		const { width, height } = this.doc.meta;
+		const pixels = this.doc.frames[this.currentFrame].layers[this.currentLayer].pixels;
+		const region = floodRegion(pixels, width, height, x, y);
+		const mask = new Uint8Array(width * height);
+		for (const i of region) mask[i] = 1;
+		this.bakeMask(mask);
+		this.overlayVersion++;
+	}
+
+	// polygon: click places vertices; close by clicking the first vertex
+	// (canvas-side) or pressing Enter; Escape discards
+	polygonAdd(x: number, y: number, additive = false): void {
+		if (!this.polygonVerts) {
+			this.startGesture(additive);
+			this.polygonVerts = [{ x, y }];
+		} else {
+			this.polygonVerts = [...this.polygonVerts, { x, y }];
+		}
+		this.overlayVersion++;
+	}
+
+	closePolygon(): void {
+		if (!this.polygonVerts) return;
+		if (this.polygonVerts.length >= 3) {
+			this.bakeMask(maskFromPolygon(this.polygonVerts, this.doc.meta.width, this.doc.meta.height));
+		}
+		this.polygonVerts = null;
+		this.overlayVersion++;
+	}
+
+	private clearGestures(): void {
+		this.pendingRect = null;
+		this.lassoPath = null;
+		this.polygonVerts = null;
+	}
+
+	selectionContains(x: number, y: number): boolean {
+		return !!this.selectionMask?.[y * this.doc.meta.width + x];
+	}
+
+	// mask extents, for the rotate handle before the selection lifts
+	selectionBounds(): Rect | null {
+		const mask = this.selectionMask;
+		if (!mask) return null;
+		const { width, height } = this.doc.meta;
+		let minX = width,
+			minY = height,
+			maxX = -1,
+			maxY = -1;
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				if (!mask[y * width + x]) continue;
+				minX = Math.min(minX, x);
+				minY = Math.min(minY, y);
+				maxX = Math.max(maxX, x);
+				maxY = Math.max(maxY, y);
+			}
+		}
+		return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+	}
+
+	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
 	liftSelection(): void {
-		if (this.floating || !this.marquee) return;
+		if (this.floating || !this.selectionMask) return;
 		this.floating = new FloatingSelection(
 			this.doc,
 			this.currentFrame,
 			this.currentLayer,
-			this.marquee
+			this.selectionMask
 		);
-		this.marquee = null;
+		this.selectionMask = null;
 		this.overlayVersion++;
 		this.bus.emitChange({ frame: this.currentFrame, rect: this.floating.rect });
+		tips.fire('T20'); // arrow-key nudge
 	}
 
 	moveFloatingBy(dx: number, dy: number): void {
@@ -192,11 +322,28 @@ export class EditorSession {
 		tips.fire('T14');
 	}
 
+	rotateFloating(angleRad: number): void {
+		if (!this.floating || angleRad === this.floating.angle) return;
+		this.floating.rotateTo(angleRad);
+		this.overlayVersion++;
+	}
+
+	// arrow-key nudge: a bare mask lifts first, like flip()
+	nudgeSelection(dx: number, dy: number): void {
+		if (this.selectionMask && !this.floating) this.liftSelection();
+		this.moveFloatingBy(dx, dy);
+	}
+
+	get hasSelection(): boolean {
+		return this.floating !== null || this.selectionMask !== null;
+	}
+
 	commitFloating(): void {
 		if (!this.floating) return;
 		const sel = this.floating;
 		this.floating = null;
-		this.marquee = null;
+		this.selectionMask = null;
+		this.clearGestures();
 		this.overlayVersion++;
 		const cmd = sel.commit();
 		if (cmd) this.bus.dispatch(cmd, { applied: true });
@@ -210,7 +357,8 @@ export class EditorSession {
 			sel.cancel();
 			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
 		}
-		this.marquee = null;
+		this.selectionMask = null;
+		this.clearGestures();
 		this.overlayVersion++;
 	}
 
@@ -268,7 +416,7 @@ export class EditorSession {
 	// (a bare marquee lifts first, keeping the one-command guarantee),
 	// else to the whole active layer.
 	flip(axis: 'horizontal' | 'vertical'): void {
-		if (this.marquee && !this.floating) this.liftSelection();
+		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
 			this.overlayVersion++;
@@ -331,6 +479,23 @@ export class EditorSession {
 		return frameDurationMs(this.doc, this.currentFrame);
 	}
 
+	// --- playback range ---
+
+	// inclusive, clamped against the current frame count
+	effectiveLoopRange(): { start: number; end: number } {
+		const last = this.doc.frames.length - 1;
+		if (!this.loopRange) return { start: 0, end: last };
+		const start = Math.max(0, Math.min(this.loopRange.start, last));
+		return { start, end: Math.max(start, Math.min(this.loopRange.end, last)) };
+	}
+
+	setLoopRange(start: number, end: number): void {
+		const last = this.doc.frames.length - 1;
+		const s = Math.max(0, Math.min(Math.min(start, end), last));
+		const e = Math.max(s, Math.min(Math.max(start, end), last));
+		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
+	}
+
 	// --- layers (per-frame, cap 8) ---
 
 	addLayer(): void {
@@ -340,6 +505,33 @@ export class EditorSession {
 		const index = this.currentLayer + 1;
 		this.bus.dispatch(
 			new LayerAddCommand(this.currentFrame, index, createLayer(this.doc, `Layer ${layers.length + 1}`))
+		);
+		this.currentLayer = index;
+	}
+
+	// Extract the selection onto a new layer above the current one: clear the
+	// source pixels + add the layer, as ONE composite command. A bare mask
+	// lifts first, so any pending move/rotate lands on the new layer.
+	extractSelectionToLayer(): void {
+		if (this.frame.layers.length >= MAX_LAYERS) return;
+		if (this.selectionMask && !this.floating) this.liftSelection();
+		const sel = this.floating;
+		if (!sel) return;
+		const { layerPixels, sourceDiff } = sel.extract();
+		if (!sourceDiff) return; // only transparent pixels selected
+		this.floating = null;
+		this.overlayVersion++;
+		sel.cancel(); // restore the source; the composite re-applies the clear
+		const index = this.currentLayer + 1;
+		this.bus.dispatch(
+			new CompositeCommand('extract-layer', [
+				sourceDiff,
+				new LayerAddCommand(this.currentFrame, index, {
+					name: `Layer ${this.frame.layers.length + 1}`,
+					visible: true,
+					pixels: layerPixels
+				})
+			])
 		);
 		this.currentLayer = index;
 	}
@@ -396,7 +588,8 @@ export class EditorSession {
 		this.bus.dispatch(
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
-		this.marquee = null;
+		this.selectionMask = null;
+		this.clearGestures();
 		this.overlayVersion++;
 	}
 

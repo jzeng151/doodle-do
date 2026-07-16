@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
-import { floodFill } from './fill';
+import { floodFill, floodRegion } from './fill';
 import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
 import { StrokeBuilder } from './pencil';
@@ -42,6 +42,31 @@ describe('floodFill (B3)', () => {
 		expect(floodFill(doc, 0, 0, 1, 1, 3)).toBeNull();
 		expect(floodFill(doc, 0, 0, -1, 0, 5)).toBeNull();
 		expect(floodFill(doc, 0, 0, 8, 0, 5)).toBeNull();
+	});
+});
+
+describe('floodRegion (wand)', () => {
+	it('returns only the clicked contiguous same-color region, 4-connected', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		// two blobs of color 2: an L at (1,1)-(1,2)-(2,2), and a diagonal
+		// neighbor at (3,3) that must NOT connect; a different color at (2,1)
+		pixels[1 * 8 + 1] = 2;
+		pixels[2 * 8 + 1] = 2;
+		pixels[2 * 8 + 2] = 2;
+		pixels[3 * 8 + 3] = 2; // diagonal from (2,2)
+		pixels[1 * 8 + 2] = 4; // different color
+		const region = floodRegion(pixels, 8, 8, 1, 1);
+		expect([...region].sort((a, b) => a - b)).toEqual([1 * 8 + 1, 2 * 8 + 1, 2 * 8 + 2]);
+	});
+
+	it('selects a contiguous transparent region too', () => {
+		const doc = testDoc(4, 4);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[5] = 3; // (1,1) colored; the rest transparent and connected
+		const region = floodRegion(pixels, 4, 4, 0, 0);
+		expect(region.length).toBe(15);
+		expect(region).not.toContain(5);
 	});
 });
 

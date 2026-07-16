@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { FloatingSelection, clampRect } from './selection';
+import { FloatingSelection, clampRect, maskFromPolygon, maskFromRects } from './selection';
 
 function testDoc() {
 	const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
@@ -26,7 +26,7 @@ describe('clampRect', () => {
 describe('FloatingSelection (B5)', () => {
 	it('lift clears the source and captures the buffer', () => {
 		const doc = testDoc();
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect(pixels[1 * 8 + 1]).toBe(0); // source cleared
 		expect(Array.from(sel.buffer)).toEqual([3, 3, 3, 3]);
@@ -35,7 +35,7 @@ describe('FloatingSelection (B5)', () => {
 	it('lift + move + stamp collapses into ONE undoable command', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		sel.moveBy(3, 2);
 		const cmd = sel.commit()!;
 		bus.dispatch(cmd, { applied: true });
@@ -55,7 +55,7 @@ describe('FloatingSelection (B5)', () => {
 	it('committing without moving is a no-op (null command)', () => {
 		const doc = testDoc();
 		const before = doc.frames[0].layers[0].pixels.slice();
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		expect(sel.commit()).toBeNull();
 		expect(doc.frames[0].layers[0].pixels).toEqual(before);
 	});
@@ -63,7 +63,7 @@ describe('FloatingSelection (B5)', () => {
 	it('flip applies to the buffer and lands flipped', () => {
 		const doc = testDoc();
 		doc.frames[0].layers[0].pixels[1 * 8 + 2] = 7; // make the block asymmetric
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		sel.flip('horizontal');
 		sel.moveBy(0, 3);
 		sel.commit();
@@ -75,7 +75,7 @@ describe('FloatingSelection (B5)', () => {
 	it('cancel restores the layer exactly', () => {
 		const doc = testDoc();
 		const before = doc.frames[0].layers[0].pixels.slice();
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		sel.moveBy(4, 4);
 		sel.flip('vertical');
 		sel.cancel();
@@ -85,7 +85,7 @@ describe('FloatingSelection (B5)', () => {
 	it('transparent buffer pixels do not punch holes at the destination', () => {
 		const doc = testDoc();
 		// select a 3×3 area whose corner overlaps the block — buffer has 0s
-		const sel = new FloatingSelection(doc, 0, 0, { x: 2, y: 2, w: 3, h: 3 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 2, y: 2, w: 3, h: 3 }], 8, 8));
 		sel.moveBy(3, 3); // drop it over the bystander at (5,5)
 		sel.commit();
 		const pixels = doc.frames[0].layers[0].pixels;
@@ -96,7 +96,7 @@ describe('FloatingSelection (B5)', () => {
 	it('off-canvas moves clip on stamp; the rest is dropped', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
-		const sel = new FloatingSelection(doc, 0, 0, { x: 1, y: 1, w: 2, h: 2 });
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
 		sel.moveBy(6, 0); // x now 7: right column lands, left column off-canvas
 		const cmd = sel.commit()!;
 		bus.dispatch(cmd, { applied: true });
@@ -106,5 +106,220 @@ describe('FloatingSelection (B5)', () => {
 		bus.undo();
 		expect(pixels[1 * 8 + 1]).toBe(3); // fully restored even after clipping
 		expect(pixels[1 * 8 + 7]).toBe(0);
+	});
+});
+
+describe('FloatingSelection multi-rect + rotation', () => {
+	it('lifts multiple disjoint rects, leaving pixels between them alone', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[3 * 8 + 3] = 6; // between the two rects, inside the bbox
+		const sel = new FloatingSelection(
+			doc,
+			0,
+			0,
+			maskFromRects(
+				[
+					{ x: 1, y: 1, w: 2, h: 2 },
+					{ x: 5, y: 5, w: 1, h: 1 }
+				],
+				8,
+				8
+			)
+		);
+		expect(pixels[1 * 8 + 1]).toBe(0); // both sources cleared
+		expect(pixels[5 * 8 + 5]).toBe(0);
+		expect(pixels[3 * 8 + 3]).toBe(6); // gap pixel not lifted
+		// bbox spans (1,1)..(5,5); buffer holds both regions, gap is transparent
+		expect(sel.buffer[0]).toBe(3); // (1,1)
+		expect(sel.buffer[4 * 5 + 4]).toBe(5); // (5,5)
+		expect(sel.buffer[2 * 5 + 2]).toBe(0); // (3,3) not lifted
+	});
+
+	it('overlapping rects lift each pixel exactly once and cancel restores exactly', () => {
+		const doc = testDoc();
+		const before = doc.frames[0].layers[0].pixels.slice();
+		const sel = new FloatingSelection(
+			doc,
+			0,
+			0,
+			maskFromRects(
+				[
+					{ x: 1, y: 1, w: 2, h: 2 },
+					{ x: 2, y: 2, w: 2, h: 2 }
+				],
+				8,
+				8
+			)
+		);
+		// shared pixel (2,2) captured once with its real value, not zero
+		expect(sel.buffer[1 * 3 + 1]).toBe(3); // (2,2) in bbox (1,1,3,3)
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(0);
+		sel.moveBy(2, 2);
+		sel.cancel();
+		expect(doc.frames[0].layers[0].pixels).toEqual(before);
+	});
+
+	it('moving two regions commits as ONE command; one undo restores both', () => {
+		const doc = testDoc();
+		const bus = new CommandBus(doc);
+		const sel = new FloatingSelection(
+			doc,
+			0,
+			0,
+			maskFromRects(
+				[
+					{ x: 1, y: 1, w: 2, h: 2 },
+					{ x: 5, y: 5, w: 1, h: 1 }
+				],
+				8,
+				8
+			)
+		);
+		sel.moveBy(0, 2);
+		bus.dispatch(sel.commit()!, { applied: true });
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[3 * 8 + 1]).toBe(3); // block moved down 2
+		expect(pixels[7 * 8 + 5]).toBe(5); // bystander moved down 2
+		expect(pixels[5 * 8 + 5]).toBe(0);
+		expect(bus.undoDepth).toBe(1);
+		bus.undo();
+		expect(pixels[1 * 8 + 1]).toBe(3);
+		expect(pixels[5 * 8 + 5]).toBe(5);
+		expect(pixels[7 * 8 + 5]).toBe(0);
+	});
+
+	it('90-degree rotation is an exact permutation', () => {
+		const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
+		const pixels = doc.frames[0].layers[0].pixels;
+		// 3x1 horizontal bar at y=1: values 3,7,9
+		pixels[1 * 8 + 1] = 3;
+		pixels[1 * 8 + 2] = 7;
+		pixels[1 * 8 + 3] = 9;
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 3, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		sel.commit();
+		// bar is now vertical at x=2, y=0..2, order preserved top-to-bottom
+		expect(pixels[0 * 8 + 2]).toBe(3);
+		expect(pixels[1 * 8 + 2]).toBe(7);
+		expect(pixels[2 * 8 + 2]).toBe(9);
+		expect(pixels[1 * 8 + 1]).toBe(0); // old spots cleared
+		expect(pixels[1 * 8 + 3]).toBe(0);
+	});
+
+	it('repeated rotation does not compound resampling loss', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
+		sel.rotateTo(0.3);
+		sel.rotateTo(1.1);
+		sel.rotateTo(0);
+		expect(sel.commit()).toBeNull(); // back to identity = net no-op
+	});
+
+	it('rotate + flip + move is ONE command and flip works about the screen axis', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].pixels[1 * 8 + 2] = 7; // asymmetric block
+		const bus = new CommandBus(doc);
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
+		// flip while rotated, then rotate back: equals a plain flip of the original
+		sel.rotateTo(0.4);
+		sel.flip('horizontal');
+		sel.rotateTo(0);
+		expect(Array.from(sel.buffer)).toEqual([7, 3, 3, 3]);
+		sel.moveBy(0, 3);
+		bus.dispatch(sel.commit()!, { applied: true });
+		expect(bus.undoDepth).toBe(1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[4 * 8 + 1]).toBe(7); // flipped block landed at y+3
+		bus.undo();
+		expect(pixels[1 * 8 + 2]).toBe(7); // one undo restores everything
+		expect(pixels[4 * 8 + 1]).toBe(0);
+	});
+});
+
+describe('precision selection masks', () => {
+	it('an arbitrary mask lifts only the masked pixels', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		// L-shaped mask over the 2x2 block: (1,1),(2,1),(1,2) but NOT (2,2)
+		const mask = new Uint8Array(64);
+		mask[1 * 8 + 1] = 1;
+		mask[1 * 8 + 2] = 1;
+		mask[2 * 8 + 1] = 1;
+		const sel = new FloatingSelection(doc, 0, 0, mask);
+		expect(pixels[2 * 8 + 2]).toBe(3); // unmasked pixel stays on the layer
+		expect(pixels[1 * 8 + 1]).toBe(0); // masked pixels lifted
+		// bbox is (1,1,2,2); the unmasked cell is transparent in the buffer
+		expect(Array.from(sel.buffer)).toEqual([3, 3, 3, 0]);
+	});
+
+	it('maskFromRects covers exactly the clamped rects', () => {
+		const mask = maskFromRects([{ x: -1, y: -1, w: 2, h: 2 }], 8, 8);
+		expect(mask[0]).toBe(1); // (0,0) survives clamping
+		expect(mask[1]).toBe(0);
+		expect(mask[8]).toBe(0);
+	});
+
+	it('maskFromPolygon fills the interior and includes the outline path', () => {
+		// right triangle over pixel centers (0,0), (6,0), (0,6)
+		const mask = maskFromPolygon(
+			[
+				{ x: 0.5, y: 0.5 },
+				{ x: 6.5, y: 0.5 },
+				{ x: 0.5, y: 6.5 }
+			],
+			8,
+			8
+		);
+		expect(mask[0 * 8 + 0]).toBe(1); // vertices are on the path
+		expect(mask[0 * 8 + 6]).toBe(1);
+		expect(mask[6 * 8 + 0]).toBe(1);
+		expect(mask[2 * 8 + 2]).toBe(1); // interior
+		expect(mask[6 * 8 + 6]).toBe(0); // outside
+		expect(mask[3 * 8 + 5]).toBe(0); // outside, beyond the hypotenuse
+	});
+
+	it('a thin polygon still selects its path pixels', () => {
+		// a degenerate sliver: nearly a line from (1,1) to (5,1)
+		const mask = maskFromPolygon(
+			[
+				{ x: 1.5, y: 1.5 },
+				{ x: 5.5, y: 1.5 },
+				{ x: 1.5, y: 1.6 }
+			],
+			8,
+			8
+		);
+		expect(mask[1 * 8 + 1]).toBe(1);
+		expect(mask[1 * 8 + 3]).toBe(1);
+		expect(mask[1 * 8 + 5]).toBe(1);
+	});
+});
+
+describe('extract to layer', () => {
+	it('returns the transformed selection as layer pixels plus a source-clear diff', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
+		sel.moveBy(3, 2);
+		const { layerPixels, sourceDiff } = sel.extract();
+		// the block sits at (4,3)..(5,4) in the new layer, nowhere else
+		expect(layerPixels[3 * 8 + 4]).toBe(3);
+		expect(layerPixels[4 * 8 + 5]).toBe(3);
+		expect(layerPixels[1 * 8 + 1]).toBe(0);
+		// cancel restores the source; the diff re-clears exactly the lifted pixels
+		expect(sourceDiff).not.toBeNull();
+		sel.cancel();
+		expect(doc.frames[0].layers[0].pixels[1 * 8 + 1]).toBe(3);
+		sourceDiff!.do(doc);
+		expect(doc.frames[0].layers[0].pixels[1 * 8 + 1]).toBe(0);
+		expect(doc.frames[0].layers[0].pixels[5 * 8 + 5]).toBe(5); // bystander kept
+	});
+
+	it('an all-transparent selection extracts to nothing', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 6, y: 0, w: 2, h: 2 }], 8, 8));
+		const { layerPixels, sourceDiff } = sel.extract();
+		expect(sourceDiff).toBeNull();
+		expect(layerPixels.every((v) => v === 0)).toBe(true);
 	});
 });

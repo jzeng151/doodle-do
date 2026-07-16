@@ -31,7 +31,22 @@
 			session.redo();
 			return;
 		}
+		if (mod && e.key.toLowerCase() === 'j') {
+			e.preventDefault();
+			session.extractSelectionToLayer();
+			return;
+		}
 		if (mod) return;
+		// arrows nudge an active selection by 1px; left/right otherwise
+		// keep their frame-switching role
+		if (e.key.startsWith('Arrow') && session.hasSelection) {
+			e.preventDefault();
+			const [dx, dy] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
+				e.key
+			]!;
+			session.nudgeSelection(dx, dy);
+			return;
+		}
 		switch (e.key.toLowerCase()) {
 			case '1':
 				session.setMode('focus');
@@ -57,8 +72,19 @@
 			case 'm':
 				if (session.mode === 'focus') session.setTool('select');
 				break;
+			case 'l':
+				if (session.mode === 'focus') session.setTool('lasso');
+				break;
+			case 'w':
+				if (session.mode === 'focus') session.setTool('wand');
+				break;
+			case 'p':
+				if (session.mode === 'focus') session.setTool('polygon');
+				break;
 			case 'enter':
-				session.commitFloating(); // B5: Enter stamps the selection down
+				// close an in-progress polygon, else stamp the selection (B5)
+				if (session.polygonVerts) session.closePolygon();
+				else session.commitFloating();
 				break;
 			case 'escape':
 				session.cancelFloating(); // B5: Escape restores the source

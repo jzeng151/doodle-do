@@ -6,8 +6,13 @@
 	let { session }: { session: EditorSession } = $props();
 
 	let canvasEl: HTMLCanvasElement;
-	let selectDrag: 'marquee' | 'float' | null = null;
+	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | null = null;
+	let rotateStart: { angle0: number; grab: number } | null = null;
 	let lastPixel = { x: 0, y: 0 };
+
+	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
+	const HANDLE_OFFSET = 16;
+	const HANDLE_R = 8;
 
 	const cssW = $derived((session.version, session.doc.meta.width * session.zoom));
 	const cssH = $derived((session.version, session.doc.meta.height * session.zoom));
@@ -54,31 +59,140 @@
 		const sel = session.floating;
 		if (sel) {
 			ctx.imageSmoothingEnabled = false;
-			ctx.drawImage(floatingCanvas(sel), sel.x * z, sel.y * z, sel.w * z, sel.h * z);
+			const r = sel.renderRect;
+			ctx.drawImage(floatingCanvas(sel), r.x * z, r.y * z, r.w * z, r.h * z);
+			// rotated group outline
+			dashedStroke(ctx, () => {
+				ctx.beginPath();
+				for (const [i, [cx, cy]] of sel.corners().entries()) {
+					if (i === 0) ctx.moveTo(cx * z, cy * z);
+					else ctx.lineTo(cx * z, cy * z);
+				}
+				ctx.closePath();
+				ctx.stroke();
+			});
+		} else if (session.selectionMask) {
+			// marching ants around the baked mask
+			const mask = session.selectionMask;
+			const { width: w, height: h } = session.doc.meta;
+			dashedStroke(ctx, () => {
+				ctx.beginPath();
+				for (let y = 0; y < h; y++) {
+					for (let x = 0; x < w; x++) {
+						if (!mask[y * w + x]) continue;
+						if (!mask[y * w + x - 1] || x === 0) {
+							ctx.moveTo(x * z + 0.5, y * z);
+							ctx.lineTo(x * z + 0.5, (y + 1) * z);
+						}
+						if (!mask[y * w + x + 1] || x === w - 1) {
+							ctx.moveTo((x + 1) * z - 0.5, y * z);
+							ctx.lineTo((x + 1) * z - 0.5, (y + 1) * z);
+						}
+						if (y === 0 || !mask[(y - 1) * w + x]) {
+							ctx.moveTo(x * z, y * z + 0.5);
+							ctx.lineTo((x + 1) * z, y * z + 0.5);
+						}
+						if (y === h - 1 || !mask[(y + 1) * w + x]) {
+							ctx.moveTo(x * z, (y + 1) * z - 0.5);
+							ctx.lineTo((x + 1) * z, (y + 1) * z - 0.5);
+						}
+					}
+				}
+				ctx.stroke();
+			});
 		}
-		const rect = sel?.rect ?? session.marquee;
-		if (rect) {
-			ctx.strokeStyle = '#fff';
-			ctx.lineWidth = 1;
-			ctx.setLineDash([4, 3]);
-			ctx.strokeRect(rect.x * z + 0.5, rect.y * z + 0.5, rect.w * z - 1, rect.h * z - 1);
+		if (session.pendingRect) {
+			const m = session.pendingRect;
+			dashedStroke(ctx, () =>
+				ctx.strokeRect(m.x * z + 0.5, m.y * z + 0.5, m.w * z - 1, m.h * z - 1)
+			);
+		}
+		const path = session.lassoPath ?? session.polygonVerts;
+		if (path?.length) {
+			dashedStroke(ctx, () => {
+				ctx.beginPath();
+				for (const [i, p] of path.entries()) {
+					if (i === 0) ctx.moveTo(p.x * z, p.y * z);
+					else ctx.lineTo(p.x * z, p.y * z);
+				}
+				ctx.stroke();
+			});
+			if (session.polygonVerts) {
+				// mark the first vertex: clicking it closes the polygon
+				ctx.beginPath();
+				ctx.arc(path[0].x * z, path[0].y * z, 4, 0, Math.PI * 2);
+				ctx.fillStyle = '#fff';
+				ctx.fill();
+				ctx.strokeStyle = '#000';
+				ctx.lineWidth = 1;
+				ctx.stroke();
+			}
+		}
+		const hp = handleScreenPos();
+		if (hp) {
+			ctx.beginPath();
+			ctx.arc(hp.x, hp.y, 4, 0, Math.PI * 2);
+			ctx.fillStyle = '#fff';
+			ctx.fill();
 			ctx.strokeStyle = '#000';
-			ctx.lineDashOffset = 4;
-			ctx.strokeRect(rect.x * z + 0.5, rect.y * z + 0.5, rect.w * z - 1, rect.h * z - 1);
-			ctx.setLineDash([]);
-			ctx.lineDashOffset = 0;
+			ctx.lineWidth = 1;
+			ctx.stroke();
 		}
 	}
 
-	// the floating buffer rendered as RGBA, rebuilt only when content flips
+	// the marquee dash style (white dashes over black), shared by rects and polygons
+	function dashedStroke(ctx: CanvasRenderingContext2D, stroke: () => void) {
+		ctx.lineWidth = 1;
+		ctx.setLineDash([4, 3]);
+		ctx.strokeStyle = '#fff';
+		stroke();
+		ctx.strokeStyle = '#000';
+		ctx.lineDashOffset = 4;
+		stroke();
+		ctx.setLineDash([]);
+		ctx.lineDashOffset = 0;
+	}
+
+	// corners of the group bbox (floating: rotated; baked mask: its extents)
+	function groupCorners(): [number, number][] | null {
+		if (session.floating) return session.floating.corners();
+		const b = session.selectionBounds();
+		if (!b) return null;
+		return [
+			[b.x, b.y],
+			[b.x + b.w, b.y],
+			[b.x + b.w, b.y + b.h],
+			[b.x, b.y + b.h]
+		];
+	}
+
+	// rotate handle: offset outward from the top-edge midpoint along the
+	// rotated up-vector, clamped into the canvas so it stays grabbable
+	function handleScreenPos(): { x: number; y: number } | null {
+		const c = groupCorners();
+		if (!c) return null;
+		const z = session.zoom;
+		const midX = ((c[0][0] + c[1][0]) / 2) * z;
+		const midY = ((c[0][1] + c[1][1]) / 2) * z;
+		const cx = ((c[0][0] + c[2][0]) / 2) * z;
+		const cy = ((c[0][1] + c[2][1]) / 2) * z;
+		const len = Math.hypot(midX - cx, midY - cy) || 1;
+		return {
+			x: Math.min(cssW - HANDLE_R, Math.max(HANDLE_R, midX + ((midX - cx) / len) * HANDLE_OFFSET)),
+			y: Math.min(cssH - HANDLE_R, Math.max(HANDLE_R, midY + ((midY - cy) / len) * HANDLE_OFFSET))
+		};
+	}
+
+	// the floating buffer rendered as RGBA, rebuilt when the content re-rasterizes
 	let floatCache: { sel: unknown; version: number; canvas: HTMLCanvasElement } | null = null;
 	function floatingCanvas(sel: NonNullable<typeof session.floating>): HTMLCanvasElement {
 		if (floatCache?.sel === sel && floatCache.version === sel.version) return floatCache.canvas;
 		const canvas = document.createElement('canvas');
-		canvas.width = sel.w;
-		canvas.height = sel.h;
+		const { w, h } = sel.renderRect;
+		canvas.width = w;
+		canvas.height = h;
 		const ctx = canvas.getContext('2d')!;
-		const img = ctx.createImageData(sel.w, sel.h);
+		const img = ctx.createImageData(w, h);
 		const u32 = new Uint32Array(img.data.buffer);
 		const lut = buildLut(session.doc.palette);
 		for (let i = 0; i < sel.buffer.length; i++) u32[i] = lut[sel.buffer[i]];
@@ -100,10 +214,16 @@
 	});
 
 	function pixelFromEvent(e: PointerEvent): { x: number; y: number } {
+		const { x, y } = pixelFromEventF(e);
+		return { x: Math.floor(x), y: Math.floor(y) };
+	}
+
+	// fractional pixel coords, for smooth rotation angles
+	function pixelFromEventF(e: PointerEvent): { x: number; y: number } {
 		const rect = canvasEl.getBoundingClientRect();
 		return {
-			x: Math.floor(((e.clientX - rect.left) / rect.width) * session.doc.meta.width),
-			y: Math.floor(((e.clientY - rect.top) / rect.height) * session.doc.meta.height)
+			x: ((e.clientX - rect.left) / rect.width) * session.doc.meta.width,
+			y: ((e.clientY - rect.top) / rect.height) * session.doc.meta.height
 		};
 	}
 
@@ -122,24 +242,67 @@
 			case 'eyedropper':
 				session.eyedrop(x, y);
 				break;
-			case 'select': {
+			case 'select':
+			case 'lasso':
+			case 'wand':
+			case 'polygon': {
 				canvasEl.setPointerCapture(e.pointerId);
 				lastPixel = { x, y };
-				const inFloating = session.floating?.contains(x, y);
-				const inMarquee =
-					!session.floating &&
-					session.marquee &&
-					x >= session.marquee.x &&
-					x < session.marquee.x + session.marquee.w &&
-					y >= session.marquee.y &&
-					y < session.marquee.y + session.marquee.h;
-				if (inFloating || inMarquee) {
+				const f = pixelFromEventF(e);
+				const box = canvasEl.getBoundingClientRect();
+				const ex = e.clientX - box.left;
+				const ey = e.clientY - box.top;
+				// 1) rotate handle beats everything
+				const hp = handleScreenPos();
+				if (hp && Math.hypot(ex - hp.x, ey - hp.y) <= HANDLE_R) {
+					session.liftSelection(); // no-op when already floating
+					const sel = session.floating!;
+					const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
+					const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
+					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx) };
+					selectDrag = 'rotate';
+					break;
+				}
+				// 2) an in-progress polygon consumes clicks: near the first
+				// vertex closes it, anywhere else adds a vertex
+				if (session.tool === 'polygon' && session.polygonVerts) {
+					const z = session.zoom;
+					const first = session.polygonVerts[0];
+					if (Math.hypot(ex - first.x * z, ey - first.y * z) <= HANDLE_R) {
+						session.closePolygon();
+					} else {
+						session.polygonAdd(f.x, f.y);
+					}
+					break;
+				}
+				// 3) click inside the selection moves it (shift starts an
+				// additive gesture instead)
+				const inside = session.floating
+					? session.floating.contains(x, y)
+					: session.selectionContains(x, y);
+				if (inside && !e.shiftKey) {
 					session.liftSelection(); // no-op when already floating
 					selectDrag = 'float';
-				} else {
-					// click outside stamps the pending selection down (B5)
-					session.beginMarquee(x, y);
-					selectDrag = 'marquee';
+					break;
+				}
+				// 4) otherwise start this tool's gesture; without shift it
+				// replaces the selection (committing any pending float, B5)
+				const additive = e.shiftKey && !session.floating;
+				switch (session.tool) {
+					case 'select':
+						session.beginMarquee(x, y, additive);
+						selectDrag = 'marquee';
+						break;
+					case 'lasso':
+						session.beginLasso(f.x, f.y, additive);
+						selectDrag = 'lasso';
+						break;
+					case 'wand':
+						session.wandSelect(x, y, additive);
+						break;
+					case 'polygon':
+						session.polygonAdd(f.x, f.y, additive);
+						break;
 				}
 				break;
 			}
@@ -152,9 +315,26 @@
 			session.updateMarquee(x, y);
 			return;
 		}
+		if (selectDrag === 'lasso') {
+			const f = pixelFromEventF(e);
+			session.updateLasso(f.x, f.y);
+			return;
+		}
 		if (selectDrag === 'float') {
 			session.moveFloatingBy(x - lastPixel.x, y - lastPixel.y);
 			lastPixel = { x, y };
+			return;
+		}
+		if (selectDrag === 'rotate') {
+			const sel = session.floating;
+			if (sel && rotateStart) {
+				const p = pixelFromEventF(e);
+				const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
+				const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
+				let a = rotateStart.angle0 + Math.atan2(p.y - gy, p.x - gx) - rotateStart.grab;
+				if (e.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12); // snap 15°
+				session.rotateFloating(a);
+			}
 			return;
 		}
 		if (session.strokeActive) session.strokeMove(x, y);
@@ -162,7 +342,9 @@
 
 	function onPointerUp() {
 		if (selectDrag === 'marquee') session.endMarquee();
+		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
+		rotateStart = null;
 		session.strokeEnd();
 	}
 

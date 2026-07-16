@@ -4,20 +4,17 @@
 import type { Doc } from '../core/document';
 import { PixelDiffCommand } from '../core/commands';
 
-export function floodFill(
-	doc: Doc,
-	frameIndex: number,
-	layerIndex: number,
+// The contiguous same-value region containing (x, y), as pixel indices.
+// Shared by the fill tool and the magic-wand selection.
+export function floodRegion(
+	pixels: Uint8Array,
+	width: number,
+	height: number,
 	x: number,
-	y: number,
-	value: number
-): PixelDiffCommand | null {
-	const { width, height } = doc.meta;
-	if (x < 0 || y < 0 || x >= width || y >= height) return null;
-	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
+	y: number
+): number[] {
+	if (x < 0 || y < 0 || x >= width || y >= height) return [];
 	const target = pixels[y * width + x];
-	if (target === value) return null;
-
 	const hits: number[] = [];
 	const visited = new Uint8Array(pixels.length);
 	const stack = [y * width + x];
@@ -44,7 +41,24 @@ export function floodFill(
 			stack.push(i + width);
 		}
 	}
+	return hits;
+}
 
+export function floodFill(
+	doc: Doc,
+	frameIndex: number,
+	layerIndex: number,
+	x: number,
+	y: number,
+	value: number
+): PixelDiffCommand | null {
+	const { width, height } = doc.meta;
+	if (x < 0 || y < 0 || x >= width || y >= height) return null;
+	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
+	const target = pixels[y * width + x];
+	if (target === value) return null;
+
+	const hits = floodRegion(pixels, width, height, x, y);
 	const indices = new Uint32Array(hits);
 	const before = new Uint8Array(hits.length).fill(target);
 	const after = new Uint8Array(hits.length).fill(value);
