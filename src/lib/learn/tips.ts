@@ -36,7 +36,9 @@ export const TIPS: Record<string, Tip> = Object.fromEntries(
 			['T21', 'Use From and To under the scrubber to loop just a few frames while you polish them.', 2],
 			['T22', 'Done sketching on a separate layer? Merge down flattens it into the layer below in one step.', 2],
 			['T23', 'Send to frame copies or moves a layer to another frame. Handy for reusing a background everywhere.', 2],
-			['T24', 'Mirror is on, so your selection has a twin across the centerline. Moves and rotations stay symmetric.', 2]
+			['T24', 'Mirror is on, so your selection has a twin across the centerline. Moves and rotations stay symmetric.', 2],
+			['T25', 'Ctrl-click frames in the strip to edit several at once; Shift-click selects a range.', 2],
+			['T26', 'Bulk edit is on: strokes, fills, and selection moves hit every highlighted frame. Plain-click a frame to edit one again.', 2]
 		] as [string, string, number | null][]
 	).map(([id, copy, cap]) => [id, { id, copy, cap }])
 );

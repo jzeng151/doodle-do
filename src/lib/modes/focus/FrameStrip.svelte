@@ -45,9 +45,15 @@
 				<button
 					class="thumb"
 					class:active={i === session.currentFrame}
+					class:bulk={session.bulkFrames.includes(i)}
 					role="option"
 					aria-selected={i === session.currentFrame}
-					onclick={() => session.selectFrame(i)}
+					title="Click: select. Ctrl-click: bulk-edit set. Shift-click: range."
+					onclick={(e) => {
+						if (e.shiftKey) session.selectBulkRange(i);
+						else if (e.ctrlKey || e.metaKey) session.toggleBulkFrame(i);
+						else session.selectFrame(i);
+					}}
 				>
 					<canvas bind:this={thumbEls[i]} width={thumbW} height={thumbH}></canvas>
 					<span>{i + 1}</span>
@@ -112,6 +118,9 @@
 		padding: 4px;
 		background: none;
 		border: 2px solid transparent;
+	}
+	.thumb.bulk {
+		border-color: #597dce; /* bulk edit set */
 	}
 	.thumb.active {
 		border-color: var(--accent);

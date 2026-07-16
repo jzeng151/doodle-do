@@ -35,6 +35,15 @@
 				drawOnionGhost(ctx, session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
 			}
 		}
+		if (session.bulkFrames.length > 1) {
+			// bulk edit: the other set frames stacked under the active one
+			ctx.globalAlpha = 0.35;
+			for (const bf of session.bulkFrames) {
+				if (bf === f) continue;
+				ctx.drawImage(session.compositor.frameCanvas(bf), 0, 0, canvasEl.width, canvasEl.height);
+			}
+			ctx.globalAlpha = 1;
+		}
 		ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
 
 		if (session.showGrid && session.zoom >= 4) {
@@ -222,6 +231,7 @@
 		void session.version;
 		void session.overlayVersion;
 		void session.currentFrame;
+		void session.bulkFrames;
 		void session.zoom;
 		void session.showGrid;
 		void session.onionEnabled;
