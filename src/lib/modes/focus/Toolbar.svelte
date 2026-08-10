@@ -3,15 +3,15 @@
 
 	let { session }: { session: EditorSession } = $props();
 
-	const tools: { id: Tool; label: string; key: string }[] = [
-		{ id: 'pencil', label: 'Pencil', key: 'B' },
-		{ id: 'eraser', label: 'Eraser', key: 'E' },
-		{ id: 'fill', label: 'Fill', key: 'G' },
-		{ id: 'eyedropper', label: 'Pick', key: 'I' },
-		{ id: 'select', label: 'Select', key: 'M' },
-		{ id: 'lasso', label: 'Lasso', key: 'L' },
-		{ id: 'wand', label: 'Wand', key: 'W' },
-		{ id: 'polygon', label: 'Polygon', key: 'P' }
+	const tools: { id: Tool; label: string; key: string; description: string }[] = [
+		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
+		{ id: 'eraser', label: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
+		{ id: 'fill', label: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
+		{ id: 'eyedropper', label: 'Pick', key: 'I', description: 'Pick a color from the canvas' },
+		{ id: 'select', label: 'Select', key: 'M', description: 'Select a rectangular area' },
+		{ id: 'lasso', label: 'Lasso', key: 'L', description: 'Draw a freehand selection' },
+		{ id: 'wand', label: 'Wand', key: 'W', description: 'Select connected pixels of the same color' },
+		{ id: 'polygon', label: 'Polygon', key: 'P', description: 'Select an area by placing points' }
 	];
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
@@ -24,9 +24,7 @@
 			<button
 				class:active={session.tool === t.id}
 				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'}
-				title={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'
-					? 'Selection works in Focus mode'
-					: `${t.label} (${t.key})`}
+				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' ? ' — Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}
