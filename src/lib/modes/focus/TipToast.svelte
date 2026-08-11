@@ -21,19 +21,19 @@
 
 <style>
 	.tip {
-		position: fixed;
-		left: 1rem;
-		bottom: 6.5rem; /* above the frame strip */
-		max-width: 320px;
+		position: relative;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: 0.75rem;
+		align-items: center;
+		max-width: none;
 		background: var(--paper);
-		border: 3px solid var(--ink);
-		border-radius: 22px;
-		padding: 0.85rem 1rem;
-		z-index: 10;
+		border: 0;
+		border-top: 3px solid var(--ink);
+		padding: 0.65rem 0.85rem;
 	}
-	.tip::after { content:''; position:absolute; left:28px; bottom:-15px; width:20px; height:16px; background:var(--paper); border-right:3px solid var(--ink); border-bottom:3px solid var(--ink); transform:skewX(-26deg); }
 	.tip p {
-		margin: 0 0 0.5rem;
+		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.45;
 	}
@@ -46,6 +46,7 @@
 		font-size: 0.75rem;
 	}
 	@media (max-width: 620px) {
-		.tip { position: relative; left: auto; bottom: auto; max-width: none; margin: .75rem; }
+		.tip { grid-template-columns: auto 1fr; }
+		.tip-actions { grid-column: 1 / -1; flex-wrap: wrap; }
 	}
 </style>

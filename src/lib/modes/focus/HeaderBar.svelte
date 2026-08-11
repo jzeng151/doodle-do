@@ -200,12 +200,14 @@
 	}
 	@media (max-width: 1050px) {
 		.bar { flex-wrap: wrap; }
-		.status { display: none; }
+		.status { order: 3; flex: 1 1 12rem; min-width: 10rem; }
 		.actions { width: 100%; overflow-x: auto; padding-bottom: .15rem; }
 		.actions button { white-space: nowrap; }
 	}
 	@media (max-width: 620px) {
-		.name { display: none; }
+		.name { order: 3; width: 100%; }
+		.status { order: 4; width: 100%; min-height: 1em; }
+		.actions { order: 5; flex-wrap: wrap; overflow-x: visible; }
 		.bar { gap: .45rem; }
 	}
 </style>

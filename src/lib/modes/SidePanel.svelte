@@ -28,7 +28,7 @@
 	}
 	aside :global(section) { padding: .8rem; background: var(--paper); border: 2px solid var(--ink); }
 	@media (max-width: 860px) {
-		aside { width: auto; display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); border-left: 0; border-top: 4px solid var(--edge); overflow-x: auto; }
+		aside { width: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); border-left: 0; border-top: 4px solid var(--edge); overflow: visible; }
 	}
 	@media (max-width: 620px) {
 		aside { grid-template-columns: 1fr; }

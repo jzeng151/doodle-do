@@ -42,6 +42,7 @@
 		border: 3px solid var(--edge);
 		border-radius: 0;
 		padding: 1rem 1.25rem;
+		max-width: calc(100vw - 2rem);
 	}
 	dialog::backdrop {
 		background: rgba(0, 0, 0, 0.5);
@@ -62,5 +63,8 @@
 	}
 	input[type='number'] {
 		width: 4em;
+	}
+	@media (max-width: 480px) {
+		form { flex-wrap: wrap; }
 	}
 </style>

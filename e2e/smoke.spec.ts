@@ -118,3 +118,11 @@ test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	await page.keyboard.press('Control+Shift+z');
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
+
+test('mobile editor keeps document status and tips in the layout', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 568 });
+	await gotoApp(page);
+	await expect(page.getByLabel('Document name')).toBeVisible();
+	await expect(page.locator('.status')).toBeVisible();
+	await expect(page.locator('.tip')).toHaveCSS('position', 'relative');
+});

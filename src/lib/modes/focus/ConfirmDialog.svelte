@@ -38,7 +38,7 @@
 		border: 3px solid var(--edge);
 		border-radius: 0;
 		padding: 1rem 1.25rem;
-		max-width: 24rem;
+		max-width: min(24rem, calc(100vw - 2rem));
 	}
 	dialog::backdrop {
 		background: rgba(0, 0, 0, 0.5);
@@ -56,5 +56,8 @@
 		background: var(--spot);
 		border-color: var(--ink);
 		color: #fff;
+	}
+	@media (max-width: 480px) {
+		.row { flex-wrap: wrap; }
 	}
 </style>
