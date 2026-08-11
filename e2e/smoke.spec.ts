@@ -129,6 +129,13 @@ test('mobile editor keeps document status and tips in the layout', async ({ page
 	expect(toolbar?.height).toBeGreaterThanOrEqual(44);
 });
 
+test('desktop editor keeps the toolbar on one row', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoApp(page);
+	const toolbar = await page.locator('.toolbar').boundingBox();
+	expect(toolbar?.height).toBeLessThanOrEqual(65);
+});
+
 test('coarse pointers get full-size compact controls', async ({ browser }) => {
 	const context = await browser.newContext({
 		viewport: { width: 320, height: 568 },
@@ -143,6 +150,11 @@ test('coarse pointers get full-size compact controls', async ({ browser }) => {
 	expect(zoomOut?.height).toBeGreaterThanOrEqual(44);
 	expect(swatch?.width).toBeGreaterThanOrEqual(44);
 	expect(swatch?.height).toBeGreaterThanOrEqual(44);
+	const workspaceOverflow = await page.locator('.workspace').evaluate((element) => ({
+		client: element.clientWidth,
+		scroll: element.scrollWidth
+	}));
+	expect(workspaceOverflow.scroll).toBe(workspaceOverflow.client);
 	await context.close();
 });
 

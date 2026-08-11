@@ -59,18 +59,20 @@
 
 	<div class="group" role="group" aria-label="Rotate selection">
 		<button
+			aria-label="Rotate selection left 15 degrees"
 			disabled={!session.hasSelection}
 			title="Rotate selection 15 degrees left"
 			onclick={() => session.rotateSelectionBy(-Math.PI / 12)}
 		>
-			Rotate −15°
+			−15°
 		</button>
 		<button
+			aria-label="Rotate selection right 15 degrees"
 			disabled={!session.hasSelection}
 			title="Rotate selection 15 degrees right"
 			onclick={() => session.rotateSelectionBy(Math.PI / 12)}
 		>
-			Rotate +15°
+			+15°
 		</button>
 	</div>
 
@@ -115,7 +117,7 @@
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: 0.25rem;
 		padding: 0.5rem 0.75rem;
 		border-bottom: 2px solid var(--edge);
 		background: var(--paper);
@@ -127,7 +129,7 @@
 		align-items: center;
 	}
 	.group + .group {
-		padding-left: 0.75rem;
+		padding-left: 0.375rem;
 		border-left: 2px solid var(--edge);
 	}
 	.zoom {

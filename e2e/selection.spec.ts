@@ -181,7 +181,7 @@ test('keyboard controls rotate a selection', async ({ page }) => {
 	await mouseOnPixel(page, 14, 16);
 	await page.mouse.up();
 
-	const rotateRight = page.getByRole('button', { name: 'Rotate +15°' });
+	const rotateRight = page.getByRole('button', { name: 'Rotate selection right 15 degrees' });
 	await rotateRight.focus();
 	for (let i = 0; i < 6; i++) await page.keyboard.press('Enter');
 	await page.locator('canvas.editor').focus();

@@ -117,4 +117,8 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	@media (max-width: 620px) {
+		.layers header { flex-wrap: wrap; }
+		h2 { flex-basis: 100%; }
+	}
 </style>
