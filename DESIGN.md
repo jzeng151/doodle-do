@@ -9,6 +9,9 @@ colors:
   comb-red: "#b52e2e"
   onion-previous: "#d04648"
   onion-next: "#6daa2c"
+  checker-light: "#f7f4ec"
+  checker-dark: "#ddd9ce"
+  checker-muted: "#bbb7ad"
 typography:
   family: "Zen Kaku Gothic New, Noto Sans, system-ui, sans-serif"
   marketing-body: "1rem / 1.6"

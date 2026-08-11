@@ -83,6 +83,9 @@
 		--spot: #b52e2e;
 		--onion-prev: #d04648;
 		--onion-next: #6daa2c;
+		--checker-light: #f7f4ec;
+		--checker-dark: #ddd9ce;
+		--checker-muted: #bbb7ad;
 	}
 	:global(body) {
 		margin: 0;

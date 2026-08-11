@@ -137,7 +137,7 @@
 		outline: 2px dashed var(--spot);
 	}
 	.eraser {
-		background: repeating-conic-gradient(#bbb7ad 0% 25%, #f7f4ec 0% 50%) 0 0 / 8px 8px;
+		background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px;
 	}
 	.actions {
 		display: flex;

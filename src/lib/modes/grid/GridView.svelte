@@ -211,7 +211,7 @@
 	}
 	canvas {
 		image-rendering: pixelated;
-		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 2px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;

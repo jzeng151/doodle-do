@@ -162,7 +162,7 @@
 		image-rendering: pixelated;
 		max-height: 60vh;
 		max-width: 90%;
-		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 3px solid var(--edge);
 	}
 	.controls {
@@ -206,7 +206,7 @@
 		image-rendering: pixelated;
 		width: 48px;
 		height: auto;
-		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 8px 8px;
+		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px;
 	}
 	@media (max-width: 620px) {
 		.loop-mode { min-height: 650px; padding: .75rem; }
