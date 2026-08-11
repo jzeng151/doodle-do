@@ -141,7 +141,11 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
 		'Draw one frame. The loop already has it.'
 	);
-	await page.getByRole('button', { name: 'Start drawing' }).click();
+	const start = page.locator('.pitch .primary');
+	await start.hover();
+	await expect(start).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+	await expect(start).toHaveCSS('color', 'rgb(242, 239, 230)');
+	await start.click();
 
 	const currentFrame = page.getByRole('group', { name: 'Frames' }).getByRole('button').first();
 	await expect(currentFrame).toHaveCSS('background-color', 'rgb(17, 17, 17)');

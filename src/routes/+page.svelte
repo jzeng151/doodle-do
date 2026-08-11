@@ -105,8 +105,8 @@
 		line-height: 1.2;
 		letter-spacing: 0.04em;
 	}
-	:global(button:hover:not(:disabled):not(.active)) {
-		background: var(--paper-2);
+	:global(button:hover:not(:disabled)) {
+		filter: brightness(0.92);
 	}
 	:global(button:disabled) {
 		opacity: 0.4;
