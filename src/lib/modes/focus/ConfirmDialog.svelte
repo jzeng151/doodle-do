@@ -32,10 +32,10 @@
 
 <style>
 	dialog {
-		background: #26282d;
-		color: #e7e9ec;
-		border: 1px solid var(--edge);
-		border-radius: 8px;
+		background: var(--paper);
+		color: var(--ink);
+		border: 3px solid var(--edge);
+		border-radius: 0;
 		padding: 1rem 1.25rem;
 		max-width: 24rem;
 	}
@@ -51,7 +51,8 @@
 		justify-content: flex-end;
 	}
 	.danger {
-		border-color: #e0484d;
-		color: #ff8a8d;
+		background: var(--spot);
+		border-color: var(--ink);
+		color: #fff;
 	}
 </style>

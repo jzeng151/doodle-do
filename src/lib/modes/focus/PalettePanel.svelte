@@ -101,12 +101,11 @@
 		align-items: center;
 	}
 	h2 {
-		font-size: 0.85rem;
+		font-size: 0.6875rem;
 		margin: 0;
 		flex: 1;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		opacity: 0.7;
+		letter-spacing: 0.14em;
 	}
 	.swatches {
 		display: grid;
@@ -122,14 +121,14 @@
 		cursor: pointer;
 	}
 	.swatch.selected {
-		outline: 2px solid var(--accent);
+		outline: 3px solid var(--ink);
 		outline-offset: 1px;
 	}
 	.swatch.doomed {
-		outline: 2px dashed #e03131;
+		outline: 2px dashed var(--spot);
 	}
 	.eraser {
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 8px 8px;
+		background: repeating-conic-gradient(#bbb7ad 0% 25%, #f7f4ec 0% 50%) 0 0 / 8px 8px;
 	}
 	.actions {
 		display: flex;

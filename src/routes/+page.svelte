@@ -3,12 +3,17 @@
 	import type { Doc } from '$lib/core/document';
 	import { createDefaultDoc, EditorSession } from '$lib/editor/session.svelte';
 	import { attachAutosave, loadAutosave } from '$lib/io/autosave';
+	import { connectAgentBridge } from '$lib/agent/bridge';
+	import { PRODUCT_CONTENT } from '$lib/content/product';
 	import { tips } from '$lib/learn/tips';
+	import Landing from '$lib/landing/Landing.svelte';
 	import Workspace from '$lib/modes/Workspace.svelte';
 
 	const T15_UNSAVED_MS = 20 * 60_000;
 
 	let session = $state<EditorSession | null>(null);
+	let entered = $state(false);
+	let hasAutosave = $state(false);
 	let detachAutosave: (() => void) | null = null;
 
 	function startSession(doc: Doc, isNew: boolean) {
@@ -24,10 +29,19 @@
 		else startSession(createDefaultDoc(), true);
 	}
 
+	function enterEditor() {
+		entered = true;
+		if (location.hash !== '#editor') history.replaceState(null, '', '#editor');
+	}
+
 	onMount(() => {
-		loadAutosave().then((saved) =>
-			saved ? startSession(saved, false) : startSession(createDefaultDoc(), true)
-		);
+		if (location.hash === '#editor') entered = true;
+		const disconnectAgent = connectAgentBridge(() => session);
+		loadAutosave().then((saved) => {
+			hasAutosave = Boolean(saved);
+			if (saved) startSession(saved, false);
+			else startSession(createDefaultDoc(), true);
+		});
 		// T15: gentle export reminder after 20+ minutes of work not saved to
 		// disk — exempt from the frequency cap, respects the global toggle
 		let lastReminder = 0;
@@ -39,17 +53,20 @@
 		}, 60_000);
 		return () => {
 			clearInterval(timer);
+			disconnectAgent();
 			detachAutosave?.();
 		};
 	});
 </script>
 
 <svelte:head>
-	<title>Doodle-Do</title>
-	<meta name="description" content="Frame-by-frame pixel animation tool that teaches you as you work" />
+	<title>Doodle-Do — frame-by-frame pixel animation</title>
+	<meta name="description" content={PRODUCT_CONTENT.description} />
 </svelte:head>
 
-{#if session}
+{#if !entered}
+	<Landing ready={Boolean(session)} resume={hasAutosave} onStart={enterEditor} />
+{:else if session}
 	{#key session}
 		<Workspace {session} {onOpenDoc} />
 	{/key}
@@ -57,45 +74,63 @@
 
 <style>
 	:global(:root) {
-		--edge: #3d4048;
-		--accent: #4dabf7;
+		--paper: #f2efe6;
+		--paper-2: #e9e5d9;
+		--ink: #111111;
+		--gray: #6a675f;
+		--edge: #111111;
+		--accent: #111111;
+		--spot: #b52e2e;
+		--onion-prev: #d04648;
+		--onion-next: #6daa2c;
 	}
 	:global(body) {
 		margin: 0;
-		font-family: system-ui, sans-serif;
-		font-size: 0.9rem;
-		background: #1a1b1e;
-		color: #e7e9ec;
+		font-family: "Zen Kaku Gothic New", "Noto Sans", system-ui, sans-serif;
+		font-size: 0.8125rem;
+		background: var(--paper);
+		color: var(--ink);
 	}
 	:global(button) {
-		background: #2c2e33;
+		min-height: 32px;
+		background: var(--paper);
 		color: inherit;
-		border: 1px solid var(--edge);
-		border-radius: 4px;
+		border: 2px solid var(--edge);
+		border-radius: 0;
 		padding: 0.3em 0.6em;
 		cursor: pointer;
+		font-family: inherit;
+		font-size: 0.75rem;
+		font-weight: 700;
+		line-height: 1.2;
+		letter-spacing: 0.04em;
 	}
 	:global(button:hover:not(:disabled)) {
-		background: #383b42;
+		background: var(--paper-2);
 	}
 	:global(button:disabled) {
 		opacity: 0.4;
 		cursor: default;
 	}
 	:global(button.active) {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: #fff;
+		background: var(--ink);
+		border-color: var(--ink);
+		color: var(--paper);
 	}
 	:global(input, select) {
-		background: #2c2e33;
+		min-height: 28px;
+		background: var(--paper);
 		color: inherit;
-		border: 1px solid var(--edge);
-		border-radius: 4px;
+		border: 2px solid var(--edge);
+		border-radius: 0;
 		padding: 0.25em 0.4em;
+		font: inherit;
 	}
 	:global(:focus-visible) {
-		outline: 2px solid var(--accent);
-		outline-offset: 1px;
+		outline: 3px solid var(--ink);
+		outline-offset: 2px;
+	}
+	@media (pointer: coarse) {
+		:global(button, input, select) { min-height: 44px; }
 	}
 </style>

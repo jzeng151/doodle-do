@@ -1,29 +1,15 @@
 <script lang="ts">
 	// Mode switcher with honest teaching tooltips (§3.3, §4.4).
 	import type { EditorSession, Mode } from '$lib/editor/session.svelte';
+	import { PRODUCT_CONTENT } from '$lib/content/product';
 
 	let { session }: { session: EditorSession } = $props();
 
-	const MODES: { id: Mode; label: string; tooltip: string }[] = [
-		{
-			id: 'focus',
-			label: 'Focus',
-			tooltip:
-				'Great at: drawing one frame with onion-skin context. Strains when: comparing many frames at once.'
-		},
-		{
-			id: 'grid',
-			label: 'Grid',
-			tooltip:
-				'Great at: seeing and editing every frame side by side. Strains when: doing detail work on a single frame.'
-		},
-		{
-			id: 'loop',
-			label: 'Loop',
-			tooltip:
-				'Great at: judging the motion at full speed. Strains when: you need to draw — switch back to edit.'
-		}
-	];
+	const MODES: { id: Mode; label: string; tooltip: string }[] = PRODUCT_CONTENT.modes.map((mode) => ({
+		id: mode.id,
+		label: mode.label,
+		tooltip: `Great at: ${mode.great} Strains when: ${mode.strains}`
+	}));
 </script>
 
 <div class="switcher" role="group" aria-label="Workspace mode">
@@ -38,8 +24,7 @@
 	.switcher {
 		display: flex;
 		gap: 0;
-		border: 1px solid var(--edge);
-		border-radius: 5px;
+		border: 2px solid var(--edge);
 		overflow: hidden;
 	}
 	.switcher button {
@@ -47,6 +32,6 @@
 		border-radius: 0;
 	}
 	.switcher button + button {
-		border-left: 1px solid var(--edge);
+		border-left: 2px solid var(--edge);
 	}
 </style>

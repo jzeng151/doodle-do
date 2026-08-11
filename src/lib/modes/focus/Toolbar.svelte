@@ -94,9 +94,10 @@
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.75rem;
+		gap: 1rem;
 		padding: 0.5rem 0.75rem;
-		border-bottom: 1px solid var(--edge);
+		border-bottom: 2px solid var(--edge);
+		background: var(--paper);
 		align-items: center;
 	}
 	.group {
@@ -106,7 +107,7 @@
 	}
 	.group + .group {
 		padding-left: 0.75rem;
-		border-left: 1px solid var(--edge);
+		border-left: 2px solid var(--edge);
 	}
 	.zoom {
 		min-width: 2.5em;
@@ -120,5 +121,10 @@
 	}
 	.onion input {
 		width: 72px;
+		accent-color: var(--ink);
+	}
+	@media (max-width: 720px) {
+		.toolbar { flex-wrap: nowrap; overflow-x: auto; }
+		.group { flex: none; }
 	}
 </style>

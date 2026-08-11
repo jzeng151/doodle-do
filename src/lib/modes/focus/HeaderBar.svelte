@@ -115,7 +115,7 @@
 </script>
 
 <header class="bar">
-	<span class="brand">Doodle-Do</span>
+	<span class="kanji" aria-hidden="true">週刊</span><span class="brand">Doodle-Do</span>
 	<ModeSwitcher {session} />
 	<input class="name" value={session.doc.meta.name} onchange={rename} aria-label="Document name" />
 	<span class="status" aria-live="polite">
@@ -168,18 +168,26 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 0.5rem 0.75rem;
-		border-bottom: 1px solid var(--edge);
+		padding: 0.5rem 0.85rem;
+		border-bottom: 4px solid var(--edge);
+		background: var(--paper);
 	}
+	.kanji { padding: .25rem .3rem; background: var(--ink); color: var(--paper); font-size: .6875rem; font-weight: 900; }
 	.brand {
-		font-weight: 700;
+		font-size: 0.9375rem;
+		font-weight: 950;
+		letter-spacing: -0.02em;
+		text-transform: uppercase;
 	}
 	.name {
 		width: 12em;
 	}
 	.status {
 		flex: 1;
-		font-size: 0.8rem;
+		font-size: 0.625rem;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		opacity: 0.7;
 		white-space: nowrap;
 		overflow: hidden;
@@ -188,5 +196,15 @@
 	.actions {
 		display: flex;
 		gap: 4px;
+	}
+	@media (max-width: 1050px) {
+		.bar { flex-wrap: wrap; }
+		.status { display: none; }
+		.actions { width: 100%; overflow-x: auto; padding-bottom: .15rem; }
+		.actions button { white-space: nowrap; }
+	}
+	@media (max-width: 620px) {
+		.name { display: none; }
+		.bar { gap: .45rem; }
 	}
 </style>

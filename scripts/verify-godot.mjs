@@ -103,7 +103,7 @@ try {
 	// --- 1. produce a real export through the real UI ---
 	for (let i = 0; ; i++) {
 		try {
-			await page.goto(`http://localhost:${PORT_APP}/`, { timeout: 2000 });
+			await page.goto(`http://localhost:${PORT_APP}/#editor`, { timeout: 2000 });
 			break;
 		} catch (e) {
 			if (i > 20) throw e;

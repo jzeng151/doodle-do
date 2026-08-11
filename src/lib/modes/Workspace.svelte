@@ -132,5 +132,14 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
+		background-color: var(--paper);
+		background-image: radial-gradient(rgba(17, 17, 17, 0.1) 0.55px, transparent 0.7px);
+		background-size: 5px 5px;
+		color: var(--ink);
+		font-size: 0.8125rem;
+		overflow: hidden;
+	}
+	@media (max-width: 860px) {
+		.workspace { overflow: auto; }
 	}
 </style>

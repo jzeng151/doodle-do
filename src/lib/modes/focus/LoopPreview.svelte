@@ -70,8 +70,8 @@
 		image-rendering: pixelated;
 		width: 128px;
 		height: auto; /* keep the canvas aspect for non-square documents */
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 16px 16px;
-		border: 1px solid var(--edge);
+		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		border: 2px solid var(--edge);
 	}
 	.controls {
 		display: flex;

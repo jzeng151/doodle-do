@@ -21,4 +21,7 @@
 		flex: 1;
 		min-height: 0;
 	}
+	@media (max-width: 860px) {
+		.middle { flex: none; flex-direction: column; }
+	}
 </style>

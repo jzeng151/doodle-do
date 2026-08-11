@@ -62,10 +62,10 @@
 
 <style>
 	dialog {
-		background: #26282d;
-		color: #e7e9ec;
-		border: 1px solid var(--edge);
-		border-radius: 8px;
+		background: var(--paper);
+		color: var(--ink);
+		border: 3px solid var(--edge);
+		border-radius: 0;
 		padding: 1rem 1.25rem;
 	}
 	dialog::backdrop {
@@ -79,8 +79,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
-		border: 1px solid var(--edge);
-		border-radius: 6px;
+		border: 2px solid var(--edge);
 		margin: 0 0 0.75rem;
 		padding: 0.5rem 0.75rem;
 	}

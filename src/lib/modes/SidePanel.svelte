@@ -17,12 +17,20 @@
 
 <style>
 	aside {
-		width: 200px;
-		padding: 0.75rem;
-		border-left: 1px solid var(--edge);
+		width: 232px;
+		padding: 10px;
+		border-left: 3px solid var(--edge);
 		display: flex;
 		flex-direction: column;
-		gap: 1.25rem;
+		gap: 10px;
 		overflow-y: auto;
+		background: var(--paper-2);
+	}
+	aside :global(section) { padding: .8rem; background: var(--paper); border: 2px solid var(--ink); }
+	@media (max-width: 860px) {
+		aside { width: auto; display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); border-left: 0; border-top: 4px solid var(--edge); overflow-x: auto; }
+	}
+	@media (max-width: 620px) {
+		aside { grid-template-columns: 1fr; }
 	}
 </style>

@@ -87,12 +87,11 @@
 		align-items: center;
 	}
 	h2 {
-		font-size: 0.85rem;
+		font-size: 0.6875rem;
 		margin: 0;
 		flex: 1;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		opacity: 0.7;
+		letter-spacing: 0.14em;
 	}
 	ul {
 		list-style: none;
@@ -111,7 +110,7 @@
 		text-align: left;
 	}
 	.name.active {
-		background: var(--accent);
-		color: #fff;
+		background: var(--ink);
+		color: var(--paper);
 	}
 </style>

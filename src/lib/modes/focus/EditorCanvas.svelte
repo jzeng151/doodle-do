@@ -410,11 +410,14 @@
 		place-items: center;
 		flex: 1;
 		min-height: 0;
-		background: #23252a;
+		background-color: var(--paper-2);
+		background-image: radial-gradient(rgba(17, 17, 17, 0.3) 0.8px, transparent 1px);
+		background-size: 9px 9px;
 	}
 	.editor {
 		image-rendering: pixelated;
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 16px 16px;
+		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		border: 3px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;
 	}

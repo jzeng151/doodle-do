@@ -14,7 +14,7 @@ export const TIPS: Record<string, Tip> = Object.fromEntries(
 	(
 		[
 			['T01', 'Your animation is already playing in the loop preview — everything you draw shows up there instantly.', 2],
-			['T02', 'The red ghost is your previous frame. Draw where things *have moved to*, not where they were.', 2],
+			['T02', 'The red ghost is your previous frame. Draw where things have moved to, not where they were.', 2],
 			['T03', 'Nice — duplicating and nudging is how most animation actually gets made. Small changes between frames read as smooth motion.', 2],
 			['T04', 'Onion skin is training wheels that pros never take off. You can lower its opacity instead in the slider.', 1],
 			['T05', 'For tiny areas the pencil is usually faster and more precise than fill.', 2],

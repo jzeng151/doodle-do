@@ -143,14 +143,16 @@
 		gap: 0.75rem;
 		padding: 1rem;
 		overflow: auto;
-		background: #23252a;
+		background-color: var(--paper-2);
+		background-image: radial-gradient(rgba(17,17,17,.18) .7px, transparent .9px);
+		background-size: 6px 6px;
 	}
 	.hero {
 		image-rendering: pixelated;
 		max-height: 60vh;
 		max-width: 90%;
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 16px 16px;
-		border: 1px solid var(--edge);
+		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		border: 3px solid var(--edge);
 	}
 	.controls {
 		display: flex;
@@ -177,16 +179,21 @@
 		align-items: center;
 		gap: 2px;
 		padding: 4px;
-		background: none;
-		border: 2px solid transparent;
+		background: var(--paper);
+		border: 2px solid var(--ink);
 	}
 	.film-frame.active {
-		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--ink);
 	}
 	.film-frame canvas {
 		image-rendering: pixelated;
 		width: 48px;
 		height: auto;
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 8px 8px;
+		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 8px 8px;
+	}
+	@media (max-width: 620px) {
+		.loop-mode { min-height: 650px; padding: .75rem; }
+		.controls { width: 100%; flex-wrap: wrap; }
+		.scrubber { flex-basis: 55%; }
 	}
 </style>

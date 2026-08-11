@@ -111,7 +111,9 @@
 		flex: 1;
 		min-width: 0;
 		overflow: auto;
-		background: #23252a;
+		background-color: var(--paper-2);
+		background-image: radial-gradient(rgba(17,17,17,.22) .7px, transparent .9px);
+		background-size: 6px 6px;
 		padding: 0.75rem;
 	}
 	.grid-tools {
@@ -136,20 +138,27 @@
 		flex-direction: column;
 		gap: 2px;
 		padding: 4px;
-		border: 2px solid transparent;
-		border-radius: 4px;
+		border: 3px solid transparent;
 	}
 	.tile.active {
-		border-color: var(--accent);
+		border-color: var(--ink);
+		background: var(--paper);
 	}
 	.num {
-		font-size: 0.75rem;
+		font-size: 0.625rem;
+		font-weight: 900;
+		letter-spacing: .1em;
 		opacity: 0.7;
 	}
 	canvas {
 		image-rendering: pixelated;
-		background: repeating-conic-gradient(#3a3d44 0% 25%, #2e3036 0% 50%) 0 0 / 16px 16px;
+		background: repeating-conic-gradient(#ddd9ce 0% 25%, #f7f4ec 0% 50%) 0 0 / 16px 16px;
+		border: 2px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;
+	}
+	@media (max-width: 860px) {
+		.middle { flex: none; flex-direction: column; }
+		.grid-area { min-height: 420px; }
 	}
 </style>
