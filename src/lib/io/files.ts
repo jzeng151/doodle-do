@@ -63,7 +63,7 @@ async function docFromStrip(png: File, manifestFile: File | undefined): Promise<
 			throw new Error('manifest is not valid JSON');
 		}
 		if ((parsed as { format?: string }).format === PROJECT_FORMAT) {
-			throw new Error('cannot open a project file together with a PNG — pick one or the other');
+			throw new Error('cannot open a project file together with a PNG; pick one or the other');
 		}
 		const entry = manifestEntryFor(text, png.name);
 		if (entry) {
@@ -100,7 +100,7 @@ async function docFromSelection(files: File[]): Promise<Doc | null> {
 		throw new Error(`${files[0].name} is not a Doodle-Do project or a sprite manifest`);
 	}
 	if ((parsed as { animations?: unknown }).animations !== undefined) {
-		throw new Error('that is an animation manifest — select it together with its strip PNG');
+		throw new Error('that is an animation manifest; select it together with its strip PNG');
 	}
 	return parseProject(text); // rejects anything that isn't a project file, with specifics
 }

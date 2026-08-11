@@ -2,37 +2,37 @@ import { TIPS } from '$lib/learn/tips';
 
 export const PRODUCT_CONTENT = {
 	name: 'Doodle-Do',
-	tagline: 'Draw one frame. The loop already has it.',
+	tagline: 'Draw a frame. Watch it loop.',
 	description:
-		'Frame-by-frame pixel animation in the browser. See every change in a live loop, learn from contextual tips, and export files built for game engines.',
+		'Draw frame-by-frame pixel animations in your browser. Watch edits appear in the loop, get tips as you work, and export sprite sheets, GIFs, or individual frames.',
 	localPromise: ['No account', 'No upload', 'Works offline after the first load'],
 	example: {
 		name: 'White chicken walk',
 		frames: 4,
 		fps: 8,
 		frameMs: 125,
-		note: 'Example artwork drawn with Doodle-Do’s 16-color starter palette.'
+		note: "Example artwork drawn with Doodle-Do's 16-color starter palette."
 	},
 	modes: [
 		{
 			id: 'focus',
 			label: 'Focus',
 			key: '1',
-			great: 'Drawing one frame with onion-skin context.',
-			strains: 'Comparing many frames at once.'
+			great: 'Drawing one frame with onion skin for context.',
+			strains: 'Comparing several frames.'
 		},
 		{
 			id: 'grid',
 			label: 'Grid',
 			key: '2',
-			great: 'Seeing and editing every frame side by side.',
-			strains: 'Detail work on a single frame.'
+			great: 'Editing frames side by side.',
+			strains: 'Fine detail on one frame.'
 		},
 		{
 			id: 'loop',
 			label: 'Loop',
 			key: '3',
-			great: 'Judging the motion at full speed.',
+			great: 'Watching the animation at full speed.',
 			strains: 'Drawing. Switch back to Focus or Grid.'
 		}
 	],

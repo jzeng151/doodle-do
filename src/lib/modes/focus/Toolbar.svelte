@@ -25,7 +25,7 @@
 				class:active={session.tool === t.id}
 				aria-pressed={session.tool === t.id}
 				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'}
-				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' ? ' — Focus mode only' : ''}`}
+				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' ? '. Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}

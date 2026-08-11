@@ -62,7 +62,7 @@
 	{/if}
 	<div class="actions">
 		<button title="Add blank frame" onclick={() => session.addFrame(false)}>New</button>
-		<button title="Duplicate frame — nudge it for smooth motion" onclick={() => session.addFrame(true)}>
+		<button title="Duplicate the frame, then nudge pixels for smoother motion" onclick={() => session.addFrame(true)}>
 			Duplicate
 		</button>
 		<button

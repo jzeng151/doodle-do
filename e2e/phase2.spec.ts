@@ -35,7 +35,7 @@ test('tips: fire on triggers, cap per session, dismiss forever, hide all', async
 
 	// duplicating a frame fires T03
 	await page.getByRole('button', { name: 'Duplicate' }).click();
-	await expect(toast).toContainText('duplicating and nudging');
+	await expect(toast).toContainText('nudging a few pixels');
 	await toast.getByRole('button', { name: "Don't show again" }).click();
 
 	// dismissed forever: another duplicate stays quiet

@@ -24,16 +24,16 @@
 <div class="landing">
 	<header class="chapter">
 		<a class="logo" href="#top"><img src="/assets/chicken-standing.png" alt="" /><b>{copy.name}</b></a>
-		<p>CH. 01 — THE LOOP THAT WOULD NOT STOP</p>
+		<p>CH. 01 / DRAW, THEN WATCH</p>
 		<nav aria-label="Landing page"><a href="#views">Views</a><a href="#teaching">Teaching</a><a href="#output">Output</a></nav>
 	</header>
 
 	<main id="main-content">
 		<section class="hero" id="top">
 			<div class="pitch">
-				<h1 aria-label="Draw one frame. The loop already has it."><span aria-hidden="true">DRAW ONE FRAME.</span><span aria-hidden="true" class="inverse">THE LOOP ALREADY</span><span aria-hidden="true" class="inverse">HAS IT.</span></h1>
+				<h1 aria-label={copy.tagline}><span aria-hidden="true">DRAW A FRAME.</span><span aria-hidden="true" class="inverse">WATCH IT LOOP.</span></h1>
 				<p>{copy.description}</p>
-				<div class="actions"><button class="primary" disabled={!ready} onclick={onStart}>{ready ? (resume ? 'Resume autosave' : 'Start drawing') : 'Preparing editor…'}</button><a href="#output">See what exports</a></div>
+				<div class="actions"><button class="primary" disabled={!ready} onclick={onStart}>{ready ? (resume ? 'Resume autosave' : 'Start drawing') : 'Preparing editor…'}</button><a href="#output">View exports</a></div>
 				<ul aria-label="Product promises">{#each copy.localPromise as item}<li>{item}</li>{/each}</ul>
 			</div>
 			<figure class="stage">
@@ -46,24 +46,24 @@
 		</section>
 
 		<section class="strip" id="views">
-			<div class="section-head"><h2>THREE VIEWS. ONE SESSION.</h2><p>Focus, Grid, and Loop share the same document, selected frame, zoom, palette, and history. Each view says plainly what it is bad at.</p></div>
-			<div class="mode-table"><div class="table-head"><span>VIEW</span><span>KEY</span><span>GREAT AT</span><span>STRAINS WHEN</span></div>{#each copy.modes as mode}<div class="mode-row"><strong>{mode.label}</strong><kbd>{mode.key}</kbd><p>{mode.great}</p><p>{mode.strains}</p></div>{/each}</div>
+			<div class="section-head"><h2>CHOOSE A VIEW.</h2><p>Focus, Grid, and Loop use the same document, selected frame, zoom, palette, and history. Switch views without losing your place.</p></div>
+			<div class="mode-table"><div class="table-head"><span>VIEW</span><span>KEY</span><span>BEST FOR</span><span>LESS USEFUL FOR</span></div>{#each copy.modes as mode}<div class="mode-row"><strong>{mode.label}</strong><kbd>{mode.key}</kbd><p>{mode.great}</p><p>{mode.strains}</p></div>{/each}</div>
 		</section>
 
 		<section class="strip" id="teaching">
-			<div class="section-head"><h2>TEACHING, WHEN IT HELPS.</h2><p>Twenty-six contextual tips respond to real editing actions. They never block the canvas, appear one at a time, stop repeating, and can be dismissed forever.</p></div>
+			<div class="section-head"><h2>HOW TIPS WORK.</h2><p>Twenty-six tips are tied to editing actions. They appear one at a time without blocking the canvas, stop repeating, and can be dismissed forever.</p></div>
 			<ul class="tips">{#each copy.tips as tip}<li><blockquote>{tip.copy}</blockquote><span>{tip.id}</span></li>{/each}</ul>
 		</section>
 
 		<section class="strip" id="output">
-			<div class="section-head"><h2>FILES THAT LEAVE THE TOOL.</h2><p>Sprite-sheet output is verified against stock Phaser and Godot. Project files and autosave keep the editable source local.</p></div>
+			<div class="section-head"><h2>EXPORT OPTIONS.</h2><p>The sprite sheet export is tested against Phaser and Godot workflows. Autosaves stay in your browser, and project files stay on your disk.</p></div>
 			<div class="output-list">{#each copy.outputs as [name, detail]}<div><strong>{name}</strong><span>{detail}</span></div>{/each}</div>
 		</section>
 
-		<section class="toolbox"><h2>WHAT IS IN THE BOX</h2><ul>{#each copy.capabilities as item}<li>{item}</li>{/each}</ul><button class="primary inverse-button" disabled={!ready} onclick={onStart}>{resume ? 'Resume autosave' : 'Open the editor'}</button></section>
+		<section class="toolbox"><h2>EDITOR TOOLS</h2><ul>{#each copy.capabilities as item}<li>{item}</li>{/each}</ul><button class="primary inverse-button" disabled={!ready} onclick={onStart}>{resume ? 'Resume autosave' : 'Open the editor'}</button></section>
 	</main>
 
-	<footer><strong>{copy.name}</strong><p>Local-first pixel animation. Your editable project belongs in a file on your disk.</p></footer>
+	<footer><strong>{copy.name}</strong><p>Doodle-Do keeps your work local. Save a project file when you want an editable copy on disk.</p></footer>
 </div>
 
 <style>

@@ -137,7 +137,7 @@ test('mode switcher carries the teaching tooltips', async ({ page }) => {
 	await gotoApp(page);
 	for (const name of ['Focus', 'Grid', 'Loop']) {
 		const title = await switcher(page).getByRole('button', { name }).getAttribute('title');
-		expect(title).toContain('Great at:');
-		expect(title).toContain('Strains when:');
+		expect(title).toContain('Best for:');
+		expect(title).toContain('Less useful for:');
 	}
 });

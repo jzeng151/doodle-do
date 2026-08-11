@@ -129,21 +129,21 @@
 		<button
 			onclick={openClick}
 			disabled={busy}
-			title="Open a project file, or a sprite strip PNG (select its animations.json too for frame timing)"
+			title="Open a project file or sprite strip PNG. Select its animations.json too if it contains frame timing."
 		>
 			Open
 		</button>
 		<button
 			onclick={saveClick}
 			disabled={busy}
-			title="A project file on disk is the only copy you truly own"
+			title="Save an editable project file to disk"
 		>
 			Save project
 		</button>
-		<button onclick={exportSheet} disabled={busy} title="PNG sprite sheet + JSON for Phaser/Godot">
+		<button onclick={exportSheet} disabled={busy} title="PNG sprite sheet with JSON for Phaser and Godot">
 			Export sheet
 		</button>
-		<button onclick={exportGifClick} disabled={busy} title="Animated GIF, for showing off">
+		<button onclick={exportGifClick} disabled={busy} title="Animated GIF for sharing">
 			Export GIF
 		</button>
 		<button onclick={exportFramesClick} disabled={busy} title="Individual frame PNGs, zipped">

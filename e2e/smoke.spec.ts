@@ -204,7 +204,7 @@ test('reduced motion pauses the landing animation until requested', async ({ pag
 test('public surfaces keep accessible names and selected-control contrast', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
-		'Draw one frame. The loop already has it.'
+		'Draw a frame. Watch it loop.'
 	);
 	const start = page.locator('.pitch .primary');
 	await start.hover();

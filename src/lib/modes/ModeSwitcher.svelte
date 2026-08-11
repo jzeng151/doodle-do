@@ -8,7 +8,7 @@
 	const MODES: { id: Mode; label: string; tooltip: string }[] = PRODUCT_CONTENT.modes.map((mode) => ({
 		id: mode.id,
 		label: mode.label,
-		tooltip: `Great at: ${mode.great} Strains when: ${mode.strains}`
+		tooltip: `Best for: ${mode.great} Less useful for: ${mode.strains}`
 	}));
 </script>
 

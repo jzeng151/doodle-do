@@ -60,7 +60,7 @@
 </script>
 
 <svelte:head>
-	<title>Doodle-Do — frame-by-frame pixel animation</title>
+	<title>Doodle-Do | Frame-by-frame pixel animation</title>
 	<meta name="description" content={PRODUCT_CONTENT.description} />
 </svelte:head>
 

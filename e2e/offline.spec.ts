@@ -35,6 +35,6 @@ test('online navigation bypasses a stale cached shell', async ({ page }) => {
 
 	await page.reload();
 	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
-		'Draw one frame. The loop already has it.'
+		'Draw a frame. Watch it loop.'
 	);
 });

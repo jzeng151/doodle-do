@@ -43,7 +43,7 @@
 		<button
 			class:active={session.paletteLocked}
 			aria-pressed={session.paletteLocked}
-			title="Palette lock: how artists keep a piece looking coherent"
+			title="Limit drawing to colors already in the palette"
 			onclick={() => {
 				removePending = null;
 				session.togglePaletteLock();
@@ -68,7 +68,7 @@
 				class:selected={session.colorValue === i + 1}
 				class:doomed={removePending === i}
 				style="background: {hex}"
-				title="{hex} — double-click to edit"
+				title="{hex}. Double-click to edit"
 				aria-label="Color {hex}"
 				aria-pressed={session.colorValue === i + 1}
 				onclick={() => onSwatchClick(i)}
