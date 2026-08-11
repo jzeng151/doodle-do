@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { PRODUCT_CONTENT as copy } from '$lib/content/product';
-	import Sprite from '$lib/mockups/Sprite.svelte';
+	import ChickenSprite from './ChickenSprite.svelte';
 
 	let {
 		ready,
@@ -23,7 +23,7 @@
 <a class="skip" href="#main-content">Skip to content</a>
 <div class="landing">
 	<header class="chapter">
-		<a class="logo" href="#top"><span aria-hidden="true">週刊</span><b>{copy.name}</b></a>
+		<a class="logo" href="#top"><img src="/assets/chicken-standing.png" alt="" /><b>{copy.name}</b></a>
 		<p>CH. 01 — THE LOOP THAT WOULD NOT STOP</p>
 		<nav aria-label="Landing page"><a href="#views">Views</a><a href="#teaching">Teaching</a><a href="#output">Output</a></nav>
 	</header>
@@ -37,7 +37,7 @@
 				<ul aria-label="Product promises">{#each copy.localPromise as item}<li>{item}</li>{/each}</ul>
 			</div>
 			<figure class="stage">
-				<Sprite playing={motionPlaying} continuous scale={16}/>
+				<ChickenSprite playing={motionPlaying} scale={16}/>
 				<button class="motion-control" onclick={() => (motionPlaying = !motionPlaying)}>
 					{motionPlaying ? 'Pause animation' : 'Play animation'}
 				</button>
@@ -67,7 +67,7 @@
 </div>
 
 <style>
-	.landing{--paper:#f2efe6;--paper-2:#e9e5d9;--ink:#111;--gray:#5f5b54;min-height:100vh;padding:0 clamp(.9rem,3vw,3rem) 3rem;background-color:var(--paper);background-image:radial-gradient(rgba(17,17,17,.1) .55px,transparent .7px);background-size:5px 5px;color:var(--ink);font:1rem/1.6 system-ui,sans-serif}.skip{position:fixed;z-index:20;top:.5rem;left:.5rem;padding:.6rem .8rem;background:#111;color:#fff;transform:translateY(-150%)}.skip:focus{transform:none}.chapter{display:flex;align-items:flex-end;gap:clamp(1rem,3vw,2.5rem);padding:1.4rem 0 1rem;border-bottom:4px solid var(--ink)}.logo{display:flex;align-items:center;gap:.65rem;color:inherit;text-decoration:none}.logo span{padding:.35rem .2rem;background:var(--ink);color:var(--paper);font-size:.72rem;font-weight:900;letter-spacing:.08em;writing-mode:vertical-rl}.logo b{font-size:clamp(1.4rem,3vw,2.2rem);font-weight:950;letter-spacing:-.03em;text-transform:uppercase}.chapter>p{flex:1;color:var(--gray);font-size:.6875rem;font-weight:800;letter-spacing:.16em}.chapter nav{display:flex;gap:1.2rem}.chapter nav a{min-height:44px;color:inherit;font-size:.6875rem;font-weight:800;letter-spacing:.12em;text-decoration:none;text-transform:uppercase}.chapter a:focus-visible,.landing button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+	.landing{--paper:#f2efe6;--paper-2:#e9e5d9;--ink:#111;--gray:#5f5b54;min-height:100vh;padding:0 clamp(.9rem,3vw,3rem) 3rem;background-color:var(--paper);background-image:radial-gradient(rgba(17,17,17,.1) .55px,transparent .7px);background-size:5px 5px;color:var(--ink);font:1rem/1.6 system-ui,sans-serif}.skip{position:fixed;z-index:20;top:.5rem;left:.5rem;padding:.6rem .8rem;background:#111;color:#fff;transform:translateY(-150%)}.skip:focus{transform:none}.chapter{display:flex;align-items:flex-end;gap:clamp(1rem,3vw,2.5rem);padding:1.4rem 0 1rem;border-bottom:4px solid var(--ink)}.logo{display:flex;align-items:center;gap:.65rem;color:inherit;text-decoration:none}.logo img{width:32px;height:32px;image-rendering:pixelated}.logo b{font-size:clamp(1.4rem,3vw,2.2rem);font-weight:950;letter-spacing:-.03em;text-transform:uppercase}.chapter>p{flex:1;color:var(--gray);font-size:.6875rem;font-weight:800;letter-spacing:.16em}.chapter nav{display:flex;gap:1.2rem}.chapter nav a{min-height:44px;color:inherit;font-size:.6875rem;font-weight:800;letter-spacing:.12em;text-decoration:none;text-transform:uppercase}.chapter a:focus-visible,.landing button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 	main{width:min(1180px,100%);margin:auto}.hero{display:grid;grid-template-columns:minmax(280px,1fr) minmax(320px,.9fr);gap:clamp(2rem,6vw,6rem);align-items:center;min-height:660px;padding:clamp(2rem,6vw,5rem) 0}.pitch h1{display:flex;flex-direction:column;align-items:flex-start;gap:3px;font-size:clamp(2.7rem,6vw,5.2rem);font-weight:950;line-height:.98;letter-spacing:-.04em;text-wrap:balance}.pitch h1 span{padding:.03em .12em .08em;margin-left:-.12em}.pitch h1 .inverse{background:var(--ink);color:var(--paper)}.pitch>p{max-width:40ch;margin-top:1.5rem;color:#34312d}.actions{display:flex;align-items:center;gap:.8rem;margin-top:1.7rem}.primary{min-height:48px;padding:.7rem 1rem;border:3px solid var(--ink);border-radius:0;background:var(--ink);color:var(--paper);font:800 .75rem/1 system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}.primary:disabled{opacity:.55}.actions>a{color:inherit;font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.pitch ul{display:flex;flex-wrap:wrap;gap:.5rem 1rem;margin-top:1.3rem!important;color:var(--gray);font-size:.75rem;list-style:none}.pitch li{display:flex;align-items:center;gap:.55rem}.pitch li::before{width:4px;height:4px;flex:none;border-radius:50%;background:currentColor;content:''}.stage{position:relative;display:grid;place-items:center;min-height:430px;margin:0;overflow:hidden;border:3px solid var(--ink);background:var(--paper)}.stage :global(canvas){position:relative}.stage figcaption{position:absolute;right:0;bottom:0;left:0;padding:.7rem .8rem;background:var(--paper);border-top:3px solid var(--ink);font-size:.75rem;line-height:1.35}
 	.motion-control{position:absolute;top:.65rem;right:.65rem;z-index:1;background:var(--paper)}
 	.strip{padding:clamp(4rem,8vw,7rem) 0 0}.section-head{display:grid;grid-template-columns:minmax(260px,.6fr) 1fr;gap:clamp(2rem,8vw,7rem);align-items:start}.section-head h2{justify-self:start;padding:.3rem .65rem;background:var(--ink);color:var(--paper);font-size:clamp(1.25rem,2.5vw,1.8rem);font-weight:950;letter-spacing:-.02em}.section-head p{max-width:64ch;color:#34312d}.mode-table{margin-top:1.8rem;border:3px solid var(--ink)}.table-head,.mode-row{display:grid;grid-template-columns:7rem 4rem 1fr 1fr}.table-head{background-image:radial-gradient(var(--ink) 1.5px,transparent 1.7px);background-size:6px 6px}.table-head span{padding:.65rem .8rem;background:rgba(242,239,230,.8);font-size:.625rem;font-weight:900;letter-spacing:.12em}.mode-row>*{margin:0;padding:.9rem .8rem;border-top:2px solid var(--ink);border-right:1px solid var(--ink)}.mode-row>*:last-child{border-right:0}.mode-row strong{text-transform:uppercase}.mode-row kbd{font:900 .75rem/1 system-ui,sans-serif}.mode-row p{font-size:.875rem;line-height:1.45}.mode-row p:last-child{background:var(--paper-2)}

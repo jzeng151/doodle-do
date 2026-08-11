@@ -115,7 +115,7 @@
 </script>
 
 <header class="bar">
-	<span class="kanji" aria-hidden="true">週刊</span><span class="brand">Doodle-Do</span>
+	<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
 	<ModeSwitcher {session} />
 	<input class="name" value={session.doc.meta.name} onchange={rename} aria-label="Document name" />
 	<span class="status" aria-live="polite">
@@ -173,7 +173,7 @@
 		border-bottom: 4px solid var(--edge);
 		background: var(--paper);
 	}
-	.kanji { padding: .25rem .3rem; background: var(--ink); color: var(--paper); font-size: .6875rem; font-weight: 900; }
+	.mark { width: 28px; height: 28px; image-rendering: pixelated; }
 	.brand {
 		font-size: 0.9375rem;
 		font-weight: 950;
