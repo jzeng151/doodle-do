@@ -154,3 +154,11 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
 });
+
+test('Screentone mock keeps its active tool readable on hover', async ({ page }) => {
+	await page.goto('/mockups#tone/editor');
+	const pencil = page.getByRole('button', { name: 'PENCILB' });
+	await pencil.hover();
+	await expect(pencil).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+	await expect(pencil).toHaveCSS('color', 'rgb(242, 239, 230)');
+});

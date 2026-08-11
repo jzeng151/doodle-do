@@ -172,6 +172,10 @@
 		color: var(--paper);
 		background: var(--ink);
 	}
+	button.on:hover {
+		color: var(--paper);
+		background: var(--ink);
+	}
 	input {
 		font-family: inherit;
 		font-size: 0.75rem;

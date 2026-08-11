@@ -112,7 +112,8 @@
 		opacity: 0.4;
 		cursor: default;
 	}
-	:global(button.active) {
+	:global(button.active),
+	:global(button.active:hover:not(:disabled)) {
 		background: var(--ink);
 		border-color: var(--ink);
 		color: var(--paper);
