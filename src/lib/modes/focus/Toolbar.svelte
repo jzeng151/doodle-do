@@ -33,7 +33,7 @@
 		{/each}
 	</div>
 
-	<div class="group">
+	<div class="group" role="group" aria-label="Brush settings">
 		<label>
 			Size
 			<select bind:value={session.brushSize}>
@@ -52,17 +52,17 @@
 		</button>
 	</div>
 
-	<div class="group">
+	<div class="group" role="group" aria-label="Flip layer">
 		<button title="Flip layer horizontally" onclick={() => session.flip('horizontal')}>Flip H</button>
 		<button title="Flip layer vertically" onclick={() => session.flip('vertical')}>Flip V</button>
 	</div>
 
-	<div class="group">
+	<div class="group" role="group" aria-label="History">
 		<button disabled={!canUndo} title="Undo (Ctrl+Z)" onclick={() => session.undo()}>Undo</button>
 		<button disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onclick={() => session.redo()}>Redo</button>
 	</div>
 
-	<div class="group">
+	<div class="group" role="group" aria-label="Canvas view">
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
@@ -71,7 +71,7 @@
 		<button aria-label="Zoom in" title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
 	</div>
 
-	<div class="group onion">
+	<div class="group onion" role="group" aria-label="Onion skin">
 		<button
 			class:active={session.onionEnabled}
 			aria-pressed={session.onionEnabled}
@@ -90,6 +90,7 @@
 			title="Onion skin opacity"
 			aria-label="Onion skin opacity"
 		/>
+		<span class="onion-key"><i></i>Previous faint · <b></b>Next strong</span>
 	</div>
 </div>
 
@@ -126,6 +127,10 @@
 		width: 72px;
 		accent-color: var(--ink);
 	}
+	.onion-key { font-size: 0.625rem; white-space: nowrap; }
+	.onion-key i, .onion-key b { display: inline-block; width: .65rem; height: .65rem; margin-right: .2rem; vertical-align: -.05rem; }
+	.onion-key i { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
+	.onion-key b { margin-left: .35rem; background: var(--onion-next); }
 	@media (max-width: 720px) {
 		.toolbar { flex-wrap: nowrap; overflow-x: auto; }
 		.group { flex: none; }

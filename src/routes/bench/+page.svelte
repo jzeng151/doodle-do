@@ -15,16 +15,21 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Doodle-Do performance benchmark</title>
+	<meta name="robots" content="noindex" />
+</svelte:head>
+
 <main>
 	<h1>Doodle-Do bench</h1>
 	{#if results}
-		<p class="gate" class:pass={results.gate.passed}>
+		<p class="gate" class:pass={results.gate.passed} role="status" aria-live="polite">
 			Gate (stroke→loop p95 &lt; {results.gate.limitMs}ms):
 			{results.gate.passed ? 'PASS' : 'FAIL'}
 		</p>
 		<pre>{JSON.stringify(results, null, 2)}</pre>
 	{:else}
-		<p>Running…</p>
+		<p role="status" aria-live="polite">Running benchmark…</p>
 	{/if}
 </main>
 

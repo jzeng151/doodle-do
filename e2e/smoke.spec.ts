@@ -135,3 +135,18 @@ test('reduced motion pauses the landing animation until requested', async ({ pag
 	await play.click();
 	await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
 });
+
+test('public surfaces keep accessible names and selected-control contrast', async ({ page }) => {
+	await page.goto('/');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
+		'Draw one frame. The loop already has it.'
+	);
+	await page.getByRole('button', { name: 'Start drawing' }).click();
+
+	const currentFrame = page.getByRole('group', { name: 'Frames' }).getByRole('button').first();
+	await expect(currentFrame).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+	await expect(currentFrame).toHaveCSS('color', 'rgb(242, 239, 230)');
+
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
+});

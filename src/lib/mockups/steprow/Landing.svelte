@@ -207,7 +207,7 @@
 						<span class="silk">FPS</span>
 					</div>
 					<div class="rate-stage">
-						<Sprite playing={running} fps={r.fps} scale={6} />
+						<Sprite playing={running} continuous fps={r.fps} scale={6} />
 					</div>
 					<figcaption>{r.label}</figcaption>
 				</figure>

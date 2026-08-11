@@ -31,13 +31,13 @@
 	<main id="main-content">
 		<section class="hero" id="top">
 			<div class="pitch">
-				<h1><span>DRAW ONE FRAME.</span><span class="inverse">THE LOOP ALREADY</span><span class="inverse">HAS IT.</span></h1>
+				<h1 aria-label="Draw one frame. The loop already has it."><span aria-hidden="true">DRAW ONE FRAME.</span><span aria-hidden="true" class="inverse">THE LOOP ALREADY</span><span aria-hidden="true" class="inverse">HAS IT.</span></h1>
 				<p>{copy.description}</p>
 				<div class="actions"><button class="primary" disabled={!ready} onclick={onStart}>{ready ? (resume ? 'Resume autosave' : 'Start drawing') : 'Preparing editor…'}</button><a href="#output">See what exports</a></div>
 				<ul aria-label="Product promises">{#each copy.localPromise as item}<li>{item}</li>{/each}</ul>
 			</div>
 			<figure class="stage">
-				<Sprite playing={motionPlaying} scale={16}/>
+				<Sprite playing={motionPlaying} continuous scale={16}/>
 				<button class="motion-control" onclick={() => (motionPlaying = !motionPlaying)}>
 					{motionPlaying ? 'Pause animation' : 'Play animation'}
 				</button>

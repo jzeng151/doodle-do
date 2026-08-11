@@ -42,11 +42,11 @@
 	<form class="custom" novalidate onsubmit={createCustom}>
 		<label>
 			W
-			<input type="number" min="1" max={MAX_CANVAS} bind:value={customW} />
+			<input aria-label="Width in pixels" type="number" min="1" max={MAX_CANVAS} bind:value={customW} />
 		</label>
 		<label>
 			H
-			<input type="number" min="1" max={MAX_CANVAS} bind:value={customH} />
+			<input aria-label="Height in pixels" type="number" min="1" max={MAX_CANVAS} bind:value={customH} />
 		</label>
 		<button type="submit">Create</button>
 		<button type="button" onclick={() => dialogEl.close()}>Cancel</button>

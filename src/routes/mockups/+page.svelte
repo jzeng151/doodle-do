@@ -284,25 +284,12 @@
 		themeId = THEMES[(i + by + THEMES.length) % THEMES.length].id;
 	}
 
-	function onKey(e: KeyboardEvent) {
-		if ((e.target as HTMLElement).matches('input, textarea, select')) return;
-		if (e.key === 'ArrowRight') step(1);
-		else if (e.key === 'ArrowLeft') step(-1);
-		else if (e.key.toLowerCase() === 'v') surface = surface === 'landing' ? 'editor' : 'landing';
-		else if (/^[0-9]$/.test(e.key)) {
-			// 1-9 pick directly, 0 picks the tenth
-			const n = e.key === '0' ? 10 : Number(e.key);
-			if (n <= THEMES.length) themeId = THEMES[n - 1].id;
-		}
-	}
 </script>
 
 <svelte:head>
 	<title>Doodle-Do design directions</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
-
-<svelte:window onkeydown={onKey} />
 
 <header class="switcher">
 	<div class="bar top">
@@ -319,7 +306,6 @@
 					{s.name}
 				</button>
 			{/each}
-			<kbd>V</kbd>
 		</div>
 		<div class="stepper">
 			<button onclick={() => step(-1)} aria-label="Previous direction">‹</button>
@@ -328,7 +314,7 @@
 	</div>
 
 	<nav class="bar tabs" aria-label="Design direction" bind:this={tabstrip}>
-		{#each THEMES as t, i (t.id)}
+		{#each THEMES as t (t.id)}
 			<button
 				class="tab"
 				data-theme={t.id}
@@ -341,7 +327,6 @@
 					{#each t.chips as c (c)}<i style="background: {c}"></i>{/each}
 				</span>
 				<span class="name">{t.name}</span>
-				<kbd>{i < 9 ? i + 1 : i === 9 ? 0 : '–'}</kbd>
 			</button>
 		{/each}
 	</nav>
@@ -464,15 +449,6 @@
 	}
 	.name {
 		font-weight: 500;
-	}
-	kbd {
-		font: inherit;
-		font-size: 9px;
-		letter-spacing: 0.06em;
-		color: #75757e;
-		padding: 2px 4px;
-		border: 1px solid rgba(255, 255, 255, 0.18);
-		border-radius: 3px;
 	}
 	.world {
 		margin: 0;

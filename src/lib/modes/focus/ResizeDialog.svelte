@@ -50,11 +50,11 @@
 	<form class="custom" novalidate onsubmit={apply}>
 		<label>
 			W
-			<input type="number" min="1" max={MAX_CANVAS} bind:value={w} />
+			<input aria-label="Width in pixels" type="number" min="1" max={MAX_CANVAS} bind:value={w} />
 		</label>
 		<label>
 			H
-			<input type="number" min="1" max={MAX_CANVAS} bind:value={h} />
+			<input aria-label="Height in pixels" type="number" min="1" max={MAX_CANVAS} bind:value={h} />
 		</label>
 		<button type="submit">Resize</button>
 		<button type="button" onclick={() => dialogEl.close()}>Cancel</button>

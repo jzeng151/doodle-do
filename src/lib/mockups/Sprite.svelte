@@ -11,6 +11,7 @@
 		playing = false,
 		fps = 8,
 		scale = 4,
+		continuous = false,
 		onion = 0,
 		grid = false,
 		class: klass = ''
@@ -20,6 +21,8 @@
 		playing?: boolean;
 		fps?: number;
 		scale?: number;
+		/** Keep autoplay running beyond five seconds only when the surrounding UI has a pause control. */
+		continuous?: boolean;
 		/** Onion-skin opacity; 0 disables. Previous frame red, next frame green. */
 		onion?: number;
 		grid?: boolean;
@@ -29,8 +32,9 @@
 	let canvas: HTMLCanvasElement;
 	let live = $state(0);
 	let reduceMotion = $state(false);
+	let autoStopped = $state(false);
 
-	const shown = $derived(playing && !reduceMotion ? live : frame);
+	const shown = $derived(playing && !reduceMotion && !autoStopped ? live : frame);
 
 	function paint(px: Uint8Array, ctx: CanvasRenderingContext2D, tint: string | null, alpha: number) {
 		ctx.globalAlpha = alpha;
@@ -82,10 +86,14 @@
 	});
 
 	$effect(() => {
-		if (!playing || reduceMotion) return;
+		if (!playing || reduceMotion || autoStopped) return;
 		const step = WALK_MS[0] ?? 1000 / fps;
 		const timer = setInterval(() => (live = (live + 1) % frames.length), step);
-		return () => clearInterval(timer);
+		const stopTimer = continuous ? undefined : setTimeout(() => (autoStopped = true), 5000);
+		return () => {
+			clearInterval(timer);
+			if (stopTimer) clearTimeout(stopTimer);
+		};
 	});
 </script>
 

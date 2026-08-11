@@ -195,6 +195,8 @@
 	}
 	.film-frame.active {
 		box-shadow: 0 0 0 3px var(--ink);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.film-frame canvas {
 		image-rendering: pixelated;

@@ -35,7 +35,7 @@
 			// previous N=1 red, next N=1 green (§4.3 defaults), flattened composite
 			const prev = (f - 1 + frames.length) % frames.length;
 			const next = (f + 1) % frames.length;
-			drawOnionGhost(ctx, session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity);
+			drawOnionGhost(ctx, session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity * 0.55);
 			if (next !== prev) {
 				drawOnionGhost(ctx, session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
 			}

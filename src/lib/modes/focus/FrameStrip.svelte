@@ -87,6 +87,7 @@
 			ms
 			<input
 				type="number"
+				aria-label="Frame duration in milliseconds"
 				min="20"
 				step="10"
 				placeholder={String(defaultDurationMs)}
@@ -125,6 +126,8 @@
 	}
 	.thumb.active {
 		box-shadow: 0 0 0 3px var(--ink);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.thumb canvas {
 		image-rendering: pixelated;

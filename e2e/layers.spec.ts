@@ -50,7 +50,7 @@ test('send layer to frame copies it onto the target frame', async ({ page }) => 
 	await drawDot(page, 8, 8); // frame 1, layer 1
 
 	await page.getByTitle('Send layer to another frame').click();
-	await page.getByRole('spinbutton', { name: 'Frame' }).fill('2');
+	await page.getByRole('spinbutton', { name: 'Frame', exact: true }).fill('2');
 	await page.getByRole('button', { name: 'Copy' }).click();
 
 	// the source frame is untouched, the target gained the pixels
