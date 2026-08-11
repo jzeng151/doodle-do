@@ -1,23 +1,37 @@
-// Offline support (§4.7/§5): everything works with no network after first
-// load. Precache the build + static assets + prerendered pages, serve
-// cache-first for precached URLs, network-first with cache fallback for
-// the rest.
+// Offline support (§4.7/§5): cache the production shell after the first load,
+// then fill optional routes on demand. Navigations stay network-first so an
+// online reload does not serve an older app shell.
 /// <reference types="@sveltejs/kit" />
 /// <reference no-default-lib="true"/>
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-import { build, files, prerendered, version } from '$service-worker';
+import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `doodledo-${version}`;
-const ASSETS = [...build, ...files, ...prerendered];
+const BASE = sw.location.pathname.split('/').slice(0, -1).join('/');
+const ROOT = `${BASE}/`;
+const IMMUTABLE = `${BASE}/_app/immutable/`;
+const WORKERS = build.filter((path) => path.includes('/workers/'));
+
+async function cacheShell(cache: Cache): Promise<void> {
+	const response = await fetch(ROOT, { cache: 'reload' });
+	if (!response.ok) throw new Error(`App shell returned ${response.status}`);
+	const html = await response.clone().text();
+	const linked = [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)]
+		.map((match) => new URL(match[1], response.url))
+		.filter((url) => url.origin === sw.location.origin && url.pathname.startsWith(IMMUTABLE))
+		.map((url) => url.pathname);
+	await cache.put(ROOT, response);
+	await cache.addAll([...new Set([...files, ...WORKERS, ...linked])]);
+}
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		caches
 			.open(CACHE)
-			.then((cache) => cache.addAll(ASSETS))
+			.then(cacheShell)
 			.then(() => sw.skipWaiting())
 	);
 });
@@ -39,8 +53,8 @@ sw.addEventListener('fetch', (event) => {
 	event.respondWith(
 		(async () => {
 			const cache = await caches.open(CACHE);
-			if (ASSETS.includes(url.pathname)) {
-				const cached = await cache.match(url.pathname);
+			if (event.request.mode !== 'navigate' && url.pathname.startsWith(IMMUTABLE)) {
+				const cached = await cache.match(event.request);
 				if (cached) return cached;
 			}
 			try {
@@ -51,7 +65,7 @@ sw.addEventListener('fetch', (event) => {
 				const cached =
 					(await cache.match(event.request)) ??
 					// offline navigation to any route falls back to the app shell
-					(event.request.mode === 'navigate' ? await cache.match('/') : undefined);
+					(event.request.mode === 'navigate' ? await cache.match(ROOT) : undefined);
 				if (cached) return cached;
 				throw err;
 			}
