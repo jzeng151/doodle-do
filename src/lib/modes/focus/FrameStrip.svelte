@@ -129,6 +129,10 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	.thumb.active:hover {
+		background: var(--paper-2);
+		color: var(--ink);
+	}
 	.thumb canvas {
 		image-rendering: pixelated;
 		width: 48px;

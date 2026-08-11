@@ -198,6 +198,10 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	.film-frame.active:hover {
+		background: var(--paper-2);
+		color: var(--ink);
+	}
 	.film-frame canvas {
 		image-rendering: pixelated;
 		width: 48px;
