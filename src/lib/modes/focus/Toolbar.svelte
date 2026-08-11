@@ -57,6 +57,23 @@
 		<button title="Flip layer vertically" onclick={() => session.flip('vertical')}>Flip V</button>
 	</div>
 
+	<div class="group" role="group" aria-label="Rotate selection">
+		<button
+			disabled={!session.hasSelection}
+			title="Rotate selection 15 degrees left"
+			onclick={() => session.rotateSelectionBy(-Math.PI / 12)}
+		>
+			Rotate −15°
+		</button>
+		<button
+			disabled={!session.hasSelection}
+			title="Rotate selection 15 degrees right"
+			onclick={() => session.rotateSelectionBy(Math.PI / 12)}
+		>
+			Rotate +15°
+		</button>
+	</div>
+
 	<div class="group" role="group" aria-label="History">
 		<button disabled={!canUndo} title="Undo (Ctrl+Z)" onclick={() => session.undo()}>Undo</button>
 		<button disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onclick={() => session.redo()}>Redo</button>

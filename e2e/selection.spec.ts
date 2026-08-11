@@ -166,6 +166,33 @@ test('rotate handle turns a selection 90 degrees with shift snap', async ({ page
 	expect(await page.evaluate(pixelOpaque, [12, 14] as [number, number])).toBe(false);
 });
 
+test('keyboard controls rotate a selection', async ({ page }) => {
+	await page.goto('/#editor');
+	await page.locator('canvas.editor').waitFor();
+
+	await mouseOnPixel(page, 10, 16);
+	await page.mouse.down();
+	await mouseOnPixel(page, 14, 16);
+	await page.mouse.up();
+
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 10, 16);
+	await page.mouse.down();
+	await mouseOnPixel(page, 14, 16);
+	await page.mouse.up();
+
+	const rotateRight = page.getByRole('button', { name: 'Rotate +15°' });
+	await rotateRight.focus();
+	for (let i = 0; i < 6; i++) await page.keyboard.press('Enter');
+	await page.locator('canvas.editor').focus();
+	await page.keyboard.press('Enter');
+
+	expect(await page.evaluate(pixelOpaque, [12, 14] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [12, 18] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [10, 16] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [14, 16] as [number, number])).toBe(false);
+});
+
 test('lasso selects a freehand region and moves it', async ({ page }) => {
 	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();

@@ -401,6 +401,11 @@ export class EditorSession {
 		this.overlayVersion++;
 	}
 
+	rotateSelectionBy(deltaRad: number): void {
+		if (this.selectionMask && !this.floating) this.liftSelection();
+		if (this.floating) this.rotateFloating(this.floating.angle + deltaRad);
+	}
+
 	// arrow-key nudge: a bare mask lifts first, like flip()
 	nudgeSelection(dx: number, dy: number): void {
 		if (this.selectionMask && !this.floating) this.liftSelection();

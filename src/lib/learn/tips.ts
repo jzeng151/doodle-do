@@ -28,7 +28,7 @@ export const TIPS: Record<string, Tip> = Object.fromEntries(
 			['T13', "Both sides at once — perfect for front-facing characters. Turn it off for walk cycles; walking isn't symmetrical.", 1],
 			['T14', 'Click anywhere outside to stamp it down. Undo removes the whole move in one step.', 2],
 			['T15', 'Your work autosaves in the browser, but a project file on disk is the only copy you truly own.', null],
-			['T16', 'Shift adds another region to the selection. Drag the handle above it to rotate, and hold Shift to snap the angle.', 2],
+			['T16', 'Shift adds another region to the selection. Rotate it from the toolbar, or drag the handle and hold Shift to snap the angle.', 2],
 			['T17', "Rectangles aren't the only option: Lasso (L), Wand (W), and Polygon (P) select any shape.", 2],
 			['T18', 'Click to place corners. Click the first corner again, or press Enter, to close the shape. Esc discards it.', 2],
 			['T19', 'Ctrl+J lifts the selection onto its own layer, ready to move independently.', 2],
