@@ -133,5 +133,6 @@
 	}
 	@media (pointer: coarse) {
 		:global(button, input, select) { min-height: 44px; }
+		:global(button) { min-width: 44px; }
 	}
 </style>

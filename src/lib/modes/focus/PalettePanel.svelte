@@ -155,4 +155,8 @@
 		opacity: 0;
 		pointer-events: none;
 	}
+	@media (pointer: coarse) {
+		.swatches { grid-template-columns: repeat(auto-fit, 44px); }
+		.swatch { width: 44px; }
+	}
 </style>

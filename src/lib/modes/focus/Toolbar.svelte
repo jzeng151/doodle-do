@@ -132,7 +132,7 @@
 	.onion-key i { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
 	.onion-key b { margin-left: .35rem; background: var(--onion-next); }
 	@media (max-width: 720px) {
-		.toolbar { flex-wrap: nowrap; overflow-x: auto; }
+		.toolbar { flex: none; flex-wrap: nowrap; overflow-x: auto; }
 		.group { flex: none; }
 	}
 </style>

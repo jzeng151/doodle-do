@@ -125,6 +125,25 @@ test('mobile editor keeps document status and tips in the layout', async ({ page
 	await expect(page.getByLabel('Document name')).toBeVisible();
 	await expect(page.locator('.status')).toBeVisible();
 	await expect(page.locator('.tip')).toHaveCSS('position', 'relative');
+	const toolbar = await page.locator('.toolbar').boundingBox();
+	expect(toolbar?.height).toBeGreaterThanOrEqual(44);
+});
+
+test('coarse pointers get full-size compact controls', async ({ browser }) => {
+	const context = await browser.newContext({
+		viewport: { width: 320, height: 568 },
+		isMobile: true,
+		hasTouch: true
+	});
+	const page = await context.newPage();
+	await gotoApp(page);
+	const zoomOut = await page.getByRole('button', { name: 'Zoom out' }).boundingBox();
+	const swatch = await page.getByRole('button', { name: 'Transparent' }).boundingBox();
+	expect(zoomOut?.width).toBeGreaterThanOrEqual(44);
+	expect(zoomOut?.height).toBeGreaterThanOrEqual(44);
+	expect(swatch?.width).toBeGreaterThanOrEqual(44);
+	expect(swatch?.height).toBeGreaterThanOrEqual(44);
+	await context.close();
 });
 
 test('reduced motion pauses the landing animation until requested', async ({ page }) => {
