@@ -17,21 +17,18 @@ export const PRODUCT_CONTENT = {
 		{
 			id: 'focus',
 			label: 'Focus',
-			key: '1',
 			great: 'Drawing one frame with onion skin for context.',
 			strains: 'Comparing several frames.'
 		},
 		{
 			id: 'grid',
 			label: 'Grid',
-			key: '2',
 			great: 'Editing frames side by side.',
 			strains: 'Fine detail on one frame.'
 		},
 		{
 			id: 'loop',
 			label: 'Loop',
-			key: '3',
 			great: 'Watching the animation at full speed.',
 			strains: 'Drawing. Switch back to Focus or Grid.'
 		}
