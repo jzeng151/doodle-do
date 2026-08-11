@@ -22,7 +22,8 @@ export class LoopPlayer {
 		private readonly compositor: Compositor,
 		private readonly target: HTMLCanvasElement,
 		private readonly onFrame?: (frame: number) => void,
-		private readonly range?: () => { start: number; end: number } // live playback range, inclusive
+		private readonly range?: () => { start: number; end: number }, // live playback range, inclusive
+		private readonly playbackSpeed?: () => number
 	) {}
 
 	get playing(): boolean {
@@ -40,7 +41,7 @@ export class LoopPlayer {
 			const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
 			const before = this.frame;
 			if (this.frame < start || this.frame > end) this.frame = start; // range changed / frame deleted
-			this.acc += now - this.lastTime;
+			this.acc += (now - this.lastTime) * (this.playbackSpeed?.() ?? 1);
 			this.lastTime = now;
 			let duration = frameDurationMs(this.doc, this.frame);
 			while (this.acc >= duration) {

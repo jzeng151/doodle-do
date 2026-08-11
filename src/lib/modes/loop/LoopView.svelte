@@ -12,6 +12,7 @@
 	let player: LoopPlayer;
 	let playing = $state(false);
 	let playFrame = $state(0);
+	const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2] as const;
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const rangeStart = $derived((session.version, session.loopRange, session.effectiveLoopRange().start));
@@ -28,8 +29,13 @@
 
 	onMount(() => {
 		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		player = new LoopPlayer(session.doc, session.compositor, heroEl, (f) => (playFrame = f), () =>
-			session.effectiveLoopRange()
+		player = new LoopPlayer(
+			session.doc,
+			session.compositor,
+			heroEl,
+			(f) => (playFrame = f),
+			() => session.effectiveLoopRange(),
+			() => session.loopPlaybackSpeed
 		);
 		playing = !media.matches;
 		if (playing) player.start();
@@ -102,6 +108,18 @@
 		/>
 		<span class="counter">{playFrame + 1} / {frameCount}</span>
 		<label>
+			Speed
+			<select
+				bind:value={session.loopPlaybackSpeed}
+				aria-label="Playback speed"
+				title="Preview speed only; frame timing and exports stay unchanged"
+			>
+				{#each PLAYBACK_SPEEDS as speed (speed)}
+					<option value={speed}>{speed}×</option>
+				{/each}
+			</select>
+		</label>
+		<label>
 			From
 			<input
 				type="number"
@@ -167,17 +185,26 @@
 	}
 	.controls {
 		display: flex;
-		gap: 0.75rem;
+		gap: 0.5rem;
 		align-items: center;
-		width: min(512px, 90%);
+		width: min(640px, 100%);
+		flex-wrap: wrap;
 	}
 	.scrubber {
-		flex: 1;
+		flex: 1 1 12rem;
 	}
 	.counter {
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
+	.controls label {
+		display: flex;
+		gap: 0.35rem;
+		align-items: center;
+		white-space: nowrap;
+	}
+	.controls input[type='number'] { width: 3.5rem; }
+	.controls select { width: 4.5rem; }
 	.filmstrip {
 		display: flex;
 		gap: 6px;
@@ -210,7 +237,7 @@
 	}
 	@media (max-width: 620px) {
 		.loop-mode { min-height: 650px; padding: .75rem; }
-		.controls { width: 100%; flex-wrap: wrap; }
+		.controls { width: 100%; }
 		.scrubber { flex-basis: 55%; }
 	}
 </style>

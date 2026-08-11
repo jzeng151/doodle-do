@@ -80,6 +80,10 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.locator('canvas.hero')).toBeVisible();
 	await expect(page.locator('.counter')).toContainText('/ 2');
+	const speed = page.getByLabel('Playback speed');
+	await expect(speed).toHaveValue('1');
+	await expect(speed.locator('option')).toHaveText(['0.25×', '0.5×', '1×', '2×']);
+	await speed.selectOption('0.25');
 
 	// scrubbing pauses and jumps
 	await page.locator('.scrubber').fill('1');
@@ -93,6 +97,11 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await page.locator('.film-frame').first().click();
 	await expect(page.locator('.counter')).toHaveText('1 / 2');
 	await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+
+	// playback speed is view state and survives closing and reopening Loop mode
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await expect(page.getByLabel('Playback speed')).toHaveValue('0.25');
 });
 
 test('B5: a floating selection commits on mode switch', async ({ page }) => {

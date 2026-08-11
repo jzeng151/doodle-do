@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { nextLoopFrame } from './loop';
+import { describe, expect, it, vi } from 'vitest';
+import { createDoc } from '../core/document';
+import { LoopPlayer, nextLoopFrame } from './loop';
 
 describe('nextLoopFrame (playback range)', () => {
 	it('advances within the range and wraps from end to start', () => {
@@ -15,5 +16,35 @@ describe('nextLoopFrame (playback range)', () => {
 
 	it('holds still on a single-frame range', () => {
 		expect(nextLoopFrame(2, 2, 2)).toBe(2);
+	});
+});
+
+describe('LoopPlayer playback speed', () => {
+	it('scales elapsed playback time', () => {
+		let tick: FrameRequestCallback = () => {};
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+			tick = callback;
+			return 1;
+		});
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+		const target = {
+			width: 1,
+			height: 1,
+			getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() })
+		} as unknown as HTMLCanvasElement;
+		const compositor = { frameCanvas: () => ({}) } as never;
+		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'] });
+		const player = new LoopPlayer(doc, compositor, target, undefined, undefined, () => 0.25);
+
+		player.start();
+		tick(399);
+		expect(player.currentFrame).toBe(0);
+		tick(400);
+		expect(player.currentFrame).toBe(1);
+
+		player.stop();
+		now.mockRestore();
+		vi.unstubAllGlobals();
 	});
 });
