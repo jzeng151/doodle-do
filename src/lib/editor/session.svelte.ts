@@ -705,9 +705,17 @@ export class EditorSession {
 		tips.fire('T08');
 	}
 
-	removePaletteColor(index: number, remapTo: number): void {
-		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return;
-		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, remapTo));
+	removePaletteColor(index: number, remapTo?: number): boolean {
+		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		const value = index + 1;
+		const inUse = this.doc.frames.some((frame) =>
+			frame.layers.some((layer) => layer.pixels.includes(value))
+		);
+		if (inUse && remapTo === undefined) return false;
+		const target = remapTo ?? (index === 0 ? 1 : index - 1);
+		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
+		this.colorValue = target < index ? target + 1 : target;
+		return true;
 	}
 
 	// --- canvas ---

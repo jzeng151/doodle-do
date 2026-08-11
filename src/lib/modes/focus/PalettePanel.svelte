@@ -10,6 +10,9 @@
 	let removePending = $state<number | null>(null);
 	let swapInput: HTMLInputElement;
 	let swapIndex = -1;
+	$effect(() => {
+		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
+	});
 
 	function onSwatchClick(i: number) {
 		if (removePending !== null) {
@@ -22,9 +25,15 @@
 
 	function startSwap(i: number) {
 		if (session.paletteLocked) return;
+		removePending = null;
 		swapIndex = i;
 		swapInput.value = palette[i];
 		swapInput.click();
+	}
+
+	function removeSelected() {
+		const index = session.colorValue - 1;
+		removePending = session.removePaletteColor(index) ? null : index;
 	}
 </script>
 
@@ -35,7 +44,10 @@
 			class:active={session.paletteLocked}
 			aria-pressed={session.paletteLocked}
 			title="Palette lock: how artists keep a piece looking coherent"
-			onclick={() => session.togglePaletteLock()}
+			onclick={() => {
+				removePending = null;
+				session.togglePaletteLock();
+			}}
 		>
 			{session.paletteLocked ? 'Locked' : 'Lock'}
 		</button>
@@ -84,8 +96,8 @@
 		</button>
 		<button
 			disabled={session.paletteLocked || palette.length <= 1 || session.colorValue === 0}
-			title="Remove selected color (pick a remap target next)"
-			onclick={() => (removePending = session.colorValue - 1)}
+			title="Remove selected color"
+			onclick={removeSelected}
 		>
 			Remove
 		</button>

@@ -39,6 +39,40 @@ test('draw a stroke, see it in the live loop, undo it in one step', async ({ pag
 	await expect(undo).toBeDisabled();
 });
 
+test('palette removal deletes unused colors and isolates remap state', async ({ page }) => {
+	await gotoApp(page);
+	const palette = page.locator('.palette-panel');
+	const colors = palette.locator('.swatch:not(.eraser)');
+	const add = palette.getByRole('button', { name: 'Add', exact: true });
+	const remove = palette.getByRole('button', { name: 'Remove', exact: true });
+	const hint = palette.locator('.hint');
+
+	await add.click();
+	await expect(colors).toHaveCount(17);
+	await expect(colors.last()).toHaveAttribute('aria-pressed', 'true');
+	await remove.click();
+	await expect(colors).toHaveCount(16);
+	await expect(hint).toHaveCount(0);
+
+	await colors.first().click();
+	await drawStroke(page);
+	await remove.click();
+	await expect(hint).toBeVisible();
+
+	await add.click();
+	await expect(hint).toHaveCount(0);
+	await colors.nth(1).click();
+	await expect(colors).toHaveCount(17);
+	await expect(colors.first()).toHaveAttribute('aria-label', 'Color #140c1c');
+
+	await colors.first().click();
+	await remove.click();
+	await colors.nth(1).click();
+	await expect(colors).toHaveCount(16);
+	await expect(colors.first()).toHaveAttribute('aria-label', 'Color #442434');
+	await expect(colors.first()).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('frame duplicate, navigate, delete', async ({ page }) => {
 	await gotoApp(page);
 	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
