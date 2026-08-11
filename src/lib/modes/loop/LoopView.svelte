@@ -27,13 +27,24 @@
 	const filmH = $derived((session.version, session.doc.meta.height));
 
 	onMount(() => {
+		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 		player = new LoopPlayer(session.doc, session.compositor, heroEl, (f) => (playFrame = f), () =>
 			session.effectiveLoopRange()
 		);
-		playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		playing = !media.matches;
 		if (playing) player.start();
 		else player.blit();
-		return () => player.stop();
+		const pauseForPreference = () => {
+			if (!media.matches) return;
+			playing = false;
+			player.stop();
+			player.blit();
+		};
+		media.addEventListener('change', pauseForPreference);
+		return () => {
+			media.removeEventListener('change', pauseForPreference);
+			player.stop();
+		};
 	});
 
 	function togglePlay() {

@@ -126,3 +126,12 @@ test('mobile editor keeps document status and tips in the layout', async ({ page
 	await expect(page.locator('.status')).toBeVisible();
 	await expect(page.locator('.tip')).toHaveCSS('position', 'relative');
 });
+
+test('reduced motion pauses the landing animation until requested', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await page.goto('/');
+	const play = page.getByRole('button', { name: 'Play animation' });
+	await expect(play).toBeVisible();
+	await play.click();
+	await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
+});

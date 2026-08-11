@@ -15,13 +15,24 @@
 	const loopH = $derived((session.version, session.doc.meta.height * 4));
 
 	onMount(() => {
+		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 		player = new LoopPlayer(session.doc, session.compositor, loopEl, undefined, () =>
 			session.effectiveLoopRange()
 		);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
-		paused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		paused = media.matches;
 		if (!paused) player.start();
-		return () => player.stop();
+		const pauseForPreference = () => {
+			if (!media.matches) return;
+			paused = true;
+			player.stop();
+			player.blit();
+		};
+		media.addEventListener('change', pauseForPreference);
+		return () => {
+			media.removeEventListener('change', pauseForPreference);
+			player.stop();
+		};
 	});
 
 	function togglePlay() {

@@ -28,8 +28,9 @@
 
 	let canvas: HTMLCanvasElement;
 	let live = $state(0);
+	let reduceMotion = $state(false);
 
-	const shown = $derived(playing ? live : frame);
+	const shown = $derived(playing && !reduceMotion ? live : frame);
 
 	function paint(px: Uint8Array, ctx: CanvasRenderingContext2D, tint: string | null, alpha: number) {
 		ctx.globalAlpha = alpha;
@@ -73,7 +74,15 @@
 	});
 
 	onMount(() => {
-		if (!playing) return;
+		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const sync = () => (reduceMotion = media.matches);
+		sync();
+		media.addEventListener('change', sync);
+		return () => media.removeEventListener('change', sync);
+	});
+
+	$effect(() => {
+		if (!playing || reduceMotion) return;
 		const step = WALK_MS[0] ?? 1000 / fps;
 		const timer = setInterval(() => (live = (live + 1) % frames.length), step);
 		return () => clearInterval(timer);
