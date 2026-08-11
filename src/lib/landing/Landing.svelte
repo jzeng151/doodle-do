@@ -52,7 +52,7 @@
 
 		<section class="strip" id="teaching">
 			<div class="section-head"><h2>HOW TIPS WORK.</h2><p>Twenty-six tips are tied to editing actions. They appear one at a time without blocking the canvas, stop repeating, and can be dismissed forever.</p></div>
-			<ul class="tips">{#each copy.tips as tip}<li><blockquote>{tip.copy}</blockquote><span>{tip.id}</span></li>{/each}</ul>
+			<ul class="tips">{#each copy.tips as tip}<li><blockquote>{tip.copy}</blockquote><span>Tip #{tip.id.slice(1)}</span></li>{/each}</ul>
 		</section>
 
 		<section class="strip" id="output">

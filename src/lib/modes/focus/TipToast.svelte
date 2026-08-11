@@ -10,7 +10,7 @@
 
 {#if current}
 	<aside class="tip" role="status">
-		<span class="cue">{current.id}</span>
+		<span class="cue">Tip #{current.id.slice(1)}</span>
 		<p>{current.copy}</p>
 		<div class="tip-actions">
 			<button onclick={() => tips.dismiss()}>Dismiss</button>
