@@ -48,7 +48,8 @@
 	});
 </script>
 
-<section class="loop-panel">
+<section class="loop-panel" aria-labelledby="animation-preview-heading">
+	<h2 id="animation-preview-heading">Animation preview</h2>
 	<canvas
 		bind:this={loopEl}
 		class="loop"
@@ -76,7 +77,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		align-items: center;
+	}
+	h2 {
+		font-size: 0.6875rem;
+		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.14em;
+	}
+	.loop,
+	.controls {
+		align-self: center;
 	}
 	.loop {
 		image-rendering: pixelated;

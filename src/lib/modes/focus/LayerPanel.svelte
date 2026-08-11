@@ -20,43 +20,45 @@
 <section class="layers">
 	<header>
 		<h2>Layers</h2>
-		<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
-		<button
-			aria-label="Extract selection to layer"
-			title="Extract selection to layer (Ctrl+J)"
-			disabled={layerCount >= MAX_LAYERS || !session.hasSelection}
-			onclick={() => session.extractSelectionToLayer()}
-		>
-			⇱
-		</button>
-		<button aria-label="Delete layer" title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
-		<button
-			aria-label="Move layer up"
-			title="Move layer up"
-			disabled={session.currentLayer >= layerCount - 1}
-			onclick={() => session.moveLayer(1)}
-		>
-			↑
-		</button>
-		<button aria-label="Move layer down" title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
-			↓
-		</button>
-		<button
-			aria-label="Merge into layer below"
-			title="Merge into layer below"
-			disabled={session.currentLayer === 0}
-			onclick={() => session.mergeLayerDown()}
-		>
-			⤵
-		</button>
-		<button
-			aria-label="Send layer to another frame"
-			title="Send layer to another frame"
-			disabled={frameCount < 2}
-			onclick={() => sendDialog.open()}
-		>
-			⇒
-		</button>
+		<div class="actions" role="group" aria-label="Layer actions">
+			<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
+			<button
+				aria-label="Extract selection to layer"
+				title="Extract selection to layer (Ctrl+J)"
+				disabled={layerCount >= MAX_LAYERS || !session.hasSelection}
+				onclick={() => session.extractSelectionToLayer()}
+			>
+				⇱
+			</button>
+			<button aria-label="Delete layer" title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
+			<button
+				aria-label="Move layer up"
+				title="Move layer up"
+				disabled={session.currentLayer >= layerCount - 1}
+				onclick={() => session.moveLayer(1)}
+			>
+				↑
+			</button>
+			<button aria-label="Move layer down" title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
+				↓
+			</button>
+			<button
+				aria-label="Merge into layer below"
+				title="Merge into layer below"
+				disabled={session.currentLayer === 0}
+				onclick={() => session.mergeLayerDown()}
+			>
+				⤵
+			</button>
+			<button
+				aria-label="Send layer to another frame"
+				title="Send layer to another frame"
+				disabled={frameCount < 2}
+				onclick={() => sendDialog.open()}
+			>
+				⇒
+			</button>
+		</div>
 	</header>
 	<ul aria-label="Layers">
 		{#each layers as layer, di (di)}
@@ -87,23 +89,32 @@
 <style>
 	.layers header {
 		display: flex;
-		gap: 4px;
-		align-items: center;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 	h2 {
 		font-size: 0.6875rem;
 		margin: 0;
-		flex: 1;
+		align-self: stretch;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
 	}
+	.actions {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 4px;
+	}
+	.actions button {
+		min-width: 0;
+		padding-inline: 0;
+	}
 	ul {
 		list-style: none;
-		margin: 0.4rem 0 0;
+		margin: 0.5rem 0 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 4px;
 	}
 	li {
 		display: flex;
@@ -111,14 +122,18 @@
 	}
 	.name {
 		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		text-align: left;
 	}
 	.name.active {
 		background: var(--ink);
 		color: var(--paper);
 	}
-	@media (max-width: 620px) {
-		.layers header { flex-wrap: wrap; }
-		h2 { flex-basis: 100%; }
+	@media (pointer: coarse) {
+		.actions { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
+		.actions button { min-width: 44px; }
 	}
 </style>
