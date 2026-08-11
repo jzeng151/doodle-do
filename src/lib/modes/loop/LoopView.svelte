@@ -98,7 +98,7 @@
 			step="1"
 			value={playFrame}
 			oninput={scrub}
-			aria-label="Scrub frames"
+			aria-label="Animation frame"
 		/>
 		<span class="counter">{playFrame + 1} / {frameCount}</span>
 		<label>
