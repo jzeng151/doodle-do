@@ -10,6 +10,10 @@
 
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
+	let focusedTile = $state(-1);
+	let keyboardX = $state(0);
+	let keyboardY = $state(0);
+	let keyboardStatus = $state('');
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
@@ -18,6 +22,9 @@
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
+		void focusedTile;
+		void keyboardX;
+		void keyboardY;
 		for (let i = 0; i < session.doc.frames.length; i++) {
 			const el = tiles[i];
 			if (!el) continue;
@@ -25,6 +32,15 @@
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
+			if (i === focusedTile) {
+				const z = session.gridZoom;
+				ctx.strokeStyle = '#fff';
+				ctx.lineWidth = 3;
+				ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+				ctx.strokeStyle = '#000';
+				ctx.lineWidth = 1;
+				ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+			}
 		}
 	});
 
@@ -39,7 +55,10 @@
 	function onPointerDown(e: PointerEvent, i: number) {
 		if (e.button !== 0) return;
 		const el = tiles[i]!;
+		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
+		keyboardX = x;
+		keyboardY = y;
 		session.selectFrame(i);
 		switch (session.tool) {
 			case 'pencil':
@@ -67,27 +86,67 @@
 		strokeTile = -1;
 		session.strokeEnd();
 	}
+
+	function onKeyDown(e: KeyboardEvent, i: number) {
+		const moves: Record<string, [number, number]> = {
+			ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
+		};
+		const move = moves[e.key];
+		if (move) {
+			e.preventDefault();
+			e.stopPropagation();
+			keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
+			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+			return;
+		}
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		e.preventDefault();
+		e.stopPropagation();
+		session.selectFrame(i);
+		switch (session.tool) {
+			case 'pencil':
+			case 'eraser':
+				session.strokeBegin(keyboardX, keyboardY);
+				session.strokeEnd();
+				break;
+			case 'fill': session.fill(keyboardX, keyboardY); break;
+			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
+		}
+	}
 </script>
 
 <div class="middle">
 	<div class="grid-area">
 		<div class="grid-tools">
-			<button title="Smaller tiles" onclick={() => (session.gridZoom = Math.max(1, session.gridZoom - 1))}>
+			<button aria-label="Smaller tiles" title="Smaller tiles" onclick={() => (session.gridZoom = Math.max(1, session.gridZoom - 1))}>
 				−
 			</button>
 			<span class="zoom">{session.gridZoom}×</span>
-			<button title="Larger tiles" onclick={() => (session.gridZoom = Math.min(12, session.gridZoom + 1))}>
+			<button aria-label="Larger tiles" title="Larger tiles" onclick={() => (session.gridZoom = Math.min(12, session.gridZoom + 1))}>
 				+
 			</button>
 		</div>
-		<div class="tiles" role="listbox" aria-label="Editable frames">
+		<p id="grid-canvas-help" class="sr-only">
+			Arrow keys move the pixel cursor. Space or Enter uses the current tool. Tool letter shortcuts work
+			while a frame canvas is focused.
+		</p>
+		<p class="sr-only" aria-live="polite">{keyboardStatus}</p>
+		<div class="tiles" role="group" aria-label="Editable frames">
 			{#each { length: frameCount } as _, i (i)}
-				<div class="tile" class:active={i === session.currentFrame} role="option" aria-selected={i === session.currentFrame}>
+				<div class="tile" class:active={i === session.currentFrame}>
 					<span class="num">{i + 1}</span>
 					<canvas
 						bind:this={tiles[i]}
+						data-editor-canvas
+						tabindex="0"
+						aria-label={`Editable frame ${i + 1} canvas`}
+						aria-describedby="grid-canvas-help"
 						width={tileW}
 						height={tileH}
+						onfocus={() => ((focusedTile = i), session.selectFrame(i))}
+						onblur={() => focusedTile === i && (focusedTile = -1)}
+						onkeydown={(e) => onKeyDown(e, i)}
 						onpointerdown={(e) => onPointerDown(e, i)}
 						onpointermove={(e) => onPointerMove(e, i)}
 						onpointerup={onPointerUp}
@@ -156,6 +215,17 @@
 		border: 2px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 	@media (max-width: 860px) {
 		.middle { flex: none; flex-direction: column; }

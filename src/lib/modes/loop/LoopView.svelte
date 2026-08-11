@@ -72,6 +72,7 @@
 	<canvas
 		bind:this={heroEl}
 		class="hero"
+		aria-label={`Animation preview, frame ${playFrame + 1} of ${frameCount}`}
 		width={heroW}
 		height={heroH}
 	></canvas>
@@ -113,20 +114,19 @@
 		</label>
 	</div>
 
-	<div class="filmstrip" role="listbox" aria-label="Filmstrip">
+	<div class="filmstrip" role="group" aria-label="Filmstrip">
 		{#each { length: frameCount } as _, i (i)}
 			<button
 				class="film-frame"
 				class:active={i === playFrame}
-				role="option"
-				aria-selected={i === playFrame}
+				aria-pressed={i === playFrame}
 				onclick={() => {
 					playing = false;
 					player.stop();
 					player.seek(i);
 				}}
 			>
-				<canvas bind:this={filmEls[i]} width={filmW} height={filmH}></canvas>
+				<canvas aria-hidden="true" bind:this={filmEls[i]} width={filmW} height={filmH}></canvas>
 				<span>{i + 1}</span>
 			</button>
 		{/each}

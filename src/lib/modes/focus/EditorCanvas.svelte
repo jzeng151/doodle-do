@@ -10,6 +10,11 @@
 	let rotateStart: { angle0: number; grab: number } | null = null;
 	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
+	let keyboardX = $state(0);
+	let keyboardY = $state(0);
+	let keyboardFocused = $state(false);
+	let keyboardMarquee = $state(false);
+	let keyboardStatus = $state('');
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -62,6 +67,19 @@
 		}
 
 		drawSelectionOverlay(ctx);
+		if (keyboardFocused) drawKeyboardCursor(ctx);
+	}
+
+	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
+		const z = session.zoom;
+		ctx.save();
+		ctx.strokeStyle = '#fff';
+		ctx.lineWidth = 3;
+		ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+		ctx.strokeStyle = '#000';
+		ctx.lineWidth = 1;
+		ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+		ctx.restore();
 	}
 
 	function drawSelectionOverlay(ctx: CanvasRenderingContext2D) {
@@ -255,7 +273,10 @@
 
 	function onPointerDown(e: PointerEvent) {
 		if (e.button !== 0) return;
+		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
+		keyboardX = x;
+		keyboardY = y;
 		switch (session.tool) {
 			case 'pencil':
 			case 'eraser':
@@ -387,15 +408,92 @@
 		e.preventDefault();
 		session.zoom = Math.max(2, Math.min(24, session.zoom + (e.deltaY < 0 ? 1 : -1)));
 	}
+
+	function onKeyDown(e: KeyboardEvent) {
+		const moves: Record<string, [number, number]> = {
+			ArrowLeft: [-1, 0],
+			ArrowRight: [1, 0],
+			ArrowUp: [0, -1],
+			ArrowDown: [0, 1]
+		};
+		const move = moves[e.key];
+		if (move) {
+			e.preventDefault();
+			e.stopPropagation();
+			if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
+			else {
+				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
+				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
+				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+			}
+			repaint();
+			return;
+		}
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			keyboardMarquee = false;
+			session.cancelFloating();
+			return;
+		}
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (e.key === 'Enter' && session.floating) {
+			session.commitFloating();
+			return;
+		}
+		switch (session.tool) {
+			case 'pencil':
+			case 'eraser':
+				session.strokeBegin(keyboardX, keyboardY);
+				session.strokeEnd();
+				break;
+			case 'fill':
+				session.fill(keyboardX, keyboardY);
+				break;
+			case 'eyedropper':
+				session.eyedrop(keyboardX, keyboardY);
+				break;
+			case 'wand':
+				session.wandSelect(keyboardX, keyboardY, e.shiftKey);
+				break;
+			case 'select':
+				if (keyboardMarquee) session.endMarquee();
+				else session.beginMarquee(keyboardX, keyboardY, e.shiftKey);
+				keyboardMarquee = !keyboardMarquee;
+				break;
+			case 'polygon':
+				if (e.key === 'Enter' && session.polygonVerts) session.closePolygon();
+				else session.polygonAdd(keyboardX, keyboardY, e.shiftKey);
+				break;
+			case 'lasso':
+				keyboardStatus = 'Lasso needs a pointer. Choose Select or Wand for keyboard selection.';
+				break;
+		}
+	}
 </script>
 
 <div class="scroll" onwheel={onWheel}>
+	<p id="canvas-help" class="sr-only">
+		Arrow keys move the pixel cursor. Space or Enter uses the current tool. Alt plus arrow keys moves a
+		selection. Page Up and Page Down change frames. Tool letter shortcuts work while this canvas is focused.
+	</p>
+	<p class="sr-only" aria-live="polite">{keyboardStatus}</p>
 	<canvas
 		bind:this={canvasEl}
 		class="editor"
+		data-editor-canvas
 		data-tool={session.tool}
+		tabindex="0"
+		aria-label={`Editable pixel canvas, frame ${session.currentFrame + 1}, ${session.tool} tool`}
+		aria-describedby="canvas-help"
 		width={cssW}
 		height={cssH}
+		onfocus={() => ((keyboardFocused = true), repaint())}
+		onblur={() => ((keyboardFocused = false), repaint())}
+		onkeydown={onKeyDown}
 		onpointerdown={onPointerDown}
 		onpointermove={onPointerMove}
 		onpointerup={onPointerUp}
@@ -426,5 +524,16 @@
 	}
 	.editor[data-tool='select'] {
 		cursor: default;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

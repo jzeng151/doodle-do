@@ -20,14 +20,14 @@ async function drawDot(page: Page, x: number, y: number) {
 }
 
 test('merge down flattens two layers as one undo step', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	await drawDot(page, 8, 8); // layer 1
 	await page.getByTitle('Add layer').click();
 	await drawDot(page, 12, 12); // layer 2 (active after add)
 
-	const layers = page.getByRole('listbox', { name: 'Layers' }).getByRole('option');
+	const layers = page.locator('.layers .name');
 	await expect(layers).toHaveCount(2);
 
 	await page.getByTitle('Merge into layer below').click();
@@ -43,9 +43,9 @@ test('merge down flattens two layers as one undo step', async ({ page }) => {
 });
 
 test('send layer to frame copies it onto the target frame', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
-	await page.keyboard.press('o'); // onion ghosts would read as opaque pixels
+	await page.getByRole('button', { name: 'Onion' }).click(); // onion ghosts would read as opaque pixels
 
 	await drawDot(page, 8, 8); // frame 1, layer 1
 
@@ -55,12 +55,13 @@ test('send layer to frame copies it onto the target frame', async ({ page }) => 
 
 	// the source frame is untouched, the target gained the pixels
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
-	await page.keyboard.press('ArrowRight'); // frame 2
+	await page.locator('canvas.editor').focus();
+	await page.keyboard.press('PageDown'); // frame 2
 	await expect.poll(() => page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
 
 	// one undo removes the copied layer from the target
 	await page.keyboard.press('Control+z');
 	await expect.poll(() => page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
-	await page.keyboard.press('ArrowLeft'); // back on frame 1: still intact
+	await page.keyboard.press('PageUp'); // back on frame 1: still intact
 	await expect.poll(() => page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
 });

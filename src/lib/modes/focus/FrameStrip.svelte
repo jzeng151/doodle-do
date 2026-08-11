@@ -40,14 +40,13 @@
 
 <section class="strip-panel">
 	{#if thumbs}
-		<div class="strip" role="listbox" aria-label="Frames">
+		<div class="strip" role="group" aria-label="Frames">
 			{#each { length: frameCount } as _, i (i)}
 				<button
 					class="thumb"
 					class:active={i === session.currentFrame}
 					class:bulk={session.bulkFrames.includes(i)}
-					role="option"
-					aria-selected={i === session.currentFrame}
+					aria-pressed={i === session.currentFrame || session.bulkFrames.includes(i)}
 					title="Click: select. Ctrl-click: bulk-edit set. Shift-click: range."
 					onclick={(e) => {
 						if (e.shiftKey) session.selectBulkRange(i);
@@ -55,7 +54,7 @@
 						else session.selectFrame(i);
 					}}
 				>
-					<canvas bind:this={thumbEls[i]} width={thumbW} height={thumbH}></canvas>
+					<canvas aria-hidden="true" bind:this={thumbEls[i]} width={thumbW} height={thumbH}></canvas>
 					<span>{i + 1}</span>
 				</button>
 			{/each}
@@ -73,10 +72,11 @@
 		>
 			Delete
 		</button>
-		<button title="Move frame earlier" disabled={session.currentFrame === 0} onclick={() => session.moveFrame(-1)}>
+		<button aria-label="Move frame earlier" title="Move frame earlier" disabled={session.currentFrame === 0} onclick={() => session.moveFrame(-1)}>
 			←
 		</button>
 		<button
+			aria-label="Move frame later"
 			title="Move frame later"
 			disabled={session.currentFrame >= frameCount - 1}
 			onclick={() => session.moveFrame(1)}

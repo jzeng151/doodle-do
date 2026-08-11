@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function gotoApp(page: Page) {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 }
 
@@ -44,7 +44,7 @@ test('tips: fire on triggers, cap per session, dismiss forever, hide all', async
 
 	// global toggle off blocks new tips (T02 via selecting frame 2)
 	await page.getByRole('button', { name: 'Tips' }).click();
-	await page.getByRole('listbox', { name: 'Frames' }).getByRole('option').nth(1).click();
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
 	await expect(toast).toHaveCount(0);
 });
 

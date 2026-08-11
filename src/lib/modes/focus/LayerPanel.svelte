@@ -20,26 +20,29 @@
 <section class="layers">
 	<header>
 		<h2>Layers</h2>
-		<button title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
+		<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
 		<button
+			aria-label="Extract selection to layer"
 			title="Extract selection to layer (Ctrl+J)"
 			disabled={layerCount >= MAX_LAYERS || !session.hasSelection}
 			onclick={() => session.extractSelectionToLayer()}
 		>
 			⇱
 		</button>
-		<button title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
+		<button aria-label="Delete layer" title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
 		<button
+			aria-label="Move layer up"
 			title="Move layer up"
 			disabled={session.currentLayer >= layerCount - 1}
 			onclick={() => session.moveLayer(1)}
 		>
 			↑
 		</button>
-		<button title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
+		<button aria-label="Move layer down" title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
 			↓
 		</button>
 		<button
+			aria-label="Merge into layer below"
 			title="Merge into layer below"
 			disabled={session.currentLayer === 0}
 			onclick={() => session.mergeLayerDown()}
@@ -47,6 +50,7 @@
 			⤵
 		</button>
 		<button
+			aria-label="Send layer to another frame"
 			title="Send layer to another frame"
 			disabled={frameCount < 2}
 			onclick={() => sendDialog.open()}
@@ -54,20 +58,20 @@
 			⇒
 		</button>
 	</header>
-	<ul role="listbox" aria-label="Layers">
+	<ul aria-label="Layers">
 		{#each layers as layer, di (di)}
 			<li>
 				<button
 					class="name"
 					class:active={realIndex(di) === session.currentLayer}
-					role="option"
-					aria-selected={realIndex(di) === session.currentLayer}
+					aria-pressed={realIndex(di) === session.currentLayer}
 					onclick={() => session.selectLayer(realIndex(di))}
 				>
 					{layer.name}
 				</button>
 				<button
 					class="vis"
+					aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
 					title={layer.visible ? 'Hide layer' : 'Show layer'}
 					onclick={() => session.toggleLayerVisible(realIndex(di))}
 				>

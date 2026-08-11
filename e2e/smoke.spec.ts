@@ -6,7 +6,7 @@ function canvasHasInk(sel: string) {
 	return data.some((v) => v !== 0);
 }
 
-async function gotoApp(page: Page, path = '/') {
+async function gotoApp(page: Page, path = '/#editor') {
 	await page.goto(path);
 	await page.locator('canvas.editor').waitFor(); // session mounts async
 }
@@ -41,7 +41,7 @@ test('draw a stroke, see it in the live loop, undo it in one step', async ({ pag
 
 test('frame duplicate, navigate, delete', async ({ page }) => {
 	await gotoApp(page);
-	const frames = page.getByRole('listbox', { name: 'Frames' }).getByRole('option');
+	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
 	await expect(frames).toHaveCount(2); // smart default: 2 frames
 
 	await drawStroke(page);
@@ -98,13 +98,21 @@ test('GIF export produces a real GIF89a', async ({ page }) => {
 
 test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	await gotoApp(page);
+	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
 	await page.keyboard.press('e');
-	await expect(page.getByRole('button', { name: /Eraser/ })).toHaveClass(/active/);
-	await page.keyboard.press('b');
-	await expect(page.getByRole('button', { name: /Pencil/ })).toHaveClass(/active/);
+	await expect(page.getByRole('button', { name: /Eraser/ })).toHaveAttribute('aria-pressed', 'false');
 
-	await drawStroke(page);
+	const editor = page.locator('canvas.editor');
+	await editor.focus();
+	await page.keyboard.press('e');
+	await expect(page.getByRole('button', { name: /Eraser/ })).toHaveAttribute('aria-pressed', 'true');
+	await page.keyboard.press('b');
+	await expect(page.getByRole('button', { name: /Pencil/ })).toHaveAttribute('aria-pressed', 'true');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press(' ');
+	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
+
 	await page.keyboard.press('Control+z');
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
 	await page.keyboard.press('Control+Shift+z');

@@ -7,7 +7,7 @@ function canvasHasInk(sel: string) {
 }
 
 async function gotoApp(page: Page) {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 }
 
@@ -26,17 +26,17 @@ test('Phase 3 gate: mode switches preserve document, frame, and zoom', async ({ 
 	await drawOn(page, page.locator('canvas.editor'));
 	await page.getByTitle('Zoom in').click();
 	await page.getByTitle('Zoom in').click(); // 12 → 16
-	await page.getByRole('listbox', { name: 'Frames' }).getByRole('option').nth(1).click();
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
 
 	await switcher(page).getByRole('button', { name: 'Grid' }).click();
 	// grid shows every frame as an editable canvas; the drawing is in tile 1
-	const tiles = page.getByRole('listbox', { name: 'Editable frames' }).getByRole('option');
+	const tiles = page.getByRole('group', { name: 'Editable frames' }).locator('.tile');
 	await expect(tiles).toHaveCount(2);
 	expect(
-		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] [role="option"]:first-child canvas')
+		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] .tile:first-child canvas')
 	).toBe(true);
 	// current frame carried over
-	await expect(tiles.nth(1)).toHaveAttribute('aria-selected', 'true');
+	await expect(tiles.nth(1)).toHaveClass(/active/);
 
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.locator('.counter')).toBeVisible();
@@ -46,38 +46,38 @@ test('Phase 3 gate: mode switches preserve document, frame, and zoom', async ({ 
 	await expect(page.locator('canvas.editor')).toHaveAttribute('width', '512');
 	// frame selection persisted
 	await expect(
-		page.getByRole('listbox', { name: 'Frames' }).getByRole('option').nth(1)
-	).toHaveAttribute('aria-selected', 'true');
+		page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1)
+	).toHaveAttribute('aria-pressed', 'true');
 	// document intact: the stroke still undoes
 	await page.keyboard.press('Control+z');
-	await page.getByRole('listbox', { name: 'Frames' }).getByRole('option').first().click();
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').first().click();
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
 });
 
 test('grid mode: strokes land on the frame you draw on', async ({ page }) => {
 	await gotoApp(page);
-	await page.keyboard.press('2'); // grid mode
-	const tiles = page.getByRole('listbox', { name: 'Editable frames' }).getByRole('option');
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	const tiles = page.getByRole('group', { name: 'Editable frames' }).locator('.tile');
 	await drawOn(page, tiles.nth(1).locator('canvas'));
 
 	expect(
-		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] [role="option"]:nth-child(2) canvas')
+		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] .tile:nth-child(2) canvas')
 	).toBe(true);
 	expect(
-		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] [role="option"]:first-child canvas')
+		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] .tile:first-child canvas')
 	).toBe(false);
 	// drawing on a tile makes it the current frame
-	await expect(tiles.nth(1)).toHaveAttribute('aria-selected', 'true');
+	await expect(tiles.nth(1)).toHaveClass(/active/);
 	// and the whole drag is one undo step
 	await page.keyboard.press('Control+z');
 	expect(
-		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] [role="option"]:nth-child(2) canvas')
+		await page.evaluate(canvasHasInk, '[aria-label="Editable frames"] .tile:nth-child(2) canvas')
 	).toBe(false);
 });
 
 test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await gotoApp(page);
-	await page.keyboard.press('3');
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.locator('canvas.hero')).toBeVisible();
 	await expect(page.locator('.counter')).toContainText('/ 2');
 
@@ -116,8 +116,8 @@ test('B5: a floating selection commits on mode switch', async ({ page }) => {
 	await page.mouse.up();
 
 	// switch to grid while floating: the move must commit as one command
-	await page.keyboard.press('2');
-	await page.keyboard.press('1');
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
 	const opaqueAt = ([x, y]: [number, number]) => {
 		const canvas = document.querySelector('canvas.editor') as HTMLCanvasElement;
 		const zoom = canvas.width / 32;

@@ -18,7 +18,7 @@ async function mouseOnPixel(page: Page, x: number, y: number) {
 }
 
 test('select, move, commit as one undo step', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// draw a dot at (8,8)
@@ -52,7 +52,7 @@ test('select, move, commit as one undo step', async ({ page }) => {
 });
 
 test('escape cancels a floating move', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	await mouseOnPixel(page, 4, 4);
@@ -78,7 +78,7 @@ test('escape cancels a floating move', async ({ page }) => {
 });
 
 test('shift adds a second marquee; both regions move as one undo step', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// two dots far apart
@@ -124,7 +124,7 @@ test('shift adds a second marquee; both regions move as one undo step', async ({
 });
 
 test('rotate handle turns a selection 90 degrees with shift snap', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// horizontal 5x1 bar at y=16, x=10..14
@@ -167,7 +167,7 @@ test('rotate handle turns a selection 90 degrees with shift snap', async ({ page
 });
 
 test('lasso selects a freehand region and moves it', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	await mouseOnPixel(page, 8, 8);
@@ -199,7 +199,7 @@ test('lasso selects a freehand region and moves it', async ({ page }) => {
 });
 
 test('wand selects only the contiguous same-color region', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// a 2-pixel blob at (5,5)-(6,5) and a separate dot at (12,5)
@@ -234,7 +234,7 @@ test('wand selects only the contiguous same-color region', async ({ page }) => {
 });
 
 test('polygon selects via placed vertices, closed on the first vertex', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	await mouseOnPixel(page, 8, 8);
@@ -273,7 +273,7 @@ test('polygon selects via placed vertices, closed on the first vertex', async ({
 test('mirror twin: moving a selection moves its mirrored counterpart symmetrically', async ({
 	page
 }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// mirror-draw a dot: (8,8) paints its twin at (23,8) on a 32px canvas
@@ -311,7 +311,7 @@ test('mirror twin: moving a selection moves its mirrored counterpart symmetrical
 });
 
 test('mirror twin: dragging the twin side makes it follow the pointer', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	await page.getByRole('button', { name: 'Mirror' }).click();

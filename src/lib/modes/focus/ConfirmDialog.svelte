@@ -22,8 +22,9 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl} onclose={() => decide(false)}>
-	<p>{message}</p>
+<dialog bind:this={dialogEl} aria-labelledby="confirm-title" aria-describedby="confirm-message" onclose={() => decide(false)}>
+	<h2 id="confirm-title">Discard changes?</h2>
+	<p id="confirm-message">{message}</p>
 	<div class="row">
 		<button class="danger" onclick={() => decide(true)}>Discard and continue</button>
 		<button onclick={() => decide(false)}>Cancel</button>
@@ -45,6 +46,7 @@
 	p {
 		margin: 0 0 1rem;
 	}
+	h2 { margin: 0 0 0.5rem; font-size: 1rem; }
 	.row {
 		display: flex;
 		gap: 8px;

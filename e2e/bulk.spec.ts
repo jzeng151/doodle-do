@@ -18,13 +18,13 @@ async function mouseOnPixel(page: Page, x: number, y: number) {
 }
 
 function frameOption(page: Page, index: number) {
-	return page.getByRole('listbox', { name: 'Frames' }).getByRole('option').nth(index);
+	return page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(index);
 }
 
 test('a stroke lands on every bulk-selected frame as one undo step', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
-	await page.keyboard.press('o'); // onion ghosts would read as opaque pixels
+	await page.getByRole('button', { name: 'Onion' }).click(); // onion ghosts would read as opaque pixels
 
 	// 3 frames; select frame 1, ctrl-click frames 2 and 3 into the set
 	await page.getByTitle('Add blank frame').click(); // frame 3
@@ -51,9 +51,9 @@ test('a stroke lands on every bulk-selected frame as one undo step', async ({ pa
 });
 
 test('a selection move applies to every bulk-selected frame', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
-	await page.keyboard.press('o');
+	await page.getByRole('button', { name: 'Onion' }).click();
 
 	// bulk-draw a dot on both default frames, keeping the set active
 	await frameOption(page, 1).click({ modifiers: ['Control'] });

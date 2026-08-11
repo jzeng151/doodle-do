@@ -7,7 +7,7 @@ function canvasHasInk(sel: string) {
 }
 
 async function gotoApp(page: Page) {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 }
 
@@ -49,7 +49,7 @@ test('open dispatches a strip PNG + manifest to the importer', async ({ page }) 
 	]);
 
 	// 3 frames split out (default doc has 2, so this proves the import)
-	const frames = page.getByRole('listbox', { name: 'Frames' }).getByRole('option');
+	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
 	await expect(frames).toHaveCount(3);
 	// document takes the PNG's name and the manifest's timing
 	await expect(page.getByLabel('Document name')).toHaveValue('hop');
@@ -64,7 +64,7 @@ test('open dispatches a lone PNG to the importer with default timing', async ({ 
 
 	await openFiles(page, [{ name: 'solo.png', mimeType: 'image/png', buffer: strip }]);
 
-	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(3);
+	await expect(page.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(3);
 	// no per-frame duration set — input empty, placeholder shows the fps default
 	await expect(page.locator('.actions input[type="number"]')).toHaveValue('');
 });
@@ -92,7 +92,7 @@ test('open dispatches a .doodledo file to the project parser', async ({ page }) 
 		{ name: 'roundtrip.doodledo', mimeType: 'application/json', buffer: project }
 	]);
 
-	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(3);
+	await expect(page.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(3);
 	await expect(page.getByLabel('Document name')).toHaveValue('roundtrip');
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
@@ -113,7 +113,7 @@ test('manifest frame-count mismatch surfaces an error', async ({ page }) => {
 
 	await expect(page.locator('.status')).toContainText('Open failed');
 	// document untouched
-	await expect(page.getByRole('listbox', { name: 'Frames' }).getByRole('option')).toHaveCount(2);
+	await expect(page.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(2);
 });
 
 test('manifest without its PNG surfaces a pointed error', async ({ page }) => {

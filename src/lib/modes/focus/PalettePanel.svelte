@@ -33,6 +33,7 @@
 		<h2>Palette</h2>
 		<button
 			class:active={session.paletteLocked}
+			aria-pressed={session.paletteLocked}
 			title="Palette lock: how artists keep a piece looking coherent"
 			onclick={() => session.togglePaletteLock()}
 		>
@@ -46,6 +47,7 @@
 			class:selected={session.colorValue === 0}
 			title="Transparent (eraser)"
 			aria-label="Transparent"
+			aria-pressed={session.colorValue === 0}
 			onclick={() => (session.colorValue = 0)}
 		></button>
 		{#each palette as hex, i (i)}
@@ -56,6 +58,7 @@
 				style="background: {hex}"
 				title="{hex} — double-click to edit"
 				aria-label="Color {hex}"
+				aria-pressed={session.colorValue === i + 1}
 				onclick={() => onSwatchClick(i)}
 				ondblclick={() => startSwap(i)}
 			></button>
@@ -67,6 +70,12 @@
 	{/if}
 
 	<div class="actions">
+		<button
+			disabled={session.paletteLocked || session.colorValue === 0}
+			onclick={() => startSwap(session.colorValue - 1)}
+		>
+			Edit
+		</button>
 		<button
 			disabled={session.paletteLocked || palette.length >= MAX_PALETTE}
 			onclick={() => session.addPaletteColor('#ffffff')}

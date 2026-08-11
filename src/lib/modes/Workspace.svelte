@@ -18,7 +18,7 @@
 
 	function onKeyDown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
-		if (target.matches('input, select, textarea')) return;
+		if (target.closest('input, select, textarea, [contenteditable="true"]')) return;
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 'z') {
 			e.preventDefault();
@@ -37,16 +37,10 @@
 			return;
 		}
 		if (mod) return;
-		// arrows nudge an active selection by 1px; left/right otherwise
-		// keep their frame-switching role
-		if (e.key.startsWith('Arrow') && session.hasSelection) {
-			e.preventDefault();
-			const [dx, dy] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
-				e.key
-			]!;
-			session.nudgeSelection(dx, dy);
-			return;
-		}
+		if (target.closest('button')) return;
+		// Bare character shortcuts are active only while an editor canvas has
+		// focus, so they cannot fire while a user is navigating the rest of the UI.
+		if (!(target instanceof HTMLCanvasElement) || !target.hasAttribute('data-editor-canvas')) return;
 		switch (e.key.toLowerCase()) {
 			case '1':
 				session.setMode('focus');
@@ -81,14 +75,6 @@
 			case 'p':
 				if (session.mode === 'focus') session.setTool('polygon');
 				break;
-			case 'enter':
-				// close an in-progress polygon, else stamp the selection (B5)
-				if (session.polygonVerts) session.closePolygon();
-				else session.commitFloating();
-				break;
-			case 'escape':
-				session.cancelFloating(); // B5: Escape restores the source
-				break;
 			case 'o':
 				session.toggleOnion();
 				break;
@@ -98,12 +84,14 @@
 			case ']':
 				session.brushSize = Math.min(4, session.brushSize + 1);
 				break;
-			case 'arrowleft':
+			case 'pageup':
+				e.preventDefault();
 				session.selectFrame(
 					(session.currentFrame - 1 + session.doc.frames.length) % session.doc.frames.length
 				);
 				break;
-			case 'arrowright':
+			case 'pagedown':
+				e.preventDefault();
 				session.selectFrame((session.currentFrame + 1) % session.doc.frames.length);
 				break;
 		}
@@ -112,19 +100,23 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
+<a class="skip" href="#editor-main">Skip to editor</a>
 <div class="workspace">
 	<HeaderBar {session} {onOpenDoc} />
-	{#if session.mode !== 'loop'}
-		<Toolbar {session} />
-	{/if}
-	{#if session.mode === 'focus'}
-		<FocusView {session} />
-	{:else if session.mode === 'grid'}
-		<GridView {session} />
-	{:else}
-		<LoopView {session} />
-	{/if}
-	<TipToast />
+	<main id="editor-main" class="editor-content" tabindex="-1">
+		<h1 class="sr-only">Doodle-Do editor</h1>
+		{#if session.mode !== 'loop'}
+			<Toolbar {session} />
+		{/if}
+		{#if session.mode === 'focus'}
+			<FocusView {session} />
+		{:else if session.mode === 'grid'}
+			<GridView {session} />
+		{:else}
+			<LoopView {session} />
+		{/if}
+		<TipToast />
+	</main>
 </div>
 
 <style>
@@ -138,6 +130,34 @@
 		color: var(--ink);
 		font-size: 0.8125rem;
 		overflow: hidden;
+	}
+	.editor-content {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+	}
+	.skip {
+		position: fixed;
+		top: 0.5rem;
+		left: 0.5rem;
+		z-index: 100;
+		transform: translateY(-200%);
+		background: var(--ink);
+		color: var(--paper);
+		padding: 0.6rem 0.8rem;
+	}
+	.skip:focus { transform: none; }
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 	@media (max-width: 860px) {
 		.workspace { overflow: auto; }

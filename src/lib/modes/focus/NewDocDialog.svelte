@@ -29,8 +29,8 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl}>
-	<h2>New animation</h2>
+<dialog bind:this={dialogEl} aria-labelledby="new-doc-title">
+	<h2 id="new-doc-title">New animation</h2>
 	<div class="presets">
 		{#each PRESETS as size (size)}
 			<button class:active={size === 32} onclick={() => pick(size)}>

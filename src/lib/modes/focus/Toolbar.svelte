@@ -23,6 +23,7 @@
 		{#each tools as t (t.id)}
 			<button
 				class:active={session.tool === t.id}
+				aria-pressed={session.tool === t.id}
 				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'}
 				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' ? ' — Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
@@ -43,6 +44,7 @@
 		</label>
 		<button
 			class:active={session.mirrorX}
+			aria-pressed={session.mirrorX}
 			title="Mirror-draw: paint both halves at once"
 			onclick={() => session.toggleMirror()}
 		>
@@ -61,17 +63,18 @@
 	</div>
 
 	<div class="group">
-		<button class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
+		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
-		<button title="Zoom out" onclick={() => (session.zoom = Math.max(2, session.zoom - 2))}>−</button>
+		<button aria-label="Zoom out" title="Zoom out" onclick={() => (session.zoom = Math.max(2, session.zoom - 2))}>−</button>
 		<span class="zoom">{session.zoom}×</span>
-		<button title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
+		<button aria-label="Zoom in" title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
 	</div>
 
 	<div class="group onion">
 		<button
 			class:active={session.onionEnabled}
+			aria-pressed={session.onionEnabled}
 			title="Onion skin: previous frame red, next frame green"
 			onclick={() => session.toggleOnion()}
 		>

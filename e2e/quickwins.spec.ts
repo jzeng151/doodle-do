@@ -18,7 +18,7 @@ async function mouseOnPixel(page: Page, x: number, y: number) {
 }
 
 async function drawDotAndSelect(page: Page) {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 	await mouseOnPixel(page, 8, 8);
 	await page.mouse.down();
@@ -32,7 +32,7 @@ async function drawDotAndSelect(page: Page) {
 
 test('Ctrl+J extracts the selection to a new layer as one undo step', async ({ page }) => {
 	await drawDotAndSelect(page);
-	const layers = page.getByRole('listbox', { name: 'Layers' }).getByRole('option');
+	const layers = page.locator('.layers .name');
 	await expect(layers).toHaveCount(1);
 
 	await page.keyboard.press('Control+j');
@@ -56,8 +56,8 @@ test('Ctrl+J extracts the selection to a new layer as one undo step', async ({ p
 test('arrow keys nudge the selection by one pixel', async ({ page }) => {
 	await drawDotAndSelect(page);
 
-	await page.keyboard.press('ArrowRight');
-	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('Alt+ArrowRight');
+	await page.keyboard.press('Alt+ArrowDown');
 	await page.keyboard.press('Enter');
 
 	expect(await page.evaluate(pixelOpaque, [9, 9] as [number, number])).toBe(true);
@@ -70,10 +70,10 @@ test('arrow keys nudge the selection by one pixel', async ({ page }) => {
 });
 
 test('loop range confines playback to the selected frames', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
-	await page.keyboard.press('3'); // loop mode; default doc has 2 frames
+	await page.getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range start').fill('2');
 	await page.getByLabel('Loop range start').press('Enter');
 	await page.getByLabel('Loop range end').fill('2');
@@ -87,7 +87,7 @@ test('loop range confines playback to the selected frames', async ({ page }) => 
 });
 
 test('polygon tool fires a tip with dismiss and don\'t-show-again', async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/#editor');
 	await page.locator('canvas.editor').waitFor();
 
 	// clear the onboarding tip that fires on a fresh document
@@ -101,7 +101,7 @@ test('polygon tool fires a tip with dismiss and don\'t-show-again', async ({ pag
 	await expect(tip).toHaveCount(0);
 
 	// switching away and back never resurfaces a dismissed-forever tip
-	await page.keyboard.press('b');
+	await page.getByRole('button', { name: /Pencil/ }).click();
 	await page.getByRole('button', { name: /Polygon/ }).click();
 	await expect(tip).toHaveCount(0);
 });

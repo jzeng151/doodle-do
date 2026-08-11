@@ -151,6 +151,7 @@
 		</button>
 		<button
 			class:active={!tipsHidden}
+			aria-pressed={!tipsHidden}
 			title="Show or hide all tips"
 			onclick={() => tips.setHideAll(!tips.hideAll)}
 		>

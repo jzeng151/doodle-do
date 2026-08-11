@@ -14,7 +14,12 @@
 
 <div class="switcher" role="group" aria-label="Workspace mode">
 	{#each MODES as m (m.id)}
-		<button class:active={session.mode === m.id} title={m.tooltip} onclick={() => session.setMode(m.id)}>
+		<button
+			class:active={session.mode === m.id}
+			aria-pressed={session.mode === m.id}
+			title={m.tooltip}
+			onclick={() => session.setMode(m.id)}
+		>
 			{m.label}
 		</button>
 	{/each}

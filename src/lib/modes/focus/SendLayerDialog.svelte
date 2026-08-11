@@ -22,8 +22,8 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl}>
-	<h2>Send layer to frame</h2>
+<dialog bind:this={dialogEl} aria-labelledby="send-layer-title">
+	<h2 id="send-layer-title">Send layer to frame</h2>
 	<form onsubmit={(e) => send(e, false)}>
 		<label>
 			Frame

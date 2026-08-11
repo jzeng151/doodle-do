@@ -28,9 +28,10 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl}>
-	<h2>Resize canvas</h2>
+<dialog bind:this={dialogEl} aria-labelledby="resize-title">
+	<h2 id="resize-title">Resize canvas</h2>
 	<fieldset class="mode">
+		<legend>Resize behavior</legend>
 		<label>
 			<input type="radio" name="resize-mode" value="crop" bind:group={mode} />
 			Keep art size (crop / extend)
@@ -88,6 +89,7 @@
 		gap: 0.5em;
 		align-items: center;
 	}
+	.mode legend { font-weight: 800; padding: 0 0.25rem; }
 	.presets {
 		display: flex;
 		gap: 6px;

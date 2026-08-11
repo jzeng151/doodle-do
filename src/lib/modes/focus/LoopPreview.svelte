@@ -41,6 +41,7 @@
 	<canvas
 		bind:this={loopEl}
 		class="loop"
+		aria-label={`Loop preview, ${paused ? 'paused' : 'playing'}`}
 		width={loopW}
 		height={loopH}
 	></canvas>
