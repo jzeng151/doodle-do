@@ -88,6 +88,29 @@ test('frame duplicate, navigate, delete', async ({ page }) => {
 	await expect(frames).toHaveCount(2);
 });
 
+test('previous and next onion skins can be toggled independently', async ({ page }) => {
+	await gotoApp(page);
+	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
+	await drawStroke(page); // frame 1 becomes the previous ghost
+	await page.getByTitle('Add blank frame').click();
+	await page.getByTitle('Add blank frame').click();
+	await drawStroke(page); // frame 3 becomes the next ghost
+	await frames.nth(1).click(); // blank frame between them
+
+	const previous = page.getByRole('button', { name: 'Previous', exact: true });
+	const next = page.getByRole('button', { name: 'Next', exact: true });
+	await expect(previous).toHaveAttribute('aria-pressed', 'true');
+	await expect(next).toHaveAttribute('aria-pressed', 'true');
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
+
+	await previous.click();
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
+	await next.click();
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
+	await previous.click();
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
+});
+
 test('work survives a reload via autosave', async ({ page }) => {
 	await gotoApp(page);
 	await drawStroke(page);

@@ -109,7 +109,24 @@
 			title="Onion skin opacity"
 			aria-label="Onion skin opacity"
 		/>
-		<span class="onion-key"><i></i>Previous faint · <b></b>Next strong</span>
+		<button
+			class:active={session.onionPreviousEnabled}
+			aria-pressed={session.onionPreviousEnabled}
+			disabled={!session.onionEnabled}
+			title="Show the previous frame onion skin"
+			onclick={() => (session.onionPreviousEnabled = !session.onionPreviousEnabled)}
+		>
+			<i class="onion-swatch previous" aria-hidden="true"></i>Previous
+		</button>
+		<button
+			class:active={session.onionNextEnabled}
+			aria-pressed={session.onionNextEnabled}
+			disabled={!session.onionEnabled}
+			title="Show the next frame onion skin"
+			onclick={() => (session.onionNextEnabled = !session.onionNextEnabled)}
+		>
+			<i class="onion-swatch next" aria-hidden="true"></i>Next
+		</button>
 	</div>
 </div>
 
@@ -146,10 +163,9 @@
 		width: 72px;
 		accent-color: var(--ink);
 	}
-	.onion-key { font-size: 0.625rem; white-space: nowrap; }
-	.onion-key i, .onion-key b { display: inline-block; width: .65rem; height: .65rem; margin-right: .2rem; vertical-align: -.05rem; }
-	.onion-key i { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
-	.onion-key b { margin-left: .35rem; background: var(--onion-next); }
+	.onion-swatch { display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; vertical-align: -.05rem; }
+	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
+	.onion-swatch.next { background: var(--onion-next); }
 	@media (max-width: 720px) {
 		.toolbar { flex: none; flex-wrap: nowrap; overflow-x: auto; }
 		.group { flex: none; }
