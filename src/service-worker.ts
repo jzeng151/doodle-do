@@ -39,9 +39,7 @@ sw.addEventListener('fetch', (event) => {
 	event.respondWith(
 		(async () => {
 			const cache = await caches.open(CACHE);
-			// Navigations are network-first so an installed offline cache cannot
-			// pin an old app shell after a new deployment.
-			if (event.request.mode !== 'navigate' && ASSETS.includes(url.pathname)) {
+			if (ASSETS.includes(url.pathname)) {
 				const cached = await cache.match(url.pathname);
 				if (cached) return cached;
 			}

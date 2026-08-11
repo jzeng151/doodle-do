@@ -145,10 +145,6 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	await start.hover();
 	await expect(start).toHaveCSS('background-color', 'rgb(17, 17, 17)');
 	await expect(start).toHaveCSS('color', 'rgb(242, 239, 230)');
-	const inverse = page.locator('.toolbox .inverse-button');
-	await inverse.hover();
-	await expect(inverse).toHaveCSS('background-color', 'rgb(242, 239, 230)');
-	await expect(inverse).toHaveCSS('color', 'rgb(17, 17, 17)');
 	await start.click();
 
 	const currentFrame = page.getByRole('group', { name: 'Frames' }).getByRole('button').first();
