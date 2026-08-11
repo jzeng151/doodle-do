@@ -105,15 +105,15 @@
 		line-height: 1.2;
 		letter-spacing: 0.04em;
 	}
-	:global(button:hover:not(:disabled):not(.active)) {
+	:global(button:hover:not(:disabled)) {
 		background: var(--paper-2);
+		color: var(--ink);
 	}
 	:global(button:disabled) {
 		opacity: 0.4;
 		cursor: default;
 	}
-	:global(button.active),
-	:global(button.active:hover:not(:disabled)) {
+	:global(button.active) {
 		background: var(--ink);
 		border-color: var(--ink);
 		color: var(--paper);

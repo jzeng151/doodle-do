@@ -141,15 +141,19 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
 		'Draw one frame. The loop already has it.'
 	);
-	await page.getByRole('button', { name: 'Start drawing' }).click();
+	const start = page.locator('.pitch .primary');
+	await start.hover();
+	await expect(start).toHaveCSS('background-color', 'rgb(233, 229, 217)');
+	await expect(start).toHaveCSS('color', 'rgb(17, 17, 17)');
+	await start.click();
 
 	const currentFrame = page.getByRole('group', { name: 'Frames' }).getByRole('button').first();
 	await expect(currentFrame).toHaveCSS('background-color', 'rgb(17, 17, 17)');
 	await expect(currentFrame).toHaveCSS('color', 'rgb(242, 239, 230)');
 	const pencil = page.getByRole('button', { name: /Pencil/ });
 	await pencil.hover();
-	await expect(pencil).toHaveCSS('background-color', 'rgb(17, 17, 17)');
-	await expect(pencil).toHaveCSS('color', 'rgb(242, 239, 230)');
+	await expect(pencil).toHaveCSS('background-color', 'rgb(233, 229, 217)');
+	await expect(pencil).toHaveCSS('color', 'rgb(17, 17, 17)');
 
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
@@ -159,6 +163,6 @@ test('Screentone mock keeps its active tool readable on hover', async ({ page })
 	await page.goto('/mockups#tone/editor');
 	const pencil = page.getByRole('button', { name: 'PENCILB' });
 	await pencil.hover();
-	await expect(pencil).toHaveCSS('background-color', 'rgb(17, 17, 17)');
-	await expect(pencil).toHaveCSS('color', 'rgb(242, 239, 230)');
+	await expect(pencil).toHaveCSS('background-color', 'rgb(233, 229, 217)');
+	await expect(pencil).toHaveCSS('color', 'rgb(17, 17, 17)');
 });

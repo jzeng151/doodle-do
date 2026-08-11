@@ -167,14 +167,15 @@
 	}
 	button:hover {
 		background: var(--paper-2);
+		color: var(--ink);
 	}
 	button.on {
 		color: var(--paper);
 		background: var(--ink);
 	}
 	button.on:hover {
-		color: var(--paper);
-		background: var(--ink);
+		color: var(--ink);
+		background: var(--paper-2);
 	}
 	input {
 		font-family: inherit;
