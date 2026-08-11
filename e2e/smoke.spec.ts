@@ -146,6 +146,10 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	const currentFrame = page.getByRole('group', { name: 'Frames' }).getByRole('button').first();
 	await expect(currentFrame).toHaveCSS('background-color', 'rgb(17, 17, 17)');
 	await expect(currentFrame).toHaveCSS('color', 'rgb(242, 239, 230)');
+	const pencil = page.getByRole('button', { name: /Pencil/ });
+	await pencil.hover();
+	await expect(pencil).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+	await expect(pencil).toHaveCSS('color', 'rgb(242, 239, 230)');
 
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
