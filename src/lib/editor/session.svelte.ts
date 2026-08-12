@@ -75,6 +75,7 @@ export class EditorSession {
 	selectionMode = $state<SelectionMode>('replace');
 	mirrorX = $state(false);
 	colorValue = $state(1);
+	backgroundColorValue = $state(2);
 	zoom = $state(12);
 	fitCheckedDimensions = '';
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
@@ -129,6 +130,7 @@ export class EditorSession {
 		this.bus = new CommandBus(doc);
 		this.compositor = new Compositor(doc);
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
+		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
@@ -557,9 +559,9 @@ export class EditorSession {
 
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
-	strokeBegin(x: number, y: number): void {
+	strokeBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
-		const value = this.tool === 'eraser' ? 0 : this.colorValue;
+		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -597,7 +599,7 @@ export class EditorSession {
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
 	}
 
-	lineBegin(x: number, y: number): void {
+	lineBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating) return;
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
@@ -606,7 +608,7 @@ export class EditorSession {
 				this.doc,
 				frame,
 				this.currentLayer,
-				this.colorValue,
+				colorValue,
 				this.brushSize,
 				this.mirrorX,
 				'line'
@@ -634,7 +636,7 @@ export class EditorSession {
 		this.strokeEnd();
 	}
 
-	shapeBegin(x: number, y: number): void {
+	shapeBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
@@ -643,7 +645,7 @@ export class EditorSession {
 				this.doc,
 				frame,
 				this.currentLayer,
-				this.colorValue,
+				colorValue,
 				this.brushSize,
 				this.mirrorX,
 				this.tool
@@ -674,7 +676,7 @@ export class EditorSession {
 
 	// --- other tools ---
 
-	fill(x: number, y: number): void {
+	fill(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmds = this.editTargets()
 			.map((f) => floodFill(
@@ -683,7 +685,7 @@ export class EditorSession {
 				this.currentLayer,
 				x,
 				y,
-				this.colorValue,
+				colorValue,
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
 				this.fillContiguous
 			))
@@ -697,9 +699,16 @@ export class EditorSession {
 		}
 	}
 
-	eyedrop(x: number, y: number): void {
+	eyedrop(x: number, y: number, background = false): void {
 		const value = samplePixel(this.doc, this.currentFrame, x, y);
-		if (value !== 0) this.colorValue = value;
+		if (value !== 0) {
+			if (background) this.backgroundColorValue = value;
+			else this.colorValue = value;
+		}
+	}
+
+	swapActiveColors(): void {
+		[this.colorValue, this.backgroundColorValue] = [this.backgroundColorValue, this.colorValue];
 	}
 
 	// B5: flips apply to the floating buffer when a selection is active
@@ -904,6 +913,9 @@ export class EditorSession {
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
 		this.colorValue = target < index ? target + 1 : target;
+		const removedValue = index + 1;
+		if (this.backgroundColorValue === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;
+		else if (this.backgroundColorValue > removedValue) this.backgroundColorValue--;
 		return true;
 	}
 

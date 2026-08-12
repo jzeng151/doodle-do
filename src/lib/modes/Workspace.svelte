@@ -114,6 +114,9 @@
 			case 'o':
 				editingSession.toggleOnion();
 				break;
+			case 'x':
+				editingSession.swapActiveColors();
+				break;
 			case '[':
 				editingSession.brushSize = Math.max(1, editingSession.brushSize - 1);
 				break;
