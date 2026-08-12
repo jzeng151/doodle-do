@@ -479,6 +479,12 @@ export class EditorSession {
 		this.liftSelection(false);
 	}
 
+	floatingSelections(frame: number): FloatingSelection[] {
+		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
+		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
+		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+	}
+
 	endLayerMove(): void {
 		this.commitFloating();
 	}

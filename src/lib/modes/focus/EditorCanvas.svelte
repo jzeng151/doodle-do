@@ -17,7 +17,6 @@
 	let keyboardY = $state(0);
 	let keyboardFocused = $state(false);
 	let keyboardMarquee = $state(false);
-	let keyboardLayerMove = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -521,7 +520,7 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			if (session.tool === 'move' && keyboardLayerMove) session.moveFloatingBy(...move);
+			if (session.tool === 'move' && session.floating) session.moveFloatingBy(...move);
 			else if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
@@ -564,9 +563,8 @@
 				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'move':
-				if (keyboardLayerMove) session.endLayerMove();
+				if (session.floating) session.endLayerMove();
 				else session.beginLayerMove();
-				keyboardLayerMove = !keyboardLayerMove;
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);
