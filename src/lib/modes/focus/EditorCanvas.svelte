@@ -312,10 +312,11 @@
 
 	function onPointerDown(e: PointerEvent) {
 		if (e.button !== 0 && e.button !== 2) return;
-		if (e.button === 2 && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
+		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
+		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
-		const colorValue = e.button === 2 ? session.backgroundColorValue : session.colorValue;
+		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
 		keyboardX = x;
 		keyboardY = y;
 		switch (session.tool) {
@@ -343,7 +344,7 @@
 				session.fill(x, y, colorValue);
 				break;
 			case 'eyedropper':
-				session.eyedrop(x, y, e.button === 2);
+				session.eyedrop(x, y, backgroundAction);
 				break;
 			case 'select':
 			case 'lasso':
@@ -539,6 +540,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			keyboardMarquee = false;
+			session.cancelLine();
 			session.cancelFloating();
 			return;
 		}

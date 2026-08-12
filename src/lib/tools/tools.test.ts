@@ -46,6 +46,12 @@ describe('floodFill (B3)', () => {
 		expect(floodFill(doc, 0, 0, 8, 0, 5)).toBeNull();
 	});
 
+	it('keeps duplicate palette indices distinct at zero tolerance', () => {
+		const doc = createDoc({ width: 2, height: 1, palette: ['#112233', '#112233'] });
+		doc.frames[0].layers[0].pixels.set([1, 2]);
+		expect(floodFill(doc, 0, 0, 0, 0, 2)!.pixelCount).toBe(1);
+	});
+
 	it('fills similar palette colors within tolerance', () => {
 		const doc = testDoc(3, 1);
 		doc.palette[0] = '#101010';
@@ -173,6 +179,15 @@ describe('line tool', () => {
 		expect(line.end()!.kind).toBe('line');
 	});
 
+	it('cancels its optimistic preview', () => {
+		const doc = testDoc();
+		const line = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line');
+		line.begin(1, 1);
+		line.previewLineTo(4, 1);
+		line.cancel();
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 0)).toBe(true);
+	});
+
 	it('constrains to horizontal, vertical, or diagonal lines', () => {
 		expect(constrainLineEndpoint(2, 2, 7, 3)).toEqual({ x: 7, y: 2 });
 		expect(constrainLineEndpoint(2, 2, 3, 7)).toEqual({ x: 2, y: 7 });
@@ -196,7 +211,9 @@ describe('shape tools', () => {
 	});
 
 	it('clamps an off-canvas shape preview before enumerating points', () => {
-		expect(rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 })).toHaveLength(24);
+		const points = rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 });
+		expect(points).toHaveLength(13);
+		expect(points).not.toContainEqual({ x: 7, y: 7 });
 	});
 });
 
@@ -242,6 +259,26 @@ describe('pixel-perfect pencil', () => {
 		stroke.moveTo(4, 2);
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect([pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3]);
+	});
+
+	it('keeps both mirrored arms when a corner crosses the axis', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true);
+		stroke.begin(3, 1);
+		stroke.moveTo(4, 1);
+		stroke.moveTo(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[1 * 8 + 3], pixels[1 * 8 + 4], pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3, 3, 3]);
+	});
+
+	it('keeps pixels reused earlier in the same stroke', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		for (const [i, point] of [[2, 2], [3, 2], [2, 2], [2, 3]].entries()) {
+			if (i === 0) stroke.begin(...point as [number, number]);
+			else stroke.moveTo(...point as [number, number]);
+		}
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(3);
 	});
 });
 
