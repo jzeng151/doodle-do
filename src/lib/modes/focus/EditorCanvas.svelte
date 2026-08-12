@@ -2,6 +2,7 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { buildLut } from '$lib/core/palette';
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
+	import { brushBounds, canvasPoint } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -75,20 +76,20 @@
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
 		const z = session.zoom;
 		const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
-		const r = size >> 1;
-		const brushX = keyboardX - r;
-		const brushY = keyboardY - r;
-		const x0 = Math.max(0, brushX);
-		const y0 = Math.max(0, brushY);
-		const x1 = Math.min(session.doc.meta.width, brushX + size);
-		const y1 = Math.min(session.doc.meta.height, brushY + size);
+		const bounds = brushBounds(
+			keyboardX,
+			keyboardY,
+			size,
+			session.doc.meta.width,
+			session.doc.meta.height
+		);
 		ctx.save();
 		ctx.strokeStyle = '#fff';
 		ctx.lineWidth = 3;
-		ctx.strokeRect(x0 * z + 1.5, y0 * z + 1.5, (x1 - x0) * z - 3, (y1 - y0) * z - 3);
+		ctx.strokeRect(bounds.x * z + 1.5, bounds.y * z + 1.5, bounds.w * z - 3, bounds.h * z - 3);
 		ctx.strokeStyle = '#000';
 		ctx.lineWidth = 1;
-		ctx.strokeRect(x0 * z + 1.5, y0 * z + 1.5, (x1 - x0) * z - 3, (y1 - y0) * z - 3);
+		ctx.strokeRect(bounds.x * z + 1.5, bounds.y * z + 1.5, bounds.w * z - 3, bounds.h * z - 3);
 		ctx.restore();
 	}
 
@@ -278,11 +279,8 @@
 
 	// fractional pixel coords, for smooth rotation angles
 	function pixelFromEventF(e: PointerEvent): { x: number; y: number } {
-		const rect = canvasEl.getBoundingClientRect();
-		return {
-			x: ((e.clientX - rect.left) / rect.width) * session.doc.meta.width,
-			y: ((e.clientY - rect.top) / rect.height) * session.doc.meta.height
-		};
+		const point = canvasPoint(e, canvasEl);
+		return { x: point.x / session.zoom, y: point.y / session.zoom };
 	}
 
 	function onPointerDown(e: PointerEvent) {
@@ -310,9 +308,7 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				lastPixel = { x, y };
 				const f = pixelFromEventF(e);
-				const box = canvasEl.getBoundingClientRect();
-				const ex = e.clientX - box.left;
-				const ey = e.clientY - box.top;
+				const { x: ex, y: ey } = canvasPoint(e, canvasEl);
 				// 1) rotate handle beats everything
 				const hp = handleScreenPos();
 				if (hp && Math.hypot(ex - hp.x, ey - hp.y) <= HANDLE_R) {
@@ -378,6 +374,11 @@
 
 	function onPointerMove(e: PointerEvent) {
 		const { x, y } = pixelFromEvent(e);
+		const nextX = Math.max(0, Math.min(session.doc.meta.width - 1, x));
+		const nextY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
+		const cursorMoved = nextX !== keyboardX || nextY !== keyboardY;
+		keyboardX = nextX;
+		keyboardY = nextY;
 		if (selectDrag === 'marquee') {
 			session.updateMarquee(x, y);
 			return;
@@ -406,6 +407,7 @@
 			return;
 		}
 		if (session.strokeActive) session.strokeMove(x, y);
+		else if (cursorMoved) repaint();
 	}
 
 	function onPointerUp() {
@@ -505,6 +507,7 @@
 		aria-describedby="canvas-help"
 		width={cssW}
 		height={cssH}
+		style={`--checker-size:${session.zoom * 2}px`}
 		onfocus={() => ((keyboardFocused = true), repaint())}
 		onblur={() => ((keyboardFocused = false), repaint())}
 		onkeydown={onKeyDown}
@@ -528,7 +531,8 @@
 	}
 	.editor {
 		image-rendering: pixelated;
-		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
+		background-image: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%);
+		background-size: var(--checker-size) var(--checker-size);
 		border: 3px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;

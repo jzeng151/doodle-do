@@ -5,6 +5,7 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import SidePanel from '../SidePanel.svelte';
 	import FrameStrip from '../focus/FrameStrip.svelte';
+	import { brushBounds, canvasPoint } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -22,6 +23,8 @@
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
+		void session.brushSize;
+		void session.tool;
 		void focusedTile;
 		void keyboardX;
 		void keyboardY;
@@ -34,21 +37,29 @@
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
+				const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+				const bounds = brushBounds(
+					keyboardX,
+					keyboardY,
+					size,
+					session.doc.meta.width,
+					session.doc.meta.height
+				);
 				ctx.strokeStyle = '#fff';
 				ctx.lineWidth = 3;
-				ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+				ctx.strokeRect(bounds.x * z + 1.5, bounds.y * z + 1.5, bounds.w * z - 3, bounds.h * z - 3);
 				ctx.strokeStyle = '#000';
 				ctx.lineWidth = 1;
-				ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+				ctx.strokeRect(bounds.x * z + 1.5, bounds.y * z + 1.5, bounds.w * z - 3, bounds.h * z - 3);
 			}
 		}
 	});
 
 	function pixelFromEvent(e: PointerEvent, el: HTMLCanvasElement) {
-		const rect = el.getBoundingClientRect();
+		const point = canvasPoint(e, el);
 		return {
-			x: Math.floor(((e.clientX - rect.left) / rect.width) * session.doc.meta.width),
-			y: Math.floor(((e.clientY - rect.top) / rect.height) * session.doc.meta.height)
+			x: Math.floor(point.x / session.gridZoom),
+			y: Math.floor(point.y / session.gridZoom)
 		};
 	}
 
@@ -77,9 +88,10 @@
 	}
 
 	function onPointerMove(e: PointerEvent, i: number) {
-		if (strokeTile !== i || !session.strokeActive) return;
 		const { x, y } = pixelFromEvent(e, tiles[i]!);
-		session.strokeMove(x, y);
+		keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, x));
+		keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
+		if (strokeTile === i && session.strokeActive) session.strokeMove(x, y);
 	}
 
 	function onPointerUp() {
@@ -144,6 +156,7 @@
 						aria-describedby="grid-canvas-help"
 						width={tileW}
 						height={tileH}
+						style={`--checker-size:${session.gridZoom * 2}px`}
 						onfocus={() => ((focusedTile = i), session.selectFrame(i))}
 						onblur={() => focusedTile === i && (focusedTile = -1)}
 						onkeydown={(e) => onKeyDown(e, i)}
@@ -211,7 +224,8 @@
 	}
 	canvas {
 		image-rendering: pixelated;
-		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
+		background-image: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%);
+		background-size: var(--checker-size) var(--checker-size);
 		border: 2px solid var(--ink);
 		touch-action: none;
 		cursor: crosshair;

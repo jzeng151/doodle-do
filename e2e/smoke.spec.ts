@@ -202,6 +202,26 @@ test('keyboard pencil indicator matches the brush size', async ({ page }) => {
 	expect(bounds).toBeGreaterThan(40); // 4 canvas pixels at the default 12× zoom
 });
 
+test('pointer pixels and transparency grid align with the drawable canvas', async ({ page }) => {
+	await gotoApp(page);
+	const editor = page.locator('canvas.editor');
+	await expect(editor).toHaveCSS('background-size', '24px 24px');
+	const box = (await editor.boundingBox())!;
+	const border = await editor.evaluate((canvas) => canvas.clientLeft);
+
+	// Still inside pixel 0, close enough to its edge that including the border maps to pixel 1.
+	await page.mouse.click(box.x + border + 10.5, box.y + border + 10.5);
+	const painted = await editor.evaluate((canvas) => {
+		const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+		const opaque = (x: number, y: number) => data[(y * canvas.width + x) * 4 + 3] > 0;
+		return { first: opaque(6, 6), southeast: opaque(18, 18) };
+	});
+	expect(painted).toEqual({ first: true, southeast: false });
+
+	await page.getByRole('group', { name: 'Workspace mode' }).getByRole('button', { name: 'Grid' }).click();
+	await expect(page.locator('.tile canvas').first()).toHaveCSS('background-size', '6px 6px');
+});
+
 test('mobile editor keeps document status and tips in the layout', async ({ page }) => {
 	await page.setViewportSize({ width: 320, height: 568 });
 	await gotoApp(page);
