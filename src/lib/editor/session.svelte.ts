@@ -6,12 +6,14 @@
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
 import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
 import {
+	AnimationTagsCommand,
 	DocumentReplaceCommand,
 	FpsCommand,
 	FrameAddCommand,
 	FrameDeleteCommand,
 	FrameDurationCommand,
 	FrameReorderCommand,
+	LinkedFrameAddCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
 	LayerReorderCommand,
@@ -19,7 +21,8 @@ import {
 	PaletteAddCommand,
 	PaletteRemoveCommand,
 	PaletteSwapCommand,
-	ResizeCanvasCommand
+	ResizeCanvasCommand,
+	UnlinkFrameCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
 import { floodFill, floodRegion } from '../tools/fill';
@@ -113,7 +116,7 @@ export class EditorSession {
 	// floating buffer are view state until commit, when the whole move
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
-	private previousSelectionMask: Uint8Array | null = null;
+	private previousSelectionMask = $state<Uint8Array | null>(null);
 	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
@@ -144,13 +147,15 @@ export class EditorSession {
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
-			this.compositor.invalidate(doc.frames.some((frame) => frame.layers.some((layer) => layer.linkId)) ? { frame: null, rect: null } : region);
+			const pixels = doc.frames.flatMap((frame) => frame.layers.map((layer) => layer.pixels));
+			this.compositor.invalidate(new Set(pixels).size < pixels.length ? { frame: null, rect: null } : region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
 				doc.frames[this.currentFrame].layers.length - 1
 			);
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
+			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			this.version++;
 		});
 		this.bus.onCommit(() => this.unsavedCommits++);
@@ -164,6 +169,8 @@ export class EditorSession {
 
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.selectionMask = null;
 		this.clearGestures();
@@ -177,6 +184,8 @@ export class EditorSession {
 	// document, current frame, zoom, and palette because nothing is rebuilt.
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -224,6 +233,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index !== this.currentFrame) {
+			this.lineEnd();
+			this.shapeEnd();
+		}
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -237,7 +250,13 @@ export class EditorSession {
 	// shorter than the active layer
 	private editTargets(): number[] {
 		const frames = this.bulkFrames.length ? this.bulkFrames : [this.currentFrame];
-		return frames.filter((f) => this.currentLayer < this.doc.frames[f].layers.length);
+		const seen = new Set<Uint8Array>();
+		return frames.filter((f) => {
+			const pixels = this.doc.frames[f].layers[this.currentLayer]?.pixels;
+			if (!pixels || seen.has(pixels)) return false;
+			seen.add(pixels);
+			return true;
+		});
 	}
 
 	toggleBulkFrame(index: number): void {
@@ -302,6 +321,7 @@ export class EditorSession {
 
 	selectAll(): void {
 		this.commitFloating();
+		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.overlayVersion++;
@@ -317,6 +337,7 @@ export class EditorSession {
 
 	invertSelection(): void {
 		this.commitFloating();
+		this.clearGestures();
 		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
 		this.selectionMask = new Uint8Array(length);
@@ -328,6 +349,7 @@ export class EditorSession {
 	reselect(): void {
 		if (!this.previousSelectionMask) return;
 		this.commitFloating();
+		this.clearGestures();
 		const current = this.selectionMask?.slice() ?? null;
 		this.selectionMask = this.previousSelectionMask;
 		this.previousSelectionMask = current;
@@ -484,6 +506,12 @@ export class EditorSession {
 		this.liftSelection(false);
 	}
 
+	floatingSelections(frame: number): FloatingSelection[] {
+		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
+		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
+		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+	}
+
 	endLayerMove(): void {
 		this.commitFloating();
 	}
@@ -504,7 +532,7 @@ export class EditorSession {
 	}
 
 	placeStamp(x: number, y: number): void {
-		if (!this.stamp) return;
+		if (!this.stamp || this.floating) return;
 		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
@@ -701,9 +729,10 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
+		const bounds = this.doc.meta;
 		const points = this.tool === 'ellipse'
-			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled)
-			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled);
+			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
+			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
 			if (rect) this.bus.emitChange({ frame: s.frame, rect });
@@ -717,6 +746,14 @@ export class EditorSession {
 
 	get strokeActive(): boolean {
 		return this.strokes.length > 0;
+	}
+
+	get lineActive(): boolean {
+		return this.lineOrigin !== null;
+	}
+
+	get shapeActive(): boolean {
+		return this.shapeOrigin !== null;
 	}
 
 	// --- other tools ---
@@ -802,27 +839,16 @@ export class EditorSession {
 	addLinkedFrame(): void {
 		this.commitFloating();
 		this.bulkFrames = [];
-		const next = structuredClone(this.doc);
 		const index = this.currentFrame + 1;
-		const source = next.frames[this.currentFrame];
-		const layers = source.layers.map((layer, layerIndex) => {
-			const linkId = layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`;
-			layer.linkId = linkId;
-			return { name: layer.name, visible: layer.visible, pixels: layer.pixels, linkId };
-		});
-		next.frames.splice(index, 0, { layers, ...(source.durationMs !== undefined && { durationMs: source.durationMs }) });
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const ids = this.frame.layers.map((layer, layerIndex) => layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`);
+		this.bus.dispatch(new LinkedFrameAddCommand(this.currentFrame, index, ids));
 		this.currentFrame = index;
 	}
 
 	unlinkCurrentFrame(): void {
 		if (!this.frame.layers.some((layer) => layer.linkId)) return;
-		const next = structuredClone(this.doc);
-		for (const layer of next.frames[this.currentFrame].layers) {
-			layer.pixels = layer.pixels.slice();
-			delete layer.linkId;
-		}
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.commitFloating();
+		this.bus.dispatch(new UnlinkFrameCommand(this.doc, this.currentFrame));
 	}
 
 	get currentFrameLinked(): boolean { return this.frame.layers.some((layer) => layer.linkId); }
@@ -883,25 +909,34 @@ export class EditorSession {
 	addAnimationTag(tag: AnimationTag): void {
 		const name = tag.name.trim();
 		if (!name) return;
-		const next = structuredClone(this.doc);
-		next.meta.tags = [...(next.meta.tags ?? []).filter((item) => item.name !== name), { ...tag, name }];
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const before = this.doc.meta.tags;
+		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name }];
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		this.activeAnimationTagName = name;
 	}
 
 	deleteAnimationTag(name: string): void {
-		const next = structuredClone(this.doc);
-		next.meta.tags = (next.meta.tags ?? []).filter((tag) => tag.name !== name);
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const before = this.doc.meta.tags;
+		const after = (before ?? []).filter((tag) => tag.name !== name);
+		if (after.length === before?.length) return;
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		if (this.activeAnimationTagName === name) this.selectAnimationTag('');
 	}
 
 	selectAnimationTag(name: string): void {
 		this.activeAnimationTagName = name;
+		if (!name) {
+			this.loopRange = null;
+			this.loopPlaybackMode = 'forward';
+			this.loopRepeatCount = 0;
+			return;
+		}
 		const tag = this.doc.meta.tags?.find((item) => item.name === name);
 		if (tag) {
 			this.setLoopRange(tag.from, tag.to);
 			this.loopPlaybackMode = tag.direction;
 			this.loopRepeatCount = tag.repeats;
-		} else this.setLoopRange(0, this.doc.frames.length - 1);
+		}
 	}
 
 	// --- layers (per-frame, cap 8) ---
@@ -1011,6 +1046,8 @@ export class EditorSession {
 		if (inUse && remapTo === undefined) return false;
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
+		this.stamp = null;
+		if (this.tool === 'stamp') this.setTool('pencil');
 		this.colorValue = target < index ? target + 1 : target;
 		const removedValue = index + 1;
 		if (this.backgroundColorValue === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;
@@ -1020,6 +1057,7 @@ export class EditorSession {
 
 	importPalette(colors: string[]): void {
 		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return;
+		this.commitFloating();
 		const highestUsed = this.doc.frames.reduce(
 			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
 			0
@@ -1034,17 +1072,19 @@ export class EditorSession {
 
 	createPaletteFromArtwork(): void {
 		if (this.paletteLocked) return;
-		const next = paletteFromArtwork(this.doc);
-		if (!next) return;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
-		this.colorValue = Math.min(this.colorValue, next.palette.length);
-		this.backgroundColorValue = Math.min(this.backgroundColorValue, next.palette.length);
+		this.commitFloating();
+		const compacted = paletteFromArtwork(this.doc);
+		if (!compacted) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
+		this.colorValue = compacted.map.get(this.colorValue) ?? Math.min(this.colorValue, compacted.doc.palette.length);
+		this.backgroundColorValue = compacted.map.get(this.backgroundColorValue) ?? Math.min(this.backgroundColorValue, compacted.doc.palette.length);
 	}
 
 	generatePaletteRamp(start: number, end: number): void {
-		if (this.paletteLocked || start === end) return;
-		const lo = Math.max(0, Math.min(start, end));
-		const hi = Math.min(this.doc.palette.length - 1, Math.max(start, end));
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		const lo = Math.min(start, end);
+		const hi = Math.max(start, end);
 		const colors = colorRamp(this.doc.palette[lo], this.doc.palette[hi], hi - lo + 1);
 		const cmds = colors
 			.map((color, offset) => ({ index: lo + offset, color }))
@@ -1055,12 +1095,19 @@ export class EditorSession {
 	}
 
 	sortPalette(start: number, end: number, sort: PaletteSort): void {
-		if (this.paletteLocked || start === end) return;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sortPaletteRange(this.doc, start, end, sort)));
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.commitFloating();
+		const sorted = sortPaletteRange(this.doc, start, end, sort);
+		if (!sorted.moved) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sorted.doc));
+		this.colorValue = sorted.map.get(this.colorValue) ?? this.colorValue;
+		this.backgroundColorValue = sorted.map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
 		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
+		if (scope === 'selection' && !this.selectionMask) return;
 		const selection = this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
@@ -1099,6 +1146,7 @@ export class EditorSession {
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
