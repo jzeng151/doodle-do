@@ -115,7 +115,9 @@
 </script>
 
 <header class="bar">
-	<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
+	<a class="home" href="/" aria-label="Doodle-Do home">
+		<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
+	</a>
 	<ModeSwitcher {session} />
 	<input class="name" value={session.doc.meta.name} onchange={rename} aria-label="Document name" />
 	<span class="status" aria-live="polite">
@@ -174,6 +176,7 @@
 		background: var(--paper);
 	}
 	.mark { width: 28px; height: 28px; image-rendering: pixelated; }
+	.home { display: flex; align-items: center; gap: .45rem; color: inherit; text-decoration: none; }
 	.brand {
 		font-size: 0.9375rem;
 		font-weight: 950;

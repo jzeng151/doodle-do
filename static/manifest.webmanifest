@@ -2,7 +2,7 @@
 	"name": "Doodle-Do",
 	"short_name": "Doodle-Do",
 	"description": "Frame-by-frame pixel animation tool that teaches you as you work",
-	"start_url": "/",
+	"start_url": "/canvas",
 	"display": "standalone",
 	"background_color": "#f2efe6",
 	"theme_color": "#f2efe6",

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('app works offline after first load', async ({ page, context }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 	// wait for the service worker to activate and precache
 	await page.evaluate(() => navigator.serviceWorker.ready);

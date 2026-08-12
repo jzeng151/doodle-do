@@ -7,7 +7,7 @@ function canvasHasInk(sel: string) {
 }
 
 async function gotoApp(page: Page) {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 }
 

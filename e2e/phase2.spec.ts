@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function gotoApp(page: Page) {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 }
 

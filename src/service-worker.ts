@@ -12,18 +12,25 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `doodledo-${version}`;
 const BASE = sw.location.pathname.split('/').slice(0, -1).join('/');
 const ROOT = `${BASE}/`;
+const CANVAS = `${BASE}/canvas`;
 const IMMUTABLE = `${BASE}/_app/immutable/`;
 const WORKERS = build.filter((path) => path.includes('/workers/'));
 
 async function cacheShell(cache: Cache): Promise<void> {
-	const response = await fetch(ROOT, { cache: 'reload' });
-	if (!response.ok) throw new Error(`App shell returned ${response.status}`);
-	const html = await response.clone().text();
-	const linked = [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)]
-		.map((match) => new URL(match[1], response.url))
-		.filter((url) => url.origin === sw.location.origin && url.pathname.startsWith(IMMUTABLE))
-		.map((url) => url.pathname);
-	await cache.put(ROOT, response);
+	const responses = await Promise.all([ROOT, CANVAS].map((path) => fetch(path, { cache: 'reload' })));
+	if (responses.some((response) => !response.ok)) throw new Error('App shell request failed');
+	const linked = (
+		await Promise.all(
+			responses.map(async (response) => {
+				const html = await response.clone().text();
+				return [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)]
+					.map((match) => new URL(match[1], response.url))
+					.filter((url) => url.origin === sw.location.origin && url.pathname.startsWith(IMMUTABLE))
+					.map((url) => url.pathname);
+			})
+		)
+	).flat();
+	await Promise.all([cache.put(ROOT, responses[0]), cache.put(CANVAS, responses[1])]);
 	await cache.addAll([...new Set([...files, ...WORKERS, ...linked])]);
 }
 

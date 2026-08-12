@@ -53,7 +53,7 @@ function call(operation: string, args: unknown): Promise<Record<string, unknown>
 }
 
 test('agent edit renders live and enters browser undo history', async ({ page }) => {
-	await page.goto(`/?mcp=${token}&mcpPort=${port}#editor`);
+	await page.goto(`/canvas?mcp=${token}&mcpPort=${port}`);
 	await page.locator('canvas.editor').waitFor();
 	await expect.poll(() => events !== null).toBe(true);
 

@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const ZOOM = 12; // session default
 
 async function gotoApp(page: Page) {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 }
 

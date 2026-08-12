@@ -133,15 +133,17 @@
 <style>
 	.toolbar {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: 0.25rem;
 		padding: 0.5rem 0.75rem;
 		border-bottom: 2px solid var(--edge);
 		background: var(--paper);
 		align-items: center;
+		overflow-x: auto;
 	}
 	.group {
 		display: flex;
+		flex: none;
 		gap: 2px;
 		align-items: center;
 	}
@@ -167,7 +169,6 @@
 	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
 	.onion-swatch.next { background: var(--onion-next); }
 	@media (max-width: 720px) {
-		.toolbar { flex: none; flex-wrap: nowrap; overflow-x: auto; }
-		.group { flex: none; }
+		.toolbar { flex: none; }
 	}
 </style>

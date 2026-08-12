@@ -6,7 +6,7 @@ function canvasHasInk(sel: string) {
 	return data.some((v) => v !== 0);
 }
 
-async function gotoApp(page: Page, path = '/#editor') {
+async function gotoApp(page: Page, path = '/canvas') {
 	await page.goto(path);
 	await page.locator('canvas.editor').waitFor(); // session mounts async
 }
@@ -248,4 +248,18 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
+});
+
+test('landing page opens the editor on the canvas route', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: /Start drawing|Resume autosave/ }).first().click();
+	await expect(page).toHaveURL(/\/canvas$/);
+	await expect(page.locator('canvas.editor')).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Doodle-Do home' })).toHaveAttribute('href', '/');
+});
+
+test('legacy editor hash redirects to the canvas route', async ({ page }) => {
+	await page.goto('/#editor');
+	await expect(page).toHaveURL(/\/canvas$/);
+	await expect(page.locator('canvas.editor')).toBeVisible();
 });

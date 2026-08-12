@@ -18,7 +18,7 @@ async function mouseOnPixel(page: Page, x: number, y: number) {
 }
 
 async function drawDotAndSelect(page: Page) {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 	await mouseOnPixel(page, 8, 8);
 	await page.mouse.down();
@@ -70,7 +70,7 @@ test('arrow keys nudge the selection by one pixel', async ({ page }) => {
 });
 
 test('loop range confines playback to the selected frames', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 
 	await page.getByRole('button', { name: 'Loop' }).click();
@@ -87,7 +87,7 @@ test('loop range confines playback to the selected frames', async ({ page }) => 
 });
 
 test('polygon tool fires a tip with dismiss and don\'t-show-again', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 
 	// clear the onboarding tip that fires on a fresh document

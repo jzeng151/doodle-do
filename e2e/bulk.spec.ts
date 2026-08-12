@@ -22,7 +22,7 @@ function frameOption(page: Page, index: number) {
 }
 
 test('a stroke lands on every bulk-selected frame as one undo step', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 	await page.getByRole('button', { name: 'Onion' }).click(); // onion ghosts would read as opaque pixels
 
@@ -51,7 +51,7 @@ test('a stroke lands on every bulk-selected frame as one undo step', async ({ pa
 });
 
 test('a selection move applies to every bulk-selected frame', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 	await page.getByRole('button', { name: 'Onion' }).click();
 

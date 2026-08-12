@@ -20,7 +20,7 @@ async function drawDot(page: Page, x: number, y: number) {
 }
 
 test('merge down flattens two layers as one undo step', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 
 	await drawDot(page, 8, 8); // layer 1
@@ -43,7 +43,7 @@ test('merge down flattens two layers as one undo step', async ({ page }) => {
 });
 
 test('send layer to frame copies it onto the target frame', async ({ page }) => {
-	await page.goto('/#editor');
+	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 	await page.getByRole('button', { name: 'Onion' }).click(); // onion ghosts would read as opaque pixels
 
