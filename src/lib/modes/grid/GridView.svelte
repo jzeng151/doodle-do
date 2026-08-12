@@ -11,6 +11,8 @@
 
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
+	let moveTile = -1;
+	let movePixel = { x: 0, y: 0 };
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -89,6 +91,12 @@
 				strokeTile = i;
 				session.shapeBegin(x, y);
 				break;
+			case 'move':
+				el.setPointerCapture(e.pointerId);
+				moveTile = i;
+				movePixel = { x, y };
+				session.beginLayerMove();
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -107,10 +115,16 @@
 			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
+		if (moveTile === i) {
+			session.moveFloatingBy(x - movePixel.x, y - movePixel.y);
+			movePixel = { x, y };
+		}
 	}
 
 	function onPointerUp() {
 		strokeTile = -1;
+		if (moveTile !== -1) session.endLayerMove();
+		moveTile = -1;
 		if (session.tool === 'line') session.lineEnd();
 		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
 		else session.strokeEnd();

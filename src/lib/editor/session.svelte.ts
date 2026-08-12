@@ -37,6 +37,7 @@ export type Tool =
 	| 'line'
 	| 'rectangle'
 	| 'ellipse'
+	| 'move'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -431,16 +432,16 @@ export class EditorSession {
 
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
-	liftSelection(): void {
+	liftSelection(mirrored = this.mirrorX): void {
 		if (this.floating || !this.selectionMask) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
-		const mirrored = this.mirrorX ? mirrorMaskX(mask, width, height) : null;
+		const mirroredMask = mirrored ? mirrorMaskX(mask, width, height) : null;
 		// per frame, the main lifts FIRST: its snapshot is the pristine layer
 		// that pair commit/cancel run against
 		const liftOn = (frame: number) => ({
 			main: new FloatingSelection(this.doc, frame, this.currentLayer, mask),
-			twin: mirrored ? new FloatingSelection(this.doc, frame, this.currentLayer, mirrored) : null
+			twin: mirroredMask ? new FloatingSelection(this.doc, frame, this.currentLayer, mirroredMask) : null
 		});
 		const active = liftOn(this.currentFrame);
 		this.floating = active.main;
@@ -448,7 +449,7 @@ export class EditorSession {
 		this.floatingPeers = this.editTargets()
 			.filter((f) => f !== this.currentFrame)
 			.map(liftOn);
-		if (mirrored) tips.fire('T24');
+		if (mirroredMask) tips.fire('T24');
 		this.selectionMask = null;
 		this.overlayVersion++;
 		this.bus.emitChange({
@@ -459,6 +460,16 @@ export class EditorSession {
 			this.bus.emitChange({ frame: p.main.frameIndex, rect: null }); // lifted holes
 		}
 		tips.fire('T20'); // arrow-key nudge
+	}
+
+	beginLayerMove(): void {
+		if (this.floating) return;
+		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
+		this.liftSelection(false);
+	}
+
+	endLayerMove(): void {
+		this.commitFloating();
 	}
 
 	moveFloatingBy(dx: number, dy: number): void {

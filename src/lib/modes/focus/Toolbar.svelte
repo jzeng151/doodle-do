@@ -8,6 +8,7 @@
 		{ id: 'line', label: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
 		{ id: 'rectangle', label: 'Rect', key: 'R', description: 'Draw a rectangle' },
 		{ id: 'ellipse', label: 'Ellipse', key: 'C', description: 'Draw an ellipse' },
+		{ id: 'move', label: 'Move', key: 'V', description: 'Move the active layer' },
 		{ id: 'eraser', label: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
 		{ id: 'fill', label: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
 		{ id: 'eyedropper', label: 'Pick', key: 'I', description: 'Pick a color from the canvas' },

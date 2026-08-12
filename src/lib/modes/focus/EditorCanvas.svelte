@@ -9,7 +9,7 @@
 
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
-	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | null = null;
+	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | 'layer' | null = null;
 	let rotateStart: { angle0: number; grab: number } | null = null;
 	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
@@ -18,6 +18,7 @@
 	let keyboardFocused = $state(false);
 	let keyboardMarquee = $state(false);
 	let keyboardLine = $state(false);
+	let keyboardLayerMove = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -332,6 +333,12 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				session.shapeBegin(x, y);
 				break;
+			case 'move':
+				canvasEl.setPointerCapture(e.pointerId);
+				lastPixel = { x, y };
+				session.beginLayerMove();
+				selectDrag = 'layer';
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -425,9 +432,9 @@
 			session.updateLasso(f.x, f.y);
 			return;
 		}
-		if (selectDrag === 'float') {
+		if (selectDrag === 'float' || selectDrag === 'layer') {
 			const dx = x - lastPixel.x;
-			session.moveFloatingBy(dragMirrored ? -dx : dx, y - lastPixel.y);
+			session.moveFloatingBy(selectDrag === 'float' && dragMirrored ? -dx : dx, y - lastPixel.y);
 			lastPixel = { x, y };
 			return;
 		}
@@ -452,6 +459,7 @@
 	}
 
 	function onPointerUp() {
+		if (selectDrag === 'layer') session.endLayerMove();
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
@@ -514,7 +522,8 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
+			if (session.tool === 'move' && keyboardLayerMove) session.moveFloatingBy(...move);
+			else if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
@@ -554,6 +563,11 @@
 			case 'ellipse':
 				session.shapeBegin(keyboardX, keyboardY);
 				session.shapeEnd();
+				break;
+			case 'move':
+				if (keyboardLayerMove) session.endLayerMove();
+				else session.beginLayerMove();
+				keyboardLayerMove = !keyboardLayerMove;
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);
@@ -649,6 +663,7 @@
 	.editor[data-tool='select'] {
 		cursor: default;
 	}
+	.editor[data-tool='move'] { cursor: move; }
 	.sr-only {
 		position: absolute;
 		width: 1px;
