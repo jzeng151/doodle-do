@@ -61,15 +61,18 @@ export function floodFill(
 	if (x < 0 || y < 0 || x >= width || y >= height) return null;
 	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
 	const target = pixels[y * width + x];
-	if (target === value && (!ditherSize || target === secondaryValue)) return null;
 
 	const matches = (candidate: number) => colorDistance(doc, target, candidate) <= tolerance;
-	const hits = contiguous
+	const hits = (contiguous
 		? connectedRegion(pixels, width, height, x, y, matches)
-		: Array.from(pixels.keys()).filter((index) => matches(pixels[index]));
-	const indices = new Uint32Array(hits);
-	const before = new Uint8Array(hits.map((index) => pixels[index]));
-	const after = new Uint8Array(hits.map((index) => ditherValue(index % width, (index / width) | 0, value, secondaryValue, ditherSize)));
+		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])));
+	const changes = hits
+		.map((index) => ({ index, after: ditherValue(index % width, (index / width) | 0, value, secondaryValue, ditherSize) }))
+		.filter(({ index, after }) => pixels[index] !== after);
+	if (!changes.length) return null;
+	const indices = new Uint32Array(changes.map(({ index }) => index));
+	const before = new Uint8Array(changes.map(({ index }) => pixels[index]));
+	const after = new Uint8Array(changes.map(({ after }) => after));
 	return new PixelDiffCommand('flood-fill', frameIndex, layerIndex, indices, before, after, width);
 }
 

@@ -114,20 +114,24 @@ export class StrokeBuilder {
 		if (this.centers.length < 3) return rect;
 		const [a, b, c] = this.centers.slice(-3);
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
-		this.restorePixel(b.x, b.y);
+		const endpoints = new Set([c.y * this.doc.meta.width + c.x]);
+		if (this.mirrorX) endpoints.add(c.y * this.doc.meta.width + this.doc.meta.width - 1 - c.x);
+		this.restorePixel(b.x, b.y, endpoints);
 		rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
 		if (this.mirrorX) {
 			const mirrorX = this.doc.meta.width - 1 - b.x;
-			this.restorePixel(mirrorX, b.y);
+			this.restorePixel(mirrorX, b.y, endpoints);
 			rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
 		}
+		this.centers.splice(-2, 1);
 		return rect;
 	}
 
-	private restorePixel(x: number, y: number): void {
+	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): void {
 		const { width, height } = this.doc.meta;
 		if (x < 0 || y < 0 || x >= width || y >= height) return;
 		const index = y * width + x;
+		if (protectedIndices.has(index)) return;
 		const before = this.dirty.get(index);
 		if (before !== undefined) this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
 	}
