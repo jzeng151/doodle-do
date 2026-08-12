@@ -1,13 +1,39 @@
 <script lang="ts">
-	let { playing = false, scale = 4 }: { playing?: boolean; scale?: number } = $props();
+	import { onMount } from 'svelte';
+
+	let {
+		playing = false,
+		scale = 4,
+		frameMs = 125,
+		onready
+	}: {
+		playing?: boolean;
+		scale?: number;
+		frameMs?: number;
+		onready?: (frameCount: number) => void;
+	} = $props();
 	let frame = $state(0);
+	let frameSize = $state(16);
+	let frameCount = $state(1);
+
+	onMount(() => {
+		const image = new Image();
+		image.onload = () => {
+			if (image.naturalHeight === 0 || image.naturalWidth % image.naturalHeight !== 0) return;
+			frameSize = image.naturalHeight;
+			frameCount = image.naturalWidth / image.naturalHeight;
+			frame = 0;
+			onready?.(frameCount);
+		};
+		image.src = '/assets/chicken-walk.png';
+	});
 
 	$effect(() => {
 		if (!playing) {
 			frame = 0;
 			return;
 		}
-		const timer = setInterval(() => (frame = (frame + 1) % 4), 125);
+		const timer = setInterval(() => (frame = (frame + 1) % frameCount), frameMs);
 		return () => clearInterval(timer);
 	});
 </script>
@@ -15,8 +41,8 @@
 <span
 	class="sprite"
 	role="img"
-	aria-label="Four-frame white chicken walk cycle, drawn in Doodle-Do"
-	style={`width:${16 * scale}px;height:${16 * scale}px;background-size:${64 * scale}px ${16 * scale}px;background-position:${-16 * scale * frame}px 0`}
+	aria-label={`${frameCount}-frame white chicken walk cycle, drawn in Doodle-Do`}
+	style={`width:${frameSize * scale}px;height:${frameSize * scale}px;background-size:${frameSize * frameCount * scale}px ${frameSize * scale}px;background-position:${-frameSize * scale * frame}px 0`}
 ></span>
 
 <style>

@@ -310,6 +310,31 @@ test('reduced motion pauses the landing animation until requested', async ({ pag
 	await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
 });
 
+test('landing animation derives its frames from the sprite strip', async ({ page }) => {
+	await page.goto('/');
+	const { frameSize, frameCount } = await page.evaluate(async () => {
+		const image = new Image();
+		image.src = '/assets/chicken-walk.png';
+		await image.decode();
+		return { frameSize: image.naturalHeight, frameCount: image.naturalWidth / image.naturalHeight };
+	});
+	const sprite = page.getByRole('img', { name: /white chicken walk cycle/ });
+	await expect(sprite).toHaveAccessibleName(`${frameCount}-frame white chicken walk cycle, drawn in Doodle-Do`);
+	await expect(sprite).toHaveCSS('background-size', `${frameSize * frameCount * 16}px ${frameSize * 16}px`);
+	await expect(page.locator('.stage figcaption')).toContainText(`${frameCount} frames`);
+});
+
+test('landing footer links to legal pages, GitHub, and support', async ({ page }) => {
+	await page.goto('/');
+	const footer = page.getByRole('contentinfo');
+	await expect(footer.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy');
+	await expect(footer.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms');
+	await expect(footer.getByRole('link', { name: 'Doodle-Do on GitHub' })).toHaveAttribute('href', 'https://github.com/jzeng151/doodle-do');
+	await expect(footer.getByRole('link', { name: 'Buy me a coffee' })).toHaveAttribute('href', 'https://buymeacoffee.com/jasonzeng');
+	await footer.getByRole('link', { name: 'Privacy' }).click();
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy');
+});
+
 test('public surfaces keep accessible names and selected-control contrast', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(

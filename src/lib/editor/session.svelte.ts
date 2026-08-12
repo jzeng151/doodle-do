@@ -156,6 +156,7 @@ export class EditorSession {
 		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
 		this.mode = mode;
 		if (mode === 'loop') tips.fire('T21'); // playback range
+		if (mode === 'compare') tips.fire('T27'); // independent editable fork
 	}
 
 	resetComparisonFork(): void {

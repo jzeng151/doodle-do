@@ -1,98 +1,147 @@
 # Doodle-Do
 
-Frame-by-frame pixel animation tool that teaches you as you work.
-Web-based, local-first, no accounts, no AI. See the requirements plan for
-the full spec.
+Frame-by-frame pixel animation in the browser, with contextual tips that teach animation while you work.
 
-## Status
+Doodle-Do is local-first: there are no accounts or uploads, autosaves stay in the browser, and editable projects can be saved to disk. It exports engine-ready sprite sheets, animated GIFs, and individual frame PNGs.
 
-- **Phase 0 (rendering spike): gate passed.** Canvas 2D confirmed;
-  stroke→loop p95 = 0.1ms against the 16ms budget (`bench/README.md`).
-- **Phase 1 (focus mode MVP): code complete.** Full toolset, onion
-  skinning, palette lock/swap/remove, frames and layers, Appendix-B undo,
-  OPFS autosave with IndexedDB fallback, sprite sheet (TexturePacker
-  JSON-hash + doodledo.json), GIF, and frame-PNG-zip export.
-  - Phaser import verification: **passing** (`npm run verify:phaser`).
-  - Godot import verification: **passing** (`npm run verify:godot`), via
-    engine primitives (raw PNG + JSON-hash to AtlasTexture/SpriteFrames);
-    stock Godot ships no built-in TexturePacker importer.
-  - Phase 1 gate (founder ships a 4-frame walk cycle in under 30 minutes):
-    **awaiting the founder.**
-- **Phase 2 (learning layer + polish): code items complete.** Selection
-  per Appendix B5, canvas-size presets, tips engine per Appendix A
-  (T12 dormant until the reference library exists), sprite strip import,
-  PWA/offline via service worker.
-  - Reference animation library: **blocked on the commissioned art**
-    (§4.5 production plan).
-  - Phase 2 gate (5-participant usability protocol): **awaiting humans.**
-- **Phase 3 (mode toggle): code complete, gate passed.** Grid and Loop
-  modes as pure views over the same session; switcher with "great at /
-  strains when" tooltips; keys 1/2/3. Gate verified mechanically:
-  switching preserves document, current frame, zoom, and palette (e2e),
-  and the Phase 3 diff touches zero files in `src/lib/core/`
-  (`git diff 732b53f -- src/lib/core/` is empty).
+![Doodle-Do landing page](static/screenshots/landing.png)
 
-## Layout
+## Features
 
-```
-src/lib/core/    document model, commands, palette ops (pure TS, no DOM)
-src/lib/render/  compositor, frame cache, onion tinting, loop player
-src/lib/tools/   stroke/fill/flip/eyedropper (command factories)
-src/lib/io/      project file, OPFS autosave, exporters (GIF in a worker)
-src/lib/modes/   workspace shell + focus/grid/loop views over one session
-src/lib/editor/  editor session: doc + bus + non-undoable view state (B7)
-bench/           performance harness (Phase 0 gate instrument)
-scripts/         export verification against stock Phaser
-e2e/             Playwright end-to-end tests
-```
+- Focus, Grid, Loop, and Compare views over the same document and editing history
+- Pencil, eraser, fill, eyedropper, rectangle, lasso, wand, and polygon tools
+- Onion skinning, mirror drawing, layers, bulk frame edits, and full undo/redo
+- Palette editing and locking with a 64-color cap and 1-bit transparency
+- 27 contextual, non-blocking animation tips that can be dismissed permanently
+- Local autosave using OPFS with an IndexedDB fallback
+- Offline support after the first load
+- Keyboard-driven editing and workspace navigation
 
-## Commands
+![Doodle-Do editor with a four-frame chicken walk cycle](static/screenshots/editor.png)
+
+### Compare versions
+
+Compare creates an independent fork beside the current animation. Edit both versions, play them together, then save or export either one—or apply the fork when it wins.
+
+![Doodle-Do Compare view playing four-frame and five-frame chicken walk cycles side by side](static/screenshots/compare.gif)
+
+## Quick start
+
+### Requirements
+
+- Node.js `20.19+` or `22.12+`
+- npm
+
+### Run locally
 
 ```sh
-npm run dev            # dev server
-npm run test           # core unit tests (vitest)
-npm run test:e2e       # Playwright end-to-end suite
-npm run bench          # performance gate (headless Chromium)
-npm run verify:phaser  # load a real export in stock Phaser
-npm run verify:godot   # load a real export in stock Godot
-npm run build          # static build (Cloudflare Pages target)
+npm ci
+npm run dev
 ```
 
-## Opening files
+Open the local URL printed by Vite. For a production build:
 
-One "Open" picker handles everything and dispatches by file type:
+```sh
+npm run build
+npm run preview
+```
 
-- `.doodledo` (or exported project JSON): opens as a project.
-- Horizontal sprite strip PNG (frame width = image height, like typical
-  animation-pack `sprites/` folders): splits into frames. Select the
-  pack's `animations.json` in the same picker to apply its per-frame
-  timing; the manifest's frame count is validated against the split.
+## Using Doodle-Do
 
-Strip sources with more than 64 colors are quantized to the palette cap
-(gifenc median-cut); alpha is thresholded at 128 because the document
-model's transparency is 1-bit. Multi-animation master atlases without
-uniform grids are not importable — use the per-animation strips.
+1. Open the editor and create a canvas or import an existing project.
+2. Draw in Focus mode, compare frames in Grid mode, review timing in Loop mode, or fork an animation in Compare mode.
+3. Add or duplicate frames, adjust per-frame timing, and organize artwork with layers.
+4. Save a `.doodledo` project file for an editable copy you control.
+5. Export the format your game or sharing workflow needs.
 
-Two consequences of the unified picker, by design:
+### Keyboard shortcuts
 
-- **Open always uses a plain `<input type="file">`**, never
-  `showOpenFilePicker`. For reading, the two are equivalent (no write-back
-  handle is kept either way); the plain input supports the multi-select
-  needed for PNG + manifest pairs, works in Safari/Firefox without a
-  fallback branch, and can be driven by Playwright, so the open path stays
-  end-to-end testable. Save still uses `showSaveFilePicker` where
-  available, where the FS Access API actually adds something.
-- **Dispatch is by content, not just extension**: a `.json` selected alone
-  must parse as a project (`format: "doodledo-project"`); a `.json` with an
-  `animations` key is treated as a strip manifest and refused without its
-  PNG. Mixed or ambiguous selections (project + PNG, two PNGs, manifest
-  alone) fail with specific messages rather than guessing.
+| Action | Shortcut |
+| --- | --- |
+| Focus / Grid / Loop / Compare view | `1` / `2` / `3` / `4` |
+| Pencil / Eraser / Fill / Eyedropper | `B` / `E` / `G` / `I` |
+| Rectangle / Lasso / Wand / Polygon selection | `M` / `L` / `W` / `P` |
+| Change brush size | `[` / `]` |
+| Move the pixel cursor or nudge a selection | Arrow keys |
+| Change frames | `Page Up` / `Page Down` |
 
-## Export formats
+## Files and exports
 
-Sprite sheet exports produce three files: the PNG sheet, a TexturePacker
-JSON-hash atlas (loads natively in Phaser, importable in Godot/Unity
-pipelines), and `*.doodledo.json` — a minimal schema for hand-rolled
-engines: `{ format, version, image, frameSize, fps, frames: [{x, y, w, h,
-durationMs}] }`. GIF export runs gifenc in a Web Worker with per-frame
-delays and index-0 transparency.
+### Import
+
+The Open action accepts:
+
+- `.doodledo` project files
+- Doodle-Do project JSON
+- Horizontal sprite-strip PNGs where each frame is square
+- A strip PNG plus an optional `animations.json` containing per-frame timing
+
+Imports are validated by content. Ambiguous selections are rejected instead of guessed. Images with more than 64 colors are quantized, and alpha is thresholded at 128 because artwork uses 1-bit transparency.
+
+### Export
+
+| Export | Output |
+| --- | --- |
+| Sprite sheet | PNG, TexturePacker JSON-hash, and `*.doodledo.json` |
+| Animated preview | GIF with per-frame timing |
+| Individual frames | One PNG per frame in a ZIP archive |
+| Editable project | `.doodledo` project file |
+
+Sprite-sheet output is verified against stock Phaser and Godot workflows. The compact `*.doodledo.json` manifest is intended for custom engines and includes the image name, frame size, FPS, and frame rectangles with durations.
+
+## Architecture
+
+```text
+src/lib/core/    Pure document model, commands, structural edits, and palette operations
+src/lib/editor/  Editor session, command bus, history, and non-undoable view state
+src/lib/tools/   Drawing, fill, selection, flip, and layer command factories
+src/lib/render/  Canvas compositor, onion skinning, frame cache, and loop playback
+src/lib/io/      Project persistence, imports, autosave, and exporters
+src/lib/modes/   Shared workspace shell plus Focus, Grid, Loop, and Compare views
+src/lib/learn/   Contextual teaching-tip engine
+e2e/             Playwright end-to-end coverage
+bench/           Stroke-to-loop performance gate
+scripts/         Phaser and Godot export verification
+```
+
+The core stays independent of the DOM. All four workspace modes preserve the current document, selected frame, zoom, palette, and history. Compare adds an independent fork that can be edited, saved, exported, swapped with the current animation, or applied to it.
+
+## Development
+
+| Command | Purpose |
+| --- | --- |
+| `npm run check` | Run Svelte and TypeScript checks |
+| `npm run test` | Run unit tests with Vitest |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
+| `npm run bench` | Measure the stroke-to-loop rendering budget |
+| `npm run verify:phaser` | Load a real export in stock Phaser |
+| `npm run verify:godot` | Verify a real export with Godot engine primitives |
+| `npm run build` | Create the static production build |
+
+The rendering gate targets a 16 ms stroke-to-loop cycle; the current benchmark reports a 0.1 ms p95. See [bench/README.md](bench/README.md) for the method and latest recorded run.
+
+## Contributing
+
+Keep changes small and follow the existing separation between the pure core, editor session, and Svelte views. Before submitting a change, run:
+
+```sh
+npm run check
+npm run test
+npm run build
+```
+
+Run the relevant end-to-end, benchmark, or engine-verification command when a change touches those paths. Bug fixes should include the smallest regression test that would have caught the issue.
+
+## Project status
+
+Doodle-Do is under active development. The editor, learning layer, offline support, import/export workflows, and four workspace modes are implemented. The reference animation library and human usability gates remain outstanding.
+
+## Support
+
+Doodle-Do is free and does not require an account. If it is useful to you, you can [support its development on Buy Me a Coffee](https://buymeacoffee.com/jasonzeng).
+
+## License
+
+Doodle-Do's source code is available under the [MIT License](LICENSE).
+
+The Doodle-Do name and logo are not licensed for use as trademarks. Original chicken artwork in `static/assets` is excluded from the MIT License unless stated otherwise.

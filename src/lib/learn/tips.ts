@@ -38,7 +38,8 @@ export const TIPS: Record<string, Tip> = Object.fromEntries(
 			['T23', 'Send to frame can copy or move a layer to another frame. Use it to reuse a background.', 2],
 			['T24', 'Mirror is on. Your selection has a twin across the centerline, and both copies move and rotate together.', 2],
 			['T25', 'Ctrl-click frames in the strip to edit several at once; Shift-click selects a range.', 2],
-			['T26', 'Bulk edit is on. Strokes, fills, and selection moves affect every highlighted frame. Click a frame without a modifier key to edit only that one.', 2]
+			['T26', 'Bulk edit is on. Strokes, fills, and selection moves affect every highlighted frame. Click a frame without a modifier key to edit only that one.', 2],
+			['T27', 'Compare opens an independent fork beside your current animation. Save or export the fork, or apply it when you prefer it.', 2]
 		] as [string, string, number | null][]
 	).map(([id, copy, cap]) => [id, { id, copy, cap }])
 );

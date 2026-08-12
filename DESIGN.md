@@ -39,14 +39,15 @@ Canonical product copy lives in `src/lib/content/product.ts`. UI components impo
 Every public claim must be directly supported by shipped code or tests:
 
 - Three views—Focus, Grid, and Loop—share one editor session.
-- Twenty-six contextual tips fire from editing actions, never modally, one at a time, and can be dismissed forever.
+- Twenty-seven contextual tips fire from editing actions, never modally, one at a time, and can be dismissed forever.
 - Work autosaves locally to OPFS with IndexedDB fallback. A `.doodledo` file on disk is the durable user-owned copy.
 - Import accepts `.doodledo` projects and horizontal strip PNGs, optionally with animation timing data.
 - Export produces a PNG sprite sheet, TexturePacker JSON-hash, `doodledo.json`, GIF, and zipped frame PNGs.
 - Phaser and Godot verification scripts support the engine-output claim.
 - The document model uses 1-bit transparency, brush sizes 1–4px, and a 64-color palette cap.
+- Doodle-Do is free. Optional contributions through an external support link do not unlock features or services.
 
-Do not claim pricing, licensing, public availability, testimonials, user counts, a reference animation library, or any unshipped collaboration/cloud feature.
+Do not claim licensing, public availability, testimonials, user counts, a reference animation library, or any unshipped collaboration/cloud feature.
 
 ## Color
 

@@ -8,8 +8,6 @@ export const PRODUCT_CONTENT = {
 	localPromise: ['No account', 'No upload', 'Works offline after the first load'],
 	example: {
 		name: 'White chicken walk',
-		frames: 4,
-		fps: 8,
 		frameMs: 125,
 		note: "Example artwork drawn with Doodle-Do's 16-color starter palette."
 	},
@@ -36,10 +34,10 @@ export const PRODUCT_CONTENT = {
 			id: 'compare',
 			label: 'Compare',
 			great: 'Editing two versions side by side, then playing them together.',
-			strains: 'Saving the fork. Only the current document can be saved or exported.'
+			strains: 'Small screens, where the editors stack instead of staying side by side.'
 		}
 	],
-	tips: ['T02', 'T09', 'T15'].map((id) => TIPS[id]),
+	tips: ['T02', 'T09', 'T27'].map((id) => TIPS[id]),
 	outputs: [
 		['Sprite sheet', 'PNG + TexturePacker JSON-hash + doodledo.json'],
 		['Animated preview', 'GIF with per-frame timing'],
