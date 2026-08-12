@@ -20,6 +20,7 @@ import {
 	PaletteRemoveCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
+	PaletteSortCommand,
 	ResizeCanvasCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
@@ -144,7 +145,12 @@ export class EditorSession {
 			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			this.version++;
 		});
-		this.bus.onCommit(() => this.unsavedCommits++);
+		this.bus.onCommit((command, action) => {
+			if (command instanceof PaletteSortCommand) {
+				[this.colorValue, this.backgroundColorValue] = action === 'undo' ? command.beforeColors : command.afterColors;
+			}
+			this.unsavedCommits++;
+		});
 	}
 
 	get frame() {
@@ -1041,9 +1047,9 @@ export class EditorSession {
 		this.commitFloating();
 		const sorted = sortPaletteRange(this.doc, start, end, sort);
 		if (!sorted.moved) return;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sorted.doc));
-		this.colorValue = sorted.map.get(this.colorValue) ?? this.colorValue;
-		this.backgroundColorValue = sorted.map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const after: [number, number] = [sorted.map.get(before[0]) ?? before[0], sorted.map.get(before[1]) ?? before[1]];
+		this.bus.dispatch(new PaletteSortCommand(this.doc, sorted.doc, before, after));
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {

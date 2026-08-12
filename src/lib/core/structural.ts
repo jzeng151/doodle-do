@@ -47,6 +47,25 @@ export class DocumentReplaceCommand implements Command {
 	}
 }
 
+export class PaletteSortCommand implements Command {
+	readonly kind = 'palette-sort';
+	private readonly replacement: DocumentReplaceCommand;
+	readonly byteSize: number;
+	constructor(
+		doc: Doc,
+		after: Doc,
+		readonly beforeColors: [number, number],
+		readonly afterColors: [number, number]
+	) {
+		this.replacement = new DocumentReplaceCommand(doc, after);
+		this.byteSize = this.replacement.byteSize;
+	}
+	do(doc: Doc): void { this.replacement.do(doc); }
+	undo(doc: Doc): void { this.replacement.undo(doc); }
+	serialize(): unknown { return { kind: this.kind }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
+}
+
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
 	readonly byteSize: number;
