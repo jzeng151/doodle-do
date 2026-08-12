@@ -142,6 +142,8 @@ export class EditorSession {
 
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.selectionMask = null;
 		this.clearGestures();
@@ -155,6 +157,8 @@ export class EditorSession {
 	// document, current frame, zoom, and palette because nothing is rebuilt.
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -202,6 +206,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index !== this.currentFrame) {
+			this.lineEnd();
+			this.shapeEnd();
+		}
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -606,9 +614,10 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
+		const bounds = this.doc.meta;
 		const points = this.tool === 'ellipse'
-			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled)
-			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled);
+			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
+			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
 			if (rect) this.bus.emitChange({ frame: s.frame, rect });
@@ -622,6 +631,14 @@ export class EditorSession {
 
 	get strokeActive(): boolean {
 		return this.strokes.length > 0;
+	}
+
+	get lineActive(): boolean {
+		return this.lineOrigin !== null;
+	}
+
+	get shapeActive(): boolean {
+		return this.shapeOrigin !== null;
 	}
 
 	// --- other tools ---

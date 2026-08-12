@@ -160,6 +160,10 @@ describe('shape tools', () => {
 			new Set(points.map(({ x, y }) => `${x},${y}`))
 		);
 	});
+
+	it('clamps an off-canvas shape preview before enumerating points', () => {
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 })).toHaveLength(24);
+	});
 });
 
 describe('pixel-perfect pencil', () => {
