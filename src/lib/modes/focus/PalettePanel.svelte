@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { MAX_PALETTE } from '$lib/core/document';
-	import type { EditorSession } from '$lib/editor/session.svelte';
+	import type { EditorSession, ReplaceScope } from '$lib/editor/session.svelte';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -10,6 +10,10 @@
 	let removePending = $state<number | null>(null);
 	let swapInput: HTMLInputElement;
 	let swapIndex = -1;
+	let replaceOpen = $state(false);
+	let replaceFrom = $state(1);
+	let replaceTo = $state(2);
+	let replaceScope = $state<ReplaceScope>('layer');
 	$effect(() => {
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
@@ -101,7 +105,33 @@
 		>
 			Remove
 		</button>
+		<button
+			aria-expanded={replaceOpen}
+			aria-controls="replace-color-options"
+			onclick={() => {
+				replaceFrom = Math.max(1, session.colorValue);
+				replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+				replaceOpen = !replaceOpen;
+			}}
+		>
+			Replace
+		</button>
 	</div>
+
+	{#if replaceOpen}
+		<div id="replace-color-options" class="replace-options">
+			<label>From<select bind:value={replaceFrom}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
+			<label>To<select bind:value={replaceTo}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
+			<label>Scope<select bind:value={replaceScope}>
+				<option value="selection" disabled={!session.hasSelection}>Selection</option>
+				<option value="layer">Current layer</option>
+				<option value="frame">Current frame</option>
+				<option value="frames">Selected frames</option>
+				<option value="animation">Entire animation</option>
+			</select></label>
+			<button disabled={replaceFrom === replaceTo} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+		</div>
+	{/if}
 
 	<!-- hidden native color input drives palette swap (§4.2: every pixel updates instantly) -->
 	<input
@@ -155,6 +185,9 @@
 		display: flex;
 		gap: 4px;
 	}
+	.replace-options { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .5rem; border-top: 2px solid var(--ink); }
+	.replace-options label { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: .35rem; font-size: .75rem; }
+	.replace-options select { min-width: 0; }
 	.hint {
 		font-size: 0.75rem;
 		margin: 0 0 0.4rem;

@@ -27,6 +27,7 @@ import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
+import { replaceColorCommand } from '../tools/replace';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
@@ -46,6 +47,7 @@ export type Tool =
 	| 'wand'
 	| 'polygon';
 export type Mode = 'focus' | 'grid' | 'loop' | 'compare';
+export type ReplaceScope = 'selection' | 'layer' | 'frame' | 'frames' | 'animation';
 
 // selection gestures stay in the editable single-canvas views (B5)
 export const SELECT_TOOLS: readonly Tool[] = ['select', 'lasso', 'wand', 'polygon'];
@@ -903,6 +905,33 @@ export class EditorSession {
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
 		this.colorValue = target < index ? target + 1 : target;
 		return true;
+	}
+
+	replaceColor(from: number, to: number, scope: ReplaceScope): void {
+		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
+		const selection = this.selectionMask?.slice() ?? null;
+		this.commitFloating();
+		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
+		if (scope === 'selection') {
+			if (!selection) return;
+			targets.push({ frame: this.currentFrame, layer: this.currentLayer, mask: selection });
+		} else if (scope === 'layer') {
+			targets.push({ frame: this.currentFrame, layer: this.currentLayer });
+		} else {
+			const frames = scope === 'frame'
+				? [this.currentFrame]
+				: scope === 'frames'
+					? (this.bulkFrames.length ? this.bulkFrames : [this.currentFrame])
+					: this.doc.frames.map((_, index) => index);
+			for (const frame of frames) {
+				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
+			}
+		}
+		const cmds = targets
+			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
+			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
+		else if (cmds.length) this.bus.dispatch(new CompositeCommand('replace-color-scope', cmds));
 	}
 
 	// --- canvas ---
