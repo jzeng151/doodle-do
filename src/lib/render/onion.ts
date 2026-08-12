@@ -5,17 +5,16 @@
 export const ONION_PREV_COLOR = '#e03131';
 export const ONION_NEXT_COLOR = '#2f9e44';
 
-export function onionSequence(current: number, frameCount: number, distance: number, direction: -1 | 1) {
+export function onionSequence(current: number, frameCount: number, distance: number, direction: -1 | 1, seen = new Set([current])) {
 	distance = Math.max(1, Math.min(8, Math.round(distance || 1)));
 	const frames: { frame: number; fade: number }[] = [];
-	const seen = new Set([current]);
-	for (let step = distance; step >= 1; step--) {
-		const frame = (current + direction * step + frameCount) % frameCount;
+	for (let step = 1; step <= distance; step++) {
+		const frame = ((current + direction * step) % frameCount + frameCount) % frameCount;
 		if (seen.has(frame)) continue;
 		seen.add(frame);
 		frames.push({ frame, fade: (distance - step + 1) / distance });
 	}
-	return frames;
+	return frames.reverse();
 }
 
 let scratch: HTMLCanvasElement | null = null;

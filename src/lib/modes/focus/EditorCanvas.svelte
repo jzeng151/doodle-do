@@ -59,14 +59,15 @@
 		const { frames } = session.doc;
 		const f = session.currentFrame;
 		if (session.onionEnabled && frames.length > 1) {
+			const seenGhosts = new Set([f]);
 			// previous N=1 red, next N=1 green (§4.3 defaults), flattened composite
 			if (session.onionPreviousEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionPreviousRange, -1)) {
+				for (const ghost of onionSequence(f, frames.length, session.onionPreviousRange, -1, seenGhosts)) {
 					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_PREV_COLOR, session.onionOpacity * .55 * ghost.fade);
 				}
 			}
 			if (session.onionNextEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionNextRange, 1)) {
+				for (const ghost of onionSequence(f, frames.length, session.onionNextRange, 1, seenGhosts)) {
 					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_NEXT_COLOR, session.onionOpacity * ghost.fade);
 				}
 			}
