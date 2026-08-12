@@ -5,6 +5,7 @@
 
 import type { Doc } from '../core/document';
 import { PixelDiffCommand, type Rect } from '../core/commands';
+import { ditherValue } from './dither';
 
 export class StrokeBuilder {
 	private readonly dirty = new Map<number, number>(); // index → value before stroke
@@ -20,7 +21,9 @@ export class StrokeBuilder {
 		private readonly size = 1,
 		private readonly mirrorX = false, // mirror-draw toggle (§4.1)
 		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
-		private readonly pixelPerfect = false
+		private readonly pixelPerfect = false,
+		private readonly secondaryValue?: number,
+		private readonly ditherSize: 0 | 2 | 4 = 0
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -142,7 +145,7 @@ export class StrokeBuilder {
 			for (let x = x0; x <= x1; x++) {
 				const i = y * width + x;
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				pixels[i] = this.value;
+				pixels[i] = ditherValue(x, y, this.value, this.secondaryValue, this.ditherSize);
 			}
 		}
 		return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };

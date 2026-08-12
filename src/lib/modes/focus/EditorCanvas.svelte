@@ -318,22 +318,23 @@
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		const colorValue = e.button === 2 ? session.backgroundColorValue : session.colorValue;
+		const secondaryColorValue = e.button === 2 ? session.colorValue : session.backgroundColorValue;
 		keyboardX = x;
 		keyboardY = y;
 		switch (session.tool) {
 			case 'pencil':
 			case 'eraser':
 				canvasEl.setPointerCapture(e.pointerId);
-				session.strokeBegin(x, y, colorValue);
+				session.strokeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'line':
 				canvasEl.setPointerCapture(e.pointerId);
-				session.lineBegin(x, y, colorValue);
+				session.lineBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				canvasEl.setPointerCapture(e.pointerId);
-				session.shapeBegin(x, y, colorValue);
+				session.shapeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'move':
 				canvasEl.setPointerCapture(e.pointerId);
@@ -342,7 +343,7 @@
 				selectDrag = 'layer';
 				break;
 			case 'fill':
-				session.fill(x, y, colorValue);
+				session.fill(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'eyedropper':
 				session.eyedrop(x, y, e.button === 2);

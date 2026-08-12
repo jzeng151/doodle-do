@@ -7,6 +7,7 @@ import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
 import { ellipsePoints, rectanglePoints } from './shapes';
 import { replaceColorCommand } from './replace';
+import { ditherValue } from './dither';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -219,5 +220,19 @@ describe('replace color', () => {
 		expect([...pixels]).toEqual([3, 2, 1, 3]);
 		cmd.undo(doc);
 		expect([...pixels]).toEqual([1, 2, 1, 1]);
+	});
+});
+
+describe('dithering', () => {
+	it('alternates primary and secondary colors in stable 2x2 and 4x4 patterns', () => {
+		expect([0, 1, 2, 3].map((i) => ditherValue(i % 2, (i / 2) | 0, 1, 2, 2))).toEqual([1, 2, 2, 1]);
+		expect(Array.from({ length: 16 }, (_, i) => ditherValue(i % 4, (i / 4) | 0, 1, 2, 4)).filter((v) => v === 1)).toHaveLength(8);
+	});
+
+	it('applies the pattern to fill output', () => {
+		const doc = testDoc(2, 2);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 1, 0, true, 2, 2)!;
+		cmd.do(doc);
+		expect([...doc.frames[0].layers[0].pixels]).toEqual([1, 2, 2, 1]);
 	});
 });

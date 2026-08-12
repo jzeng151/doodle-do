@@ -3,6 +3,7 @@
 
 import type { Doc } from '../core/document';
 import { PixelDiffCommand } from '../core/commands';
+import { ditherValue } from './dither';
 
 // The contiguous same-value region containing (x, y), as pixel indices.
 // Shared by the fill tool and the magic-wand selection.
@@ -52,13 +53,15 @@ export function floodFill(
 	y: number,
 	value: number,
 	tolerance = 0,
-	contiguous = true
+	contiguous = true,
+	secondaryValue?: number,
+	ditherSize: 0 | 2 | 4 = 0
 ): PixelDiffCommand | null {
 	const { width, height } = doc.meta;
 	if (x < 0 || y < 0 || x >= width || y >= height) return null;
 	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
 	const target = pixels[y * width + x];
-	if (target === value) return null;
+	if (target === value && (!ditherSize || target === secondaryValue)) return null;
 
 	const matches = (candidate: number) => colorDistance(doc, target, candidate) <= tolerance;
 	const hits = contiguous
@@ -66,7 +69,7 @@ export function floodFill(
 		: Array.from(pixels.keys()).filter((index) => matches(pixels[index]));
 	const indices = new Uint32Array(hits);
 	const before = new Uint8Array(hits.map((index) => pixels[index]));
-	const after = new Uint8Array(hits.length).fill(value);
+	const after = new Uint8Array(hits.map((index) => ditherValue(index % width, (index / width) | 0, value, secondaryValue, ditherSize)));
 	return new PixelDiffCommand('flood-fill', frameIndex, layerIndex, indices, before, after, width);
 }
 

@@ -70,6 +70,8 @@ export class EditorSession {
 	tool = $state<Tool>('pencil');
 	brushSize = $state(1);
 	pixelPerfect = $state(false);
+	ditherEnabled = $state(false);
+	ditherSize = $state<2 | 4>(2);
 	shapeFilled = $state(false);
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
@@ -560,7 +562,7 @@ export class EditorSession {
 
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
-	strokeBegin(x: number, y: number, colorValue = this.colorValue): void {
+	strokeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
 		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
@@ -574,7 +576,9 @@ export class EditorSession {
 				this.brushSize,
 				this.mirrorX,
 				undefined,
-				this.tool === 'pencil' && this.pixelPerfect
+				this.tool === 'pencil' && this.pixelPerfect,
+				this.ditherEnabled && this.tool !== 'eraser' ? secondaryColorValue : undefined,
+				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0
 			)
 		}));
 		for (const s of this.strokes) {
@@ -600,7 +604,7 @@ export class EditorSession {
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
 	}
 
-	lineBegin(x: number, y: number, colorValue = this.colorValue): void {
+	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating) return;
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
@@ -612,7 +616,10 @@ export class EditorSession {
 				colorValue,
 				this.brushSize,
 				this.mirrorX,
-				'line'
+				'line',
+				false,
+				this.ditherEnabled ? secondaryColorValue : undefined,
+				this.ditherEnabled ? this.ditherSize : 0
 			)
 		}));
 		for (const s of this.strokes) {
@@ -637,7 +644,7 @@ export class EditorSession {
 		this.strokeEnd();
 	}
 
-	shapeBegin(x: number, y: number, colorValue = this.colorValue): void {
+	shapeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
@@ -649,7 +656,10 @@ export class EditorSession {
 				colorValue,
 				this.brushSize,
 				this.mirrorX,
-				this.tool
+				this.tool,
+				false,
+				this.ditherEnabled ? secondaryColorValue : undefined,
+				this.ditherEnabled ? this.ditherSize : 0
 			)
 		}));
 		this.shapeMove(x, y);
@@ -677,7 +687,7 @@ export class EditorSession {
 
 	// --- other tools ---
 
-	fill(x: number, y: number, colorValue = this.colorValue): void {
+	fill(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmds = this.editTargets()
 			.map((f) => floodFill(
@@ -688,7 +698,9 @@ export class EditorSession {
 				y,
 				colorValue,
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
-				this.fillContiguous
+				this.fillContiguous,
+				this.ditherEnabled ? secondaryColorValue : undefined,
+				this.ditherEnabled ? this.ditherSize : 0
 			))
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		if (!cmds.length) return;
