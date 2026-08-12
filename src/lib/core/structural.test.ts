@@ -50,6 +50,20 @@ describe('frame commands', () => {
 		expect(() => new FrameDeleteCommand(doc, 0)).toThrow();
 	});
 
+	it('keeps animation tag ranges valid across frame edits and undo', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#000000'], frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 2, direction: 'forward', repeats: 0 }];
+		const add = new FrameAddCommand(1, { layers: [createLayer(doc, 'Layer 1')] });
+		add.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 2, to: 3 });
+		add.undo(doc);
+		const remove = new FrameDeleteCommand(doc, 2);
+		remove.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 1 });
+		remove.undo(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
+	});
+
 	it('per-frame duration and fps commands undo cleanly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
