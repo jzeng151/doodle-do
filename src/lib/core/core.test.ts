@@ -19,7 +19,7 @@ describe('document', () => {
 	});
 
 	it('rejects out-of-range canvas sizes', () => {
-		expect(() => createDoc({ width: 129, height: 8, palette: [] })).toThrow();
+		expect(() => createDoc({ width: 513, height: 8, palette: [] })).toThrow();
 		expect(() => createDoc({ width: 0, height: 8, palette: [] })).toThrow();
 	});
 });

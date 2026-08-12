@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Canvas presets (§4.1): 16/32/48/64, custom up to 128. 32×32 is the
+	// Canvas presets (§4.1): 16/32/48/64, custom up to 512. 32×32 is the
 	// highlighted smart default (§4.5).
 	import { MAX_CANVAS } from '$lib/core/document';
 

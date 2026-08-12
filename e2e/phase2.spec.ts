@@ -13,18 +13,18 @@ test('new-document presets create the chosen canvas size', async ({ page }) => {
 	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(16 * 12));
 });
 
-test('custom size clamps to the 128 cap', async ({ page }) => {
+test('custom size clamps to the 512 cap', async ({ page }) => {
 	await gotoApp(page);
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	const dialog = page.locator('dialog');
-	await dialog.locator('input').first().fill('300');
+	await dialog.locator('input').first().fill('600');
 	await dialog.locator('input').nth(1).fill('24');
 	await page.getByRole('button', { name: 'Create' }).click();
 	const zoom = Number(
 		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
 	);
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(128 * zoom));
-	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(24 * zoom));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(512 * Math.ceil(zoom)));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(24 * Math.ceil(zoom)));
 	expect(zoom).toBeLessThan(12);
 });
 

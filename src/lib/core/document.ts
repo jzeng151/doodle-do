@@ -3,7 +3,7 @@
 
 export const MAX_PALETTE = 64;
 export const MAX_LAYERS = 8;
-export const MAX_CANVAS = 128;
+export const MAX_CANVAS = 512;
 export const TRANSPARENT = 0;
 
 export interface DocMeta {

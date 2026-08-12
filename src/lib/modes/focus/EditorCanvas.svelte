@@ -22,6 +22,9 @@
 	const HANDLE_OFFSET = 16;
 	const HANDLE_R = 8;
 
+	const renderZoom = $derived(Math.max(1, Math.ceil(session.zoom)));
+	const canvasW = $derived((session.version, session.doc.meta.width * renderZoom));
+	const canvasH = $derived((session.version, session.doc.meta.height * renderZoom));
 	const cssW = $derived((session.version, session.doc.meta.width * session.zoom));
 	const cssH = $derived((session.version, session.doc.meta.height * session.zoom));
 
@@ -37,10 +40,10 @@
 		const availableW = Math.min(scrollEl.clientWidth, window.innerWidth - Math.max(0, viewport.left));
 		const availableH = Math.min(scrollEl.clientHeight, window.innerHeight - Math.max(0, viewport.top));
 		const fitZoom = Math.max(
-			1,
+			0.25,
 			Math.floor(
-				Math.min((availableW - borderW) / width, (availableH - borderH) / height)
-			)
+				Math.min((availableW - borderW) / width, (availableH - borderH) / height) * 100
+			) / 100
 		);
 		if (session.zoom > fitZoom) session.zoom = fitZoom;
 	});
@@ -76,16 +79,17 @@
 		ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
 
 		if (session.showGrid && session.zoom >= 4) {
+			const z = renderZoom;
 			ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
 			ctx.lineWidth = 1;
 			ctx.beginPath();
 			for (let x = 1; x < session.doc.meta.width; x++) {
-				ctx.moveTo(x * session.zoom + 0.5, 0);
-				ctx.lineTo(x * session.zoom + 0.5, canvasEl.height);
+				ctx.moveTo(x * z + 0.5, 0);
+				ctx.lineTo(x * z + 0.5, canvasEl.height);
 			}
 			for (let y = 1; y < session.doc.meta.height; y++) {
-				ctx.moveTo(0, y * session.zoom + 0.5);
-				ctx.lineTo(canvasEl.width, y * session.zoom + 0.5);
+				ctx.moveTo(0, y * z + 0.5);
+				ctx.lineTo(canvasEl.width, y * z + 0.5);
 			}
 			ctx.stroke();
 		}
@@ -95,7 +99,7 @@
 	}
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
-		const z = session.zoom;
+		const z = renderZoom;
 		const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
 		const bounds = brushBounds(
 			keyboardX,
@@ -115,7 +119,7 @@
 	}
 
 	function drawSelectionOverlay(ctx: CanvasRenderingContext2D) {
-		const z = session.zoom;
+		const z = renderZoom;
 		const sel = session.floating;
 		if (sel) {
 			ctx.imageSmoothingEnabled = false;
@@ -244,7 +248,7 @@
 	function handleScreenPos(): { x: number; y: number } | null {
 		const c = groupCorners();
 		if (!c) return null;
-		const z = session.zoom;
+		const z = renderZoom;
 		const midX = ((c[0][0] + c[1][0]) / 2) * z;
 		const midY = ((c[0][1] + c[1][1]) / 2) * z;
 		const cx = ((c[0][0] + c[2][0]) / 2) * z;
@@ -301,7 +305,7 @@
 	// fractional pixel coords, for smooth rotation angles
 	function pixelFromEventF(e: PointerEvent): { x: number; y: number } {
 		const point = canvasPoint(e, canvasEl);
-		return { x: point.x / session.zoom, y: point.y / session.zoom };
+		return { x: point.x / renderZoom, y: point.y / renderZoom };
 	}
 
 	function onPointerDown(e: PointerEvent) {
@@ -344,7 +348,7 @@
 				// 2) an in-progress polygon consumes clicks: near the first
 				// vertex closes it, anywhere else adds a vertex
 				if (session.tool === 'polygon' && session.polygonVerts) {
-					const z = session.zoom;
+					const z = renderZoom;
 					const first = session.polygonVerts[0];
 					if (Math.hypot(ex - first.x * z, ey - first.y * z) <= HANDLE_R) {
 						session.closePolygon();
@@ -443,7 +447,8 @@
 	function onWheel(e: WheelEvent) {
 		if (!e.ctrlKey) return;
 		e.preventDefault();
-		session.zoom = Math.max(1, Math.min(24, session.zoom + (e.deltaY < 0 ? 1 : -1)));
+		const step = session.zoom < 1 ? 0.25 : 1;
+		session.zoom = Math.max(0.25, Math.min(24, session.zoom + (e.deltaY < 0 ? step : -step)));
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
@@ -526,9 +531,9 @@
 		tabindex="0"
 		aria-label={`Editable pixel canvas, frame ${session.currentFrame + 1}, ${session.tool} tool`}
 		aria-describedby="canvas-help"
-		width={cssW}
-		height={cssH}
-		style={`--checker-size:${session.zoom * 2}px`}
+		width={canvasW}
+		height={canvasH}
+		style={`width:${cssW}px;height:${cssH}px;--checker-size:${session.zoom * 2}px`}
 		onfocus={() => ((keyboardFocused = true), repaint())}
 		onblur={() => ((keyboardFocused = false), repaint())}
 		onkeydown={onKeyDown}

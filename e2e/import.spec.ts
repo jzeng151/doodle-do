@@ -74,7 +74,7 @@ test('opening an oversized image reduces zoom to fit the viewport', async ({ pag
 	await gotoApp(page);
 	const png = await page.evaluate(() => {
 		const canvas = document.createElement('canvas');
-		canvas.width = canvas.height = 128;
+		canvas.width = canvas.height = 512;
 		return canvas.toDataURL('image/png').split(',')[1];
 	});
 	await openFiles(page, [

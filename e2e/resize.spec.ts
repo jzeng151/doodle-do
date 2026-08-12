@@ -26,32 +26,35 @@ test('resize changes an existing canvas via a preset', async ({ page }) => {
 	const zoom = Number(
 		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
 	);
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(48 * zoom));
-	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(48 * zoom));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(48 * Math.ceil(zoom)));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(48 * Math.ceil(zoom)));
 	expect(zoom).toBeLessThan(ZOOM);
 });
 
-test('resize custom size clamps to the 128 cap', async ({ page }) => {
+test('resize supports 512×512 and fits it to the viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 800, height: 600 });
 	await gotoApp(page);
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
-	await dialog.locator('input[type=number]').first().fill('200');
-	await dialog.locator('input[type=number]').nth(1).fill('64');
+	await dialog.locator('input[type=number]').first().fill('600');
+	await dialog.locator('input[type=number]').nth(1).fill('600');
 	await dialog.getByRole('button', { name: 'Resize' }).click();
 	const editor = page.locator('canvas.editor');
 	const zoom = Number(
 		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
 	);
-	await expect(editor).toHaveAttribute('width', String(128 * zoom));
-	await expect(editor).toHaveAttribute('height', String(64 * zoom));
+	await expect(editor).toHaveAttribute('width', '512');
+	await expect(editor).toHaveAttribute('height', '512');
 	expect(zoom).toBeLessThan(ZOOM);
-	const fits = await page.locator('.scroll').evaluate((viewport, canvas) => {
+	const fit = await page.locator('.scroll').evaluate((viewport, canvas) => {
 		const view = viewport.getBoundingClientRect();
 		const art = canvas!.getBoundingClientRect();
-		return art.width <= view.width && art.height <= view.height;
+		return {
+			fits: art.width <= view.width && art.height <= view.height,
+			fillsAxis: Math.min(view.width - art.width, view.height - art.height) < 8
+		};
 	}, await editor.elementHandle());
-	expect(fits).toBe(true);
+	expect(fit).toEqual({ fits: true, fillsAxis: true });
 });
 
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {

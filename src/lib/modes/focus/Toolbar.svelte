@@ -16,6 +16,15 @@
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
+	const zoomLabel = $derived(`${Number(session.zoom.toFixed(2))}×`);
+
+	function zoomOut() {
+		session.zoom = Math.max(0.25, session.zoom - (session.zoom <= 1 ? 0.25 : 2));
+	}
+
+	function zoomIn() {
+		session.zoom = Math.min(24, session.zoom + (session.zoom < 1 ? 0.25 : 2));
+	}
 </script>
 
 <div class="toolbar">
@@ -85,9 +94,9 @@
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
-		<button aria-label="Zoom out" title="Zoom out" onclick={() => (session.zoom = Math.max(1, session.zoom - 2))}>−</button>
-		<span class="zoom">{session.zoom}×</span>
-		<button aria-label="Zoom in" title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
+		<button aria-label="Zoom out" title="Zoom out" onclick={zoomOut}>−</button>
+		<span class="zoom">{zoomLabel}</span>
+		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
 	</div>
 
 	<div class="group onion" role="group" aria-label="Onion skin">
