@@ -19,6 +19,7 @@ export interface DirtyRegion {
 	frame: number | null;
 	rect: Rect | null;
 	palette?: boolean;
+	metadata?: boolean;
 }
 
 export interface Command {
@@ -141,7 +142,7 @@ export class CommandBus {
 	private redoStack: Command[] = [];
 	private undoBytes = 0;
 	private changeListeners: ((region: DirtyRegion) => void)[] = [];
-	private commitListeners: ((cmd: Command) => void)[] = [];
+	private commitListeners: ((cmd: Command, action: 'dispatch' | 'undo' | 'redo') => void)[] = [];
 
 	constructor(readonly doc: Doc) {}
 
@@ -159,7 +160,7 @@ export class CommandBus {
 		}
 		this.redoStack = [];
 		this.emitChange(cmd.dirty());
-		for (const l of this.commitListeners) l(cmd);
+		for (const l of this.commitListeners) l(cmd, 'dispatch');
 	}
 
 	undo(): boolean {
@@ -169,7 +170,7 @@ export class CommandBus {
 		cmd.undo(this.doc);
 		this.redoStack.push(cmd);
 		this.emitChange(cmd.dirty());
-		for (const l of this.commitListeners) l(cmd);
+		for (const l of this.commitListeners) l(cmd, 'undo');
 		return true;
 	}
 
@@ -180,7 +181,7 @@ export class CommandBus {
 		this.undoStack.push(cmd);
 		this.undoBytes += cmd.byteSize;
 		this.emitChange(cmd.dirty());
-		for (const l of this.commitListeners) l(cmd);
+		for (const l of this.commitListeners) l(cmd, 'redo');
 		return true;
 	}
 
@@ -215,7 +216,7 @@ export class CommandBus {
 
 	// Fires on every committed command (dispatch/undo/redo) — the autosave
 	// debouncer and future sync log hook here (§4.7, B1).
-	onCommit(listener: (cmd: Command) => void): () => void {
+	onCommit(listener: (cmd: Command, action: 'dispatch' | 'undo' | 'redo') => void): () => void {
 		this.commitListeners.push(listener);
 		return () => {
 			this.commitListeners = this.commitListeners.filter((l) => l !== listener);

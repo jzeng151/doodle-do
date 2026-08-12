@@ -40,6 +40,19 @@
 		return canvas;
 	}
 
+	function layerCanvas(pixels: Uint8Array) {
+		const canvas = document.createElement('canvas');
+		canvas.width = session.doc.meta.width;
+		canvas.height = session.doc.meta.height;
+		const ctx = canvas.getContext('2d')!;
+		const image = ctx.createImageData(canvas.width, canvas.height);
+		const rgba = new Uint32Array(image.data.buffer);
+		const lut = buildLut(session.doc.palette);
+		for (let i = 0; i < pixels.length; i++) rgba[i] = lut[pixels[i]];
+		ctx.putImageData(image, 0, 0);
+		return canvas;
+	}
+
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
@@ -55,10 +68,16 @@
 			const ctx = el.getContext('2d')!;
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
-			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
-			for (const selection of session.floatingSelections(i)) {
-				const rect = selection.renderRect;
-				ctx.drawImage(floatingCanvas(selection), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
+			const floating = session.floatingSelections(i);
+			if (!floating.length) ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
+			else for (const [layerIndex, layer] of session.doc.frames[i].layers.entries()) {
+				if (!layer.visible) continue;
+				ctx.drawImage(layerCanvas(layer.pixels), 0, 0, el.width, el.height);
+				if (layerIndex !== session.currentLayer) continue;
+				for (const selection of floating) {
+					const rect = selection.renderRect;
+					ctx.drawImage(floatingCanvas(selection), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
+				}
 			}
 			if (i === focusedTile) {
 				const z = session.gridZoom;
@@ -90,12 +109,13 @@
 
 	function onPointerDown(e: PointerEvent, i: number) {
 		if (e.button !== 0 && e.button !== 2) return;
-		if (e.button === 2 && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
+		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
+		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
 		const el = tiles[i]!;
 		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
-		const colorValue = e.button === 2 ? session.backgroundColorValue : session.colorValue;
-		const secondaryColorValue = e.button === 2 ? session.colorValue : session.backgroundColorValue;
+		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
+		const secondaryColorValue = backgroundAction ? session.colorValue : session.backgroundColorValue;
 		keyboardX = x;
 		keyboardY = y;
 		session.selectFrame(i);
@@ -127,7 +147,7 @@
 				session.fill(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'eyedropper':
-				session.eyedrop(x, y, e.button === 2);
+				session.eyedrop(x, y, backgroundAction);
 				break;
 			case 'stamp': session.placeStamp(x, y); break;
 		}
@@ -158,6 +178,12 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
+		if (e.key === 'Escape' && session.lineActive) {
+			e.preventDefault();
+			e.stopPropagation();
+			session.cancelLine();
+			return;
+		}
 		const moves: Record<string, [number, number]> = {
 			ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
 		};
@@ -184,6 +210,10 @@
 		if (e.key !== 'Enter' && e.key !== ' ') return;
 		e.preventDefault();
 		e.stopPropagation();
+		if (session.tool === 'move' && session.floating) {
+			session.endLayerMove();
+			return;
+		}
 		session.selectFrame(i);
 		switch (session.tool) {
 			case 'pencil':
@@ -201,8 +231,7 @@
 				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'move':
-				if (session.floating) session.endLayerMove();
-				else session.beginLayerMove();
+				session.beginLayerMove();
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
