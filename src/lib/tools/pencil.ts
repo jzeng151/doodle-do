@@ -78,6 +78,14 @@ export class StrokeBuilder {
 		);
 	}
 
+	cancel(): Rect | null {
+		const rect = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return rect;
+	}
+
 	private dirtyRect(): Rect | null {
 		if (!this.dirty.size) return null;
 		const { width } = this.doc.meta;

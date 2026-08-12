@@ -139,6 +139,15 @@ describe('line tool', () => {
 		expect(line.end()!.kind).toBe('line');
 	});
 
+	it('cancels its optimistic preview', () => {
+		const doc = testDoc();
+		const line = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line');
+		line.begin(1, 1);
+		line.previewLineTo(4, 1);
+		line.cancel();
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 0)).toBe(true);
+	});
+
 	it('constrains to horizontal, vertical, or diagonal lines', () => {
 		expect(constrainLineEndpoint(2, 2, 7, 3)).toEqual({ x: 7, y: 2 });
 		expect(constrainLineEndpoint(2, 2, 3, 7)).toEqual({ x: 2, y: 7 });
@@ -162,7 +171,9 @@ describe('shape tools', () => {
 	});
 
 	it('clamps an off-canvas shape preview before enumerating points', () => {
-		expect(rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 })).toHaveLength(24);
+		const points = rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 });
+		expect(points).toHaveLength(13);
+		expect(points).not.toContainEqual({ x: 7, y: 7 });
 	});
 });
 
