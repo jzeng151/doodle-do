@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Workspace shell (§4.4): three toggleable modes as pure views over one
+	// Workspace shell (§4.4): toggleable modes as views over one
 	// shared session — document, current frame, zoom, and palette persist
 	// across toggles because nothing here is rebuilt on switch.
 	import type { Doc } from '$lib/core/document';
@@ -10,6 +10,7 @@
 	import FocusView from './focus/FocusView.svelte';
 	import GridView from './grid/GridView.svelte';
 	import LoopView from './loop/LoopView.svelte';
+	import CompareView from './compare/CompareView.svelte';
 
 	let {
 		session,
@@ -50,6 +51,9 @@
 				break;
 			case '3':
 				session.setMode('loop');
+				break;
+			case '4':
+				session.setMode('compare');
 				break;
 			case 'b':
 				session.setTool('pencil');
@@ -105,15 +109,19 @@
 	<HeaderBar {session} {onOpenDoc} />
 	<main id="editor-main" class="editor-content" tabindex="-1">
 		<h1 class="sr-only">Doodle-Do editor</h1>
-		{#if session.mode !== 'loop'}
+		{#if session.mode === 'focus' || session.mode === 'grid'}
 			<Toolbar {session} />
 		{/if}
 		{#if session.mode === 'focus'}
 			<FocusView {session} />
 		{:else if session.mode === 'grid'}
 			<GridView {session} />
-		{:else}
+		{:else if session.mode === 'loop'}
 			<LoopView {session} />
+		{:else}
+			{#key session.comparisonVersion}
+				<CompareView {session} />
+			{/key}
 		{/if}
 		<TipToast />
 	</main>

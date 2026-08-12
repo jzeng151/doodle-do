@@ -31,6 +31,12 @@ export const PRODUCT_CONTENT = {
 			label: 'Loop',
 			great: 'Watching the animation at full speed.',
 			strains: 'Drawing. Switch back to Focus or Grid.'
+		},
+		{
+			id: 'compare',
+			label: 'Compare',
+			great: 'Playing the live animation beside a saved fork.',
+			strains: 'Drawing. Switch back to Focus or Grid.'
 		}
 	],
 	tips: ['T02', 'T09', 'T15'].map((id) => TIPS[id]),

@@ -127,6 +127,23 @@ test('preview background setting is shared with Loop mode', async ({ page }) => 
 	);
 });
 
+test('compare mode keeps and refreshes an independent animation fork', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await expect(page.getByRole('heading', { name: 'Animation comparison' })).toBeVisible();
+	await expect(page.locator('canvas.compare-canvas')).toHaveCount(2);
+	await expect(page.getByText('2 · Saved reference', { exact: false })).toBeVisible();
+
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await expect(page.getByText('3 · Live document', { exact: false })).toBeVisible();
+	await expect(page.getByText('2 · Saved reference', { exact: false })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Refresh fork' }).click();
+	await expect(page.getByText('3 · Saved reference', { exact: false })).toBeVisible();
+});
+
 test('B5: a floating selection commits on mode switch', async ({ page }) => {
 	await gotoApp(page);
 	const editor = page.locator('canvas.editor');
@@ -167,7 +184,7 @@ test('B5: a floating selection commits on mode switch', async ({ page }) => {
 
 test('mode switcher carries the teaching tooltips', async ({ page }) => {
 	await gotoApp(page);
-	for (const name of ['Focus', 'Grid', 'Loop']) {
+	for (const name of ['Focus', 'Grid', 'Loop', 'Compare']) {
 		const title = await switcher(page).getByRole('button', { name }).getAttribute('title');
 		expect(title).toContain('Best for:');
 		expect(title).toContain('Less useful for:');
