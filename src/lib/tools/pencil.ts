@@ -126,6 +126,10 @@ export class StrokeBuilder {
 		const { width, height } = this.doc.meta;
 		const endpoints = new Set<number>();
 		const protect = (x: number, y: number) => {
+			if (this.tiled) {
+				x = (x % width + width) % width;
+				y = (y % height + height) % height;
+			}
 			if (x >= 0 && y >= 0 && x < width && y < height) endpoints.add(y * width + x);
 		};
 		protect(c.x, c.y);
@@ -148,6 +152,10 @@ export class StrokeBuilder {
 
 	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): void {
 		const { width, height } = this.doc.meta;
+		if (this.tiled) {
+			x = (x % width + width) % width;
+			y = (y % height + height) % height;
+		}
 		if (x < 0 || y < 0 || x >= width || y >= height) return;
 		const index = y * width + x;
 		if (protectedIndices.has(index)) return;

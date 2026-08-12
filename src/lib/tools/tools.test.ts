@@ -186,6 +186,15 @@ describe('tiled drawing', () => {
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect([[0, 0], [3, 0], [0, 3], [3, 3]].every(([x, y]) => pixels[y * 4 + x] === 3)).toBe(true);
 	});
+
+	it('wraps pixel-perfect corner cleanup across canvas edges', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(3, 1);
+		stroke.moveTo(4, 1);
+		stroke.moveTo(4, 2);
+		expect(doc.frames[0].layers[0].pixels[1 * 4]).toBe(0);
+	});
 });
 
 describe('line tool', () => {
