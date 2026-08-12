@@ -84,6 +84,7 @@ export class EditorSession {
 	mirrorY = $state(false);
 	mirrorAxisX = $state(0);
 	mirrorAxisY = $state(0);
+	tiledDrawing = $state(false);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
 	zoom = $state(12);
@@ -622,7 +623,8 @@ export class EditorSession {
 				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		for (const s of this.strokes) {
@@ -666,7 +668,8 @@ export class EditorSession {
 				this.ditherEnabled ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		for (const s of this.strokes) {
@@ -709,7 +712,8 @@ export class EditorSession {
 				this.ditherEnabled ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		this.shapeMove(x, y);

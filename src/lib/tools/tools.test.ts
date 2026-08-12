@@ -158,6 +158,16 @@ describe('mirror-draw', () => {
 	});
 });
 
+describe('tiled drawing', () => {
+	it('wraps brush pixels across canvas edges', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(0, 0);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[0, 0], [3, 0], [0, 3], [3, 3]].every(([x, y]) => pixels[y * 4 + x] === 3)).toBe(true);
+	});
+});
+
 describe('line tool', () => {
 	it('replaces its live preview and commits only the final line', () => {
 		const doc = testDoc();

@@ -26,7 +26,8 @@ export class StrokeBuilder {
 		private readonly ditherSize: 0 | 2 | 4 = 0,
 		private readonly mirrorAxisX = (doc.meta.width - 1) / 2,
 		private readonly mirrorY = false,
-		private readonly mirrorAxisY = (doc.meta.height - 1) / 2
+		private readonly mirrorAxisY = (doc.meta.height - 1) / 2,
+		private readonly tiled = false
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -148,6 +149,15 @@ export class StrokeBuilder {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
+		if (this.tiled) {
+			for (let y = cy - r; y <= cy - r + this.size - 1; y++) for (let x = cx - r; x <= cx - r + this.size - 1; x++) {
+				const tx = (x % width + width) % width, ty = (y % height + height) % height;
+				const i = ty * width + tx;
+				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
+				pixels[i] = ditherValue(tx, ty, this.value, this.secondaryValue, this.ditherSize);
+			}
+			return { x: 0, y: 0, w: width, h: height };
+		}
 		const x0 = Math.max(0, cx - r);
 		const y0 = Math.max(0, cy - r);
 		const x1 = Math.min(width - 1, cx - r + this.size - 1);
