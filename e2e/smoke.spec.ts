@@ -176,6 +176,32 @@ test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
 
+test('keyboard pencil indicator matches the brush size', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('group', { name: 'Brush settings' }).getByRole('combobox').selectOption('4');
+	const editor = page.locator('canvas.editor');
+	await editor.focus();
+	for (let i = 0; i < 5; i++) {
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowDown');
+	}
+	const bounds = await editor.evaluate((canvas) => {
+		const ctx = canvas.getContext('2d')!;
+		const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+		let minX = width;
+		let maxX = -1;
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				if (data[(y * width + x) * 4 + 3] === 0) continue;
+				minX = Math.min(minX, x);
+				maxX = Math.max(maxX, x);
+			}
+		}
+		return maxX - minX + 1;
+	});
+	expect(bounds).toBeGreaterThan(40); // 4 canvas pixels at the default 12× zoom
+});
+
 test('mobile editor keeps document status and tips in the layout', async ({ page }) => {
 	await page.setViewportSize({ width: 320, height: 568 });
 	await gotoApp(page);

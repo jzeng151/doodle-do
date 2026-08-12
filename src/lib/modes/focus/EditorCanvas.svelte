@@ -74,13 +74,21 @@
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
 		const z = session.zoom;
+		const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+		const r = size >> 1;
+		const brushX = keyboardX - r;
+		const brushY = keyboardY - r;
+		const x0 = Math.max(0, brushX);
+		const y0 = Math.max(0, brushY);
+		const x1 = Math.min(session.doc.meta.width, brushX + size);
+		const y1 = Math.min(session.doc.meta.height, brushY + size);
 		ctx.save();
 		ctx.strokeStyle = '#fff';
 		ctx.lineWidth = 3;
-		ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+		ctx.strokeRect(x0 * z + 1.5, y0 * z + 1.5, (x1 - x0) * z - 3, (y1 - y0) * z - 3);
 		ctx.strokeStyle = '#000';
 		ctx.lineWidth = 1;
-		ctx.strokeRect(keyboardX * z + 1.5, keyboardY * z + 1.5, z - 3, z - 3);
+		ctx.strokeRect(x0 * z + 1.5, y0 * z + 1.5, (x1 - x0) * z - 3, (y1 - y0) * z - 3);
 		ctx.restore();
 	}
 
@@ -253,6 +261,8 @@
 		void session.currentFrame;
 		void session.bulkFrames;
 		void session.zoom;
+		void session.brushSize;
+		void session.tool;
 		void session.showGrid;
 		void session.onionEnabled;
 		void session.onionPreviousEnabled;
