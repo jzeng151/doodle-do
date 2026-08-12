@@ -119,6 +119,7 @@
 			keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 			return;
 		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -130,6 +131,10 @@
 			case 'eraser':
 				session.strokeBegin(keyboardX, keyboardY);
 				session.strokeEnd();
+				break;
+			case 'line':
+				if (session.lineActive) session.lineEnd();
+				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
