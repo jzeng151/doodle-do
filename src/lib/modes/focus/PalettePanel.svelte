@@ -193,8 +193,8 @@
 				<option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option>
 			</select></label>
 			<div class="actions">
-				<button disabled={session.paletteLocked || rangeStart === rangeEnd} onclick={() => session.generatePaletteRamp(rangeStart, rangeEnd)}>Generate ramp</button>
-				<button disabled={session.paletteLocked || rangeStart === rangeEnd} onclick={() => session.sortPalette(rangeStart, rangeEnd, rangeSort)}>Sort range</button>
+				<button disabled={session.paletteLocked || palette.length < 2 || rangeStart === rangeEnd} onclick={() => session.generatePaletteRamp(rangeStart, rangeEnd)}>Generate ramp</button>
+				<button disabled={session.paletteLocked || palette.length < 2 || rangeStart === rangeEnd} onclick={() => session.sortPalette(rangeStart, rangeEnd, rangeSort)}>Sort range</button>
 			</div>
 		</div>
 	{/if}

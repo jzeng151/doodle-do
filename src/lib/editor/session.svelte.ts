@@ -973,9 +973,10 @@ export class EditorSession {
 	}
 
 	generatePaletteRamp(start: number, end: number): void {
-		if (this.paletteLocked || start === end) return;
-		const lo = Math.max(0, Math.min(start, end));
-		const hi = Math.min(this.doc.palette.length - 1, Math.max(start, end));
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		const lo = Math.min(start, end);
+		const hi = Math.max(start, end);
 		const colors = colorRamp(this.doc.palette[lo], this.doc.palette[hi], hi - lo + 1);
 		const cmds = colors
 			.map((color, offset) => ({ index: lo + offset, color }))
@@ -986,8 +987,14 @@ export class EditorSession {
 	}
 
 	sortPalette(start: number, end: number, sort: PaletteSort): void {
-		if (this.paletteLocked || start === end) return;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sortPaletteRange(this.doc, start, end, sort)));
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.commitFloating();
+		const sorted = sortPaletteRange(this.doc, start, end, sort);
+		if (!sorted.moved) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sorted.doc));
+		this.colorValue = sorted.map.get(this.colorValue) ?? this.colorValue;
+		this.backgroundColorValue = sorted.map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
