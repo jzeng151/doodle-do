@@ -102,7 +102,7 @@ export class EditorSession {
 	// floating buffer are view state until commit, when the whole move
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
-	private previousSelectionMask: Uint8Array | null = null;
+	private previousSelectionMask = $state<Uint8Array | null>(null);
 	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
@@ -140,6 +140,7 @@ export class EditorSession {
 				doc.frames[this.currentFrame].layers.length - 1
 			);
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
+			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			this.version++;
 		});
 		this.bus.onCommit(() => this.unsavedCommits++);
@@ -153,6 +154,8 @@ export class EditorSession {
 
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.selectionMask = null;
 		this.clearGestures();
@@ -166,6 +169,8 @@ export class EditorSession {
 	// document, current frame, zoom, and palette because nothing is rebuilt.
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -213,6 +218,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index !== this.currentFrame) {
+			this.lineEnd();
+			this.shapeEnd();
+		}
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -291,6 +300,7 @@ export class EditorSession {
 
 	selectAll(): void {
 		this.commitFloating();
+		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.overlayVersion++;
@@ -306,6 +316,7 @@ export class EditorSession {
 
 	invertSelection(): void {
 		this.commitFloating();
+		this.clearGestures();
 		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
 		this.selectionMask = new Uint8Array(length);
@@ -317,6 +328,7 @@ export class EditorSession {
 	reselect(): void {
 		if (!this.previousSelectionMask) return;
 		this.commitFloating();
+		this.clearGestures();
 		const current = this.selectionMask?.slice() ?? null;
 		this.selectionMask = this.previousSelectionMask;
 		this.previousSelectionMask = current;
@@ -471,6 +483,12 @@ export class EditorSession {
 		if (this.floating) return;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.liftSelection(false);
+	}
+
+	floatingSelections(frame: number): FloatingSelection[] {
+		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
+		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
+		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
 	}
 
 	endLayerMove(): void {
@@ -657,9 +675,10 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
+		const bounds = this.doc.meta;
 		const points = this.tool === 'ellipse'
-			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled)
-			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled);
+			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
+			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
 			if (rect) this.bus.emitChange({ frame: s.frame, rect });
@@ -673,6 +692,14 @@ export class EditorSession {
 
 	get strokeActive(): boolean {
 		return this.strokes.length > 0;
+	}
+
+	get lineActive(): boolean {
+		return this.lineOrigin !== null;
+	}
+
+	get shapeActive(): boolean {
+		return this.shapeOrigin !== null;
 	}
 
 	// --- other tools ---
@@ -945,6 +972,7 @@ export class EditorSession {
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
 		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
+		if (scope === 'selection' && !this.selectionMask) return;
 		const selection = this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
@@ -983,6 +1011,7 @@ export class EditorSession {
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
