@@ -29,7 +29,7 @@ export class AnimationTagsCommand implements Command {
 	do(doc: Doc): void { doc.meta.tags = copyTags(this.after); }
 	undo(doc: Doc): void { doc.meta.tags = copyTags(this.before); }
 	serialize(): unknown { return { kind: this.kind, tags: this.after }; }
-	dirty(): DirtyRegion { return DOC_DIRTY; }
+	dirty(): DirtyRegion { return { frame: null, rect: null, metadata: true }; }
 }
 
 function addFrameTags(tags: AnimationTag[] | undefined, index: number) {
@@ -48,8 +48,8 @@ function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: 
 function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: number) {
 	const move = (index: number) => index === from ? to : from < to && index > from && index <= to ? index - 1 : from > to && index >= to && index < from ? index + 1 : index;
 	return tags?.map((tag) => {
-		const a = move(tag.from), b = move(tag.to);
-		return { ...tag, from: Math.min(a, b), to: Math.max(a, b) };
+		const moved = Array.from({ length: tag.to - tag.from + 1 }, (_, index) => move(tag.from + index));
+		return { ...tag, from: Math.min(...moved), to: Math.max(...moved) };
 	});
 }
 

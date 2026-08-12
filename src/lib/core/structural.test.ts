@@ -65,6 +65,13 @@ describe('frame commands', () => {
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
 	});
 
+	it('keeps a clip range when reordering within it', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(2, 3).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
 	it('per-frame duration and fps commands undo cleanly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);

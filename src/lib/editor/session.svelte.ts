@@ -905,9 +905,11 @@ export class EditorSession {
 	// inclusive, clamped against the current frame count
 	effectiveLoopRange(): { start: number; end: number } {
 		const last = this.doc.frames.length - 1;
-		if (!this.loopRange) return { start: 0, end: last };
-		const start = Math.max(0, Math.min(this.loopRange.start, last));
-		return { start, end: Math.max(start, Math.min(this.loopRange.end, last)) };
+		const tag = this.doc.meta.tags?.find((item) => item.name === this.activeAnimationTagName);
+		const range = tag ? { start: tag.from, end: tag.to } : this.loopRange;
+		if (!range) return { start: 0, end: last };
+		const start = Math.max(0, Math.min(range.start, last));
+		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
 
 	setLoopRange(start: number, end: number): void {
@@ -920,10 +922,11 @@ export class EditorSession {
 	addAnimationTag(tag: AnimationTag): void {
 		const name = tag.name.trim();
 		if (!name) return;
+		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
 		const before = this.doc.meta.tags;
-		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name }];
+		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name, repeats }];
 		this.bus.dispatch(new AnimationTagsCommand(before, after));
-		this.activeAnimationTagName = name;
+		this.selectAnimationTag(name);
 	}
 
 	deleteAnimationTag(name: string): void {

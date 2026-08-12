@@ -82,6 +82,13 @@
 	}
 
 	$effect(() => {
+		const tag = tags.find((item) => item.name === session.activeAnimationTagName);
+		tagName = tag?.name ?? '';
+		tagDirection = tag?.direction ?? 'forward';
+		tagRepeats = tag?.repeats ?? 0;
+	});
+
+	$effect(() => {
 		// reflect edits/undo arriving from shortcuts while paused
 		void session.version;
 		if (player && !playing) player.blit();
