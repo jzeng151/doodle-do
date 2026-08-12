@@ -5,6 +5,7 @@
 
 	const tools: { id: Tool; label: string; key: string; description: string }[] = [
 		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
+		{ id: 'line', label: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
 		{ id: 'eraser', label: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
 		{ id: 'fill', label: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
 		{ id: 'eyedropper', label: 'Pick', key: 'I', description: 'Pick a color from the canvas' },

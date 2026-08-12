@@ -17,6 +17,7 @@
 	let keyboardY = $state(0);
 	let keyboardFocused = $state(false);
 	let keyboardMarquee = $state(false);
+	let keyboardLine = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -102,7 +103,7 @@
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
 		const z = renderZoom;
-		const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+		const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
 		const bounds = brushBounds(
 			keyboardX,
 			keyboardY,
@@ -322,6 +323,10 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				session.strokeBegin(x, y);
 				break;
+			case 'line':
+				canvasEl.setPointerCapture(e.pointerId);
+				session.lineBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -433,7 +438,10 @@
 			}
 			return;
 		}
-		if (session.strokeActive) session.strokeMove(x, y);
+		if (session.strokeActive) {
+			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else session.strokeMove(x, y);
+		}
 		else if (cursorMoved) repaint();
 	}
 
@@ -443,7 +451,8 @@
 		selectDrag = null;
 		rotateStart = null;
 		dragMirrored = false;
-		session.strokeEnd();
+		if (session.tool === 'line') session.lineEnd();
+		else session.strokeEnd();
 	}
 
 	function onWheel(e: WheelEvent) {
@@ -504,6 +513,7 @@
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+				if (keyboardLine) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 			}
 			repaint();
 			return;
@@ -527,6 +537,11 @@
 			case 'eraser':
 				session.strokeBegin(keyboardX, keyboardY);
 				session.strokeEnd();
+				break;
+			case 'line':
+				if (keyboardLine) session.lineEnd();
+				else session.lineBegin(keyboardX, keyboardY);
+				keyboardLine = !keyboardLine;
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);

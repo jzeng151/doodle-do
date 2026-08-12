@@ -37,7 +37,7 @@
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
-				const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+				const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
 				const bounds = brushBounds(
 					keyboardX,
 					keyboardY,
@@ -78,6 +78,11 @@
 				strokeTile = i;
 				session.strokeBegin(x, y);
 				break;
+			case 'line':
+				el.setPointerCapture(e.pointerId);
+				strokeTile = i;
+				session.lineBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -91,12 +96,16 @@
 		const { x, y } = pixelFromEvent(e, tiles[i]!);
 		keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, x));
 		keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
-		if (strokeTile === i && session.strokeActive) session.strokeMove(x, y);
+		if (strokeTile === i && session.strokeActive) {
+			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else session.strokeMove(x, y);
+		}
 	}
 
 	function onPointerUp() {
 		strokeTile = -1;
-		session.strokeEnd();
+		if (session.tool === 'line') session.lineEnd();
+		else session.strokeEnd();
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {

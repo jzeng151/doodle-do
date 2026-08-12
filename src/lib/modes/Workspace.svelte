@@ -62,6 +62,9 @@
 			case 'b':
 				editingSession.setTool('pencil');
 				break;
+			case 'n':
+				editingSession.setTool('line');
+				break;
 			case 'e':
 				editingSession.setTool('eraser');
 				break;

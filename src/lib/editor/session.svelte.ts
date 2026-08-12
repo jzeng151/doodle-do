@@ -25,7 +25,7 @@ import { Compositor } from '../render/compositor';
 import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
-import { StrokeBuilder } from '../tools/pencil';
+import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
@@ -33,6 +33,7 @@ import { tips } from '../learn/tips';
 
 export type Tool =
 	| 'pencil'
+	| 'line'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -106,6 +107,7 @@ export class EditorSession {
 	unsavedCommits = $state(0);
 
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
+	private lineOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
 
 	constructor(doc: Doc) {
@@ -530,6 +532,43 @@ export class EditorSession {
 		this.strokes = [];
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
+	}
+
+	lineBegin(x: number, y: number): void {
+		if (this.floating) return;
+		this.lineOrigin = { x, y };
+		this.strokes = this.editTargets().map((frame) => ({
+			frame,
+			builder: new StrokeBuilder(
+				this.doc,
+				frame,
+				this.currentLayer,
+				this.colorValue,
+				this.brushSize,
+				this.mirrorX,
+				'line'
+			)
+		}));
+		for (const s of this.strokes) {
+			const rect = s.builder.begin(x, y);
+			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+		}
+	}
+
+	lineMove(x: number, y: number, constrained = false): void {
+		if (!this.lineOrigin) return;
+		const end = constrained
+			? constrainLineEndpoint(this.lineOrigin.x, this.lineOrigin.y, x, y)
+			: { x, y };
+		for (const s of this.strokes) {
+			const rect = s.builder.previewLineTo(end.x, end.y);
+			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+		}
+	}
+
+	lineEnd(): void {
+		this.lineOrigin = null;
+		this.strokeEnd();
 	}
 
 	get strokeActive(): boolean {
