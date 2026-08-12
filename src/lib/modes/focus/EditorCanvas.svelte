@@ -537,6 +537,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			keyboardMarquee = false;
+			session.cancelLine();
 			session.cancelFloating();
 			return;
 		}
