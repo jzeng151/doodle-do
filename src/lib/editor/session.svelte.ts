@@ -32,6 +32,7 @@ import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirror
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
+import { paletteFromArtwork } from '../io/palette';
 
 export type Tool =
 	| 'pencil'
@@ -917,6 +918,29 @@ export class EditorSession {
 		if (this.backgroundColorValue === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;
 		else if (this.backgroundColorValue > removedValue) this.backgroundColorValue--;
 		return true;
+	}
+
+	importPalette(colors: string[]): void {
+		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return;
+		const highestUsed = this.doc.frames.reduce(
+			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
+			0
+		);
+		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
+		const next = structuredClone(this.doc);
+		next.palette = colors;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.colorValue = Math.min(this.colorValue, colors.length);
+		this.backgroundColorValue = Math.min(this.backgroundColorValue, colors.length);
+	}
+
+	createPaletteFromArtwork(): void {
+		if (this.paletteLocked) return;
+		const next = paletteFromArtwork(this.doc);
+		if (!next) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.colorValue = Math.min(this.colorValue, next.palette.length);
+		this.backgroundColorValue = Math.min(this.backgroundColorValue, next.palette.length);
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
