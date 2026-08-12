@@ -9,7 +9,7 @@ export function samplePixel(doc: Doc, frameIndex: number, x: number, y: number):
 	const layers = doc.frames[frameIndex].layers;
 	const i = y * width + x;
 	for (let l = layers.length - 1; l >= 0; l--) {
-		if (!layers[l].visible) continue;
+		if (!layers[l].visible || (layers[l].opacity ?? 1) <= 0) continue;
 		const v = layers[l].pixels[i];
 		if (v !== 0) return v;
 	}

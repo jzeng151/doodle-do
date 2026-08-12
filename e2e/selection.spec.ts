@@ -364,3 +364,34 @@ test('mirror twin: dragging the twin side makes it follow the pointer', async ({
 	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(false);
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
 });
+
+test('reselect availability updates and resets after canvas resize', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await page.getByRole('button', { name: 'Deselect', exact: true }).click();
+	const reselect = page.getByRole('button', { name: 'Reselect', exact: true });
+	await expect(reselect).toBeEnabled();
+
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	await page.getByRole('button', { name: '16×16' }).click();
+	await page.locator('dialog').getByRole('button', { name: 'Resize' }).click();
+	await expect(reselect).toBeDisabled();
+});
+
+test('Make stamp is hidden after a selection becomes floating', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 6, 6);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 10);
+	await page.mouse.up();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toBeVisible();
+	await page.keyboard.press('Alt+ArrowRight');
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
+});

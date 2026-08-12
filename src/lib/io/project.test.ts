@@ -54,6 +54,14 @@ describe('project file round-trip', () => {
 		expect(restored.frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
 	});
 
+	it('rejects conflicting payloads in a linked cel group', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, frameCount: 2 });
+		const raw = JSON.parse(serializeProject(doc));
+		raw.frames[0].layers[0].linkId = raw.frames[1].layers[0].linkId = 'shared';
+		raw.frames[1].layers[0].pixels = btoa(String.fromCharCode(1));
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/inconsistent/);
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

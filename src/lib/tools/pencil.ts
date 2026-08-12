@@ -110,8 +110,9 @@ export class StrokeBuilder {
 
 	private stamp(cx: number, cy: number): Rect | null {
 		let rect = this.stampOne(cx, cy);
-		const mx = Math.round(2 * this.mirrorAxisX - cx);
-		const my = Math.round(2 * this.mirrorAxisY - cy);
+		const evenOffset = this.size % 2 === 0 ? 1 : 0;
+		const mx = Math.round(2 * this.mirrorAxisX - cx + evenOffset);
+		const my = Math.round(2 * this.mirrorAxisY - cy + evenOffset);
 		if (this.mirrorX) rect = unionRect(rect, this.stampOne(mx, cy));
 		if (this.mirrorY) rect = unionRect(rect, this.stampOne(cx, my));
 		if (this.mirrorX && this.mirrorY) rect = unionRect(rect, this.stampOne(mx, my));
@@ -122,25 +123,42 @@ export class StrokeBuilder {
 		if (this.centers.length < 3) return rect;
 		const [a, b, c] = this.centers.slice(-3);
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
-		this.restorePixel(b.x, b.y);
-		rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
-		if (this.mirrorX) {
-			const mirrorX = Math.round(2 * this.mirrorAxisX - b.x);
-			this.restorePixel(mirrorX, b.y);
-			rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
+		const { width, height } = this.doc.meta;
+		const endpoints = new Set<number>();
+		const protect = (x: number, y: number) => {
+			if (this.tiled) {
+				x = (x % width + width) % width;
+				y = (y % height + height) % height;
+			}
+			if (x >= 0 && y >= 0 && x < width && y < height) endpoints.add(y * width + x);
+		};
+		protect(c.x, c.y);
+		if (this.mirrorX) protect(mx, c.y);
+		if (this.mirrorY) protect(c.x, my);
+		if (this.mirrorX && this.mirrorY) protect(mx, my);
+		const bmx = Math.round(2 * this.mirrorAxisX - b.x);
+		const bmy = Math.round(2 * this.mirrorAxisY - b.y);
+		const corners = [{ x: b.x, y: b.y }];
+		if (this.mirrorX) corners.push({ x: bmx, y: b.y });
+		if (this.mirrorY) corners.push({ x: b.x, y: bmy });
+		if (this.mirrorX && this.mirrorY) corners.push({ x: bmx, y: bmy });
+		for (const point of corners) {
+			this.restorePixel(point.x, point.y, endpoints);
+			rect = unionRect(rect, { ...point, w: 1, h: 1 });
 		}
-		if (this.mirrorY) {
-			const mirrorY = Math.round(2 * this.mirrorAxisY - b.y);
-			this.restorePixel(b.x, mirrorY);
-			rect = unionRect(rect, { x: b.x, y: mirrorY, w: 1, h: 1 });
-		}
+		this.centers.splice(-2, 1);
 		return rect;
 	}
 
-	private restorePixel(x: number, y: number): void {
+	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): void {
 		const { width, height } = this.doc.meta;
+		if (this.tiled) {
+			x = (x % width + width) % width;
+			y = (y % height + height) % height;
+		}
 		if (x < 0 || y < 0 || x >= width || y >= height) return;
 		const index = y * width + x;
+		if (protectedIndices.has(index)) return;
 		const before = this.dirty.get(index);
 		if (before !== undefined) this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
 	}

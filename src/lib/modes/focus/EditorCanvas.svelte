@@ -17,8 +17,6 @@
 	let keyboardY = $state(0);
 	let keyboardFocused = $state(false);
 	let keyboardMarquee = $state(false);
-	let keyboardLine = $state(false);
-	let keyboardLayerMove = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -61,14 +59,15 @@
 		const { frames } = session.doc;
 		const f = session.currentFrame;
 		if (session.onionEnabled && frames.length > 1) {
+			const seenGhosts = new Set([f]);
 			// previous N=1 red, next N=1 green (§4.3 defaults), flattened composite
 			if (session.onionPreviousEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionPreviousRange, -1)) {
+				for (const ghost of onionSequence(f, frames.length, session.onionPreviousRange, -1, seenGhosts)) {
 					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_PREV_COLOR, session.onionOpacity * .55 * ghost.fade);
 				}
 			}
 			if (session.onionNextEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionNextRange, 1)) {
+				for (const ghost of onionSequence(f, frames.length, session.onionNextRange, 1, seenGhosts)) {
 					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_NEXT_COLOR, session.onionOpacity * ghost.fade);
 				}
 			}
@@ -532,14 +531,15 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			if (session.tool === 'move' && keyboardLayerMove) session.moveFloatingBy(...move);
+			if (session.tool === 'move' && session.floating) session.moveFloatingBy(...move);
 			else if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
-				if (keyboardLine) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+				if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
 			}
 			repaint();
 			return;
@@ -565,19 +565,17 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (keyboardLine) session.lineEnd();
+				if (session.lineActive) session.lineEnd();
 				else session.lineBegin(keyboardX, keyboardY);
-				keyboardLine = !keyboardLine;
 				break;
 			case 'rectangle':
 			case 'ellipse':
-				session.shapeBegin(keyboardX, keyboardY);
-				session.shapeEnd();
+				if (session.shapeActive) session.shapeEnd();
+				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'move':
-				if (keyboardLayerMove) session.endLayerMove();
+				if (session.floating) session.endLayerMove();
 				else session.beginLayerMove();
-				keyboardLayerMove = !keyboardLayerMove;
 				break;
 			case 'stamp':
 				session.placeStamp(keyboardX, keyboardY);

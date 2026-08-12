@@ -10,11 +10,14 @@ import {
 	FrameReorderCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
+	LayerPropertyCommand,
 	LayerReorderCommand,
 	LayerVisibilityCommand,
+	LinkedFrameAddCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
-	PaletteSwapCommand
+	PaletteSwapCommand,
+	UnlinkFrameCommand
 } from './structural';
 
 function testDoc() {
@@ -50,6 +53,33 @@ describe('frame commands', () => {
 		expect(() => new FrameDeleteCommand(doc, 0)).toThrow();
 	});
 
+	it('keeps animation tag ranges valid across frame edits and undo', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#000000'], frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 2, direction: 'forward', repeats: 0 }];
+		const add = new FrameAddCommand(1, { layers: [createLayer(doc, 'Layer 1')] });
+		add.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 2, to: 3 });
+		add.undo(doc);
+		const remove = new FrameDeleteCommand(doc, 2);
+		remove.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 1 });
+		remove.undo(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
+	});
+
+	it('adds and unlinks shared cels without snapshotting the document', () => {
+		const doc = testDoc();
+		const add = new LinkedFrameAddCommand(0, 1, ['a', 'b']);
+		expect(add.byteSize).toBeLessThan(1024);
+		add.do(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+		const unlink = new UnlinkFrameCommand(doc, 1);
+		unlink.do(doc);
+		expect(doc.frames[0].layers[0].pixels).not.toBe(doc.frames[1].layers[0].pixels);
+		unlink.undo(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
+
 	it('per-frame duration and fps commands undo cleanly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
@@ -78,6 +108,10 @@ describe('layer commands', () => {
 
 		bus.dispatch(new LayerVisibilityCommand(0, 2, false));
 		expect(doc.frames[0].layers[2].visible).toBe(false);
+		bus.dispatch(new LayerPropertyCommand(0, 2, 'opacity', undefined, .4));
+		expect(doc.frames[0].layers[2].opacity).toBe(.4);
+		bus.undo();
+		expect(doc.frames[0].layers[2].opacity).toBeUndefined();
 
 		bus.dispatch(new LayerDeleteCommand(doc, 0, 2));
 		expect(doc.frames[0].layers).toHaveLength(2);
@@ -145,5 +179,13 @@ describe('palette commands', () => {
 		expect(pixels[0]).toBe(2); // value 2 is below the removed value — no shift
 		bus.undo();
 		expect(pixels[0]).toBe(6);
+	});
+
+	it('remaps linked buffers only once', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].pixels[0] = 3;
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		new PaletteRemoveCommand(doc, 1, 0).do(doc);
+		expect(doc.frames[0].layers[0].pixels[0]).toBe(2);
 	});
 });

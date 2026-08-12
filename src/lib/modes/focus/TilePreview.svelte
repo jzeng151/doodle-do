@@ -10,6 +10,7 @@
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d')!;
 		ctx.imageSmoothingEnabled = false;
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) ctx.drawImage(session.compositor.frameCanvas(session.currentFrame), x * session.doc.meta.width, y * session.doc.meta.height);
 	});
 </script>
