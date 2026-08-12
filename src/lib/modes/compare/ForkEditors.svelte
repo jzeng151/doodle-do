@@ -8,6 +8,12 @@
 	let { session, fork }: { session: EditorSession; fork: EditorSession } = $props();
 	const currentFrames = $derived((session.version, session.doc.frames.length));
 	const forkFrames = $derived((fork.version, fork.doc.frames.length));
+
+	function applyFork() {
+		if (window.confirm('Replace the current document with this fork? You can undo this change.')) {
+			session.applyComparisonFork();
+		}
+	}
 </script>
 
 <div class="fork-editors" role="region" aria-label="Side-by-side editors">
@@ -27,7 +33,10 @@
 	<section class="editor-pane" aria-labelledby="fork-editor-heading">
 		<header class="pane-heading">
 			<strong id="fork-editor-heading">Fork</strong>
-			<span>{forkFrames} frames · Session only</span>
+			<div class="fork-actions">
+				<span>{forkFrames} frames · Session only</span>
+				<button onclick={applyFork}>Apply as current</button>
+			</div>
 		</header>
 		<Toolbar session={fork} />
 		<div class="work-area">
@@ -64,6 +73,7 @@
 	}
 	.pane-heading strong { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
 	.pane-heading span { color: var(--gray); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+	.fork-actions { display: flex; align-items: center; gap: .5rem; }
 	.work-area { display: flex; flex: 1; min-height: 0; }
 	@media (max-width: 1000px) {
 		.fork-editors {

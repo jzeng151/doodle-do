@@ -11,6 +11,42 @@ function frameBytes(frame: Frame): number {
 	return frame.layers.reduce((sum, l) => sum + l.pixels.byteLength, 0) + 64;
 }
 
+function replaceDocument(doc: Doc, snapshot: Doc): void {
+	const copy = structuredClone(snapshot);
+	doc.meta = copy.meta;
+	doc.palette = copy.palette;
+	doc.frames = copy.frames;
+}
+
+export class DocumentReplaceCommand implements Command {
+	readonly kind = 'document-replace';
+	readonly byteSize: number;
+	private readonly before: Doc;
+	private readonly after: Doc;
+
+	constructor(doc: Doc, replacement: Doc) {
+		this.before = structuredClone(doc);
+		this.after = structuredClone(replacement);
+		this.byteSize = [...this.before.frames, ...this.after.frames].reduce(
+			(sum, frame) => sum + frameBytes(frame),
+			256
+		);
+	}
+
+	do(doc: Doc): void {
+		replaceDocument(doc, this.after);
+	}
+	undo(doc: Doc): void {
+		replaceDocument(doc, this.before);
+	}
+	serialize(): unknown {
+		return { kind: this.kind };
+	}
+	dirty(): DirtyRegion {
+		return PALETTE_DIRTY;
+	}
+}
+
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
 	readonly byteSize: number;

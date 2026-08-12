@@ -6,6 +6,7 @@
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
 import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
 import {
+	DocumentReplaceCommand,
 	FpsCommand,
 	FrameAddCommand,
 	FrameDeleteCommand,
@@ -161,6 +162,17 @@ export class EditorSession {
 		this.commitFloating();
 		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
+	}
+
+	applyComparisonFork(): void {
+		if (!this.comparisonSession) return;
+		this.commitFloating();
+		this.comparisonSession.commitFloating();
+		this.selectionMask = null;
+		this.clearGestures();
+		this.bulkFrames = [];
+		this.overlayVersion++;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, this.comparisonSession.doc));
 	}
 
 	selectFrame(index: number): void {

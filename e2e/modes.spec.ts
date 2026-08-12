@@ -164,6 +164,14 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
 	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
 
+	page.once('dialog', (dialog) => dialog.accept());
+	await editors.nth(1).getByRole('button', { name: 'Apply as current' }).click();
+	await expect(editors.nth(0).getByText('3 frames · Save/export target')).toBeVisible();
+	expect(await locatorHasInk(currentCanvas)).toBe(true);
+	await editors.nth(0).getByRole('button', { name: 'Undo' }).click();
+	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
+	expect(await locatorHasInk(currentCanvas)).toBe(false);
+
 	await page.getByRole('button', { name: 'Compare animations' }).click();
 	await expect(page.getByRole('heading', { name: 'Animation comparison' })).toBeVisible();
 	await expect(page.locator('canvas.compare-canvas')).toHaveCount(2);
