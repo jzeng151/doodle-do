@@ -539,6 +539,7 @@ export class EditorSession {
 
 	lineBegin(x: number, y: number): void {
 		if (this.floating) return;
+		this.lineEnd();
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -572,6 +573,15 @@ export class EditorSession {
 	lineEnd(): void {
 		this.lineOrigin = null;
 		this.strokeEnd();
+	}
+
+	cancelLine(): void {
+		for (const stroke of this.strokes) {
+			const rect = stroke.builder.cancel();
+			if (rect) this.bus.emitChange({ frame: stroke.frame, rect });
+		}
+		this.strokes = [];
+		this.lineOrigin = null;
 	}
 
 	get strokeActive(): boolean {
@@ -626,6 +636,7 @@ export class EditorSession {
 	// --- frames ---
 
 	addFrame(duplicate: boolean): void {
+		this.lineEnd();
 		this.commitFloating();
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		const src = this.frame;
@@ -646,12 +657,14 @@ export class EditorSession {
 
 	deleteFrame(): void {
 		if (this.doc.frames.length <= 1) return;
+		this.lineEnd();
 		this.cancelFloating(); // the frame under the selection is going away
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		this.bus.dispatch(new FrameDeleteCommand(this.doc, this.currentFrame));
 	}
 
 	moveFrame(delta: -1 | 1): void {
+		this.lineEnd();
 		this.commitFloating();
 		const to = this.currentFrame + delta;
 		if (to < 0 || to >= this.doc.frames.length) return;
@@ -700,6 +713,7 @@ export class EditorSession {
 	// --- layers (per-frame, cap 8) ---
 
 	addLayer(): void {
+		this.lineEnd();
 		this.commitFloating();
 		const layers = this.frame.layers;
 		if (layers.length >= MAX_LAYERS) return;
@@ -744,12 +758,14 @@ export class EditorSession {
 
 	deleteLayer(): void {
 		if (this.frame.layers.length <= 1) return;
+		this.lineEnd();
 		this.cancelFloating(); // the layer under the selection is going away
 		this.bus.dispatch(new LayerDeleteCommand(this.doc, this.currentFrame, this.currentLayer));
 	}
 
 	// Flatten the active layer into the one below it, as ONE composite command.
 	mergeLayerDown(): void {
+		this.lineEnd();
 		this.commitFloating();
 		const cmd = mergeDownCommand(this.doc, this.currentFrame, this.currentLayer);
 		if (!cmd) return;
@@ -760,6 +776,7 @@ export class EditorSession {
 	// Copy (or move) the active layer onto the top of another frame's stack,
 	// as ONE composite command.
 	sendLayerToFrame(targetFrame: number, move: boolean): void {
+		this.lineEnd();
 		this.commitFloating();
 		const cmd = sendLayerCommand(this.doc, this.currentFrame, this.currentLayer, targetFrame, move);
 		if (!cmd) return;
@@ -767,6 +784,7 @@ export class EditorSession {
 	}
 
 	moveLayer(delta: -1 | 1): void {
+		this.lineEnd();
 		this.commitFloating();
 		const to = this.currentLayer + delta;
 		if (to < 0 || to >= this.frame.layers.length) return;
@@ -813,6 +831,7 @@ export class EditorSession {
 	// Resize the canvas of the existing document (extends §4.1 beyond
 	// creation-time). 'crop' keeps the art in place; 'scale' resamples it.
 	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale'): void {
+		this.lineEnd();
 		this.commitFloating();
 		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(width)));
 		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(height)));
@@ -830,13 +849,13 @@ export class EditorSession {
 	// T14/B5: undo removes the whole move in one step — a pending selection
 	// commits first, so the very next undo reverts it entirely.
 	undo(): void {
-		this.strokeEnd();
+		this.lineEnd();
 		this.commitFloating();
 		this.bus.undo();
 	}
 
 	redo(): void {
-		this.strokeEnd();
+		this.lineEnd();
 		this.commitFloating();
 		this.bus.redo();
 	}

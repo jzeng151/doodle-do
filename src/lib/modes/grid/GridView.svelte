@@ -109,6 +109,12 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
+		if (e.key === 'Escape' && session.lineActive) {
+			e.preventDefault();
+			e.stopPropagation();
+			session.cancelLine();
+			return;
+		}
 		const moves: Record<string, [number, number]> = {
 			ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
 		};

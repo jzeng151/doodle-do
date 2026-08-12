@@ -138,6 +138,15 @@ describe('line tool', () => {
 		expect(line.end()!.kind).toBe('line');
 	});
 
+	it('cancels its optimistic preview', () => {
+		const doc = testDoc();
+		const line = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line');
+		line.begin(1, 1);
+		line.previewLineTo(4, 1);
+		line.cancel();
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 0)).toBe(true);
+	});
+
 	it('constrains to horizontal, vertical, or diagonal lines', () => {
 		expect(constrainLineEndpoint(2, 2, 7, 3)).toEqual({ x: 7, y: 2 });
 		expect(constrainLineEndpoint(2, 2, 3, 7)).toEqual({ x: 2, y: 7 });
