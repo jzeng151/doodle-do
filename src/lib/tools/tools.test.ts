@@ -45,6 +45,12 @@ describe('floodFill (B3)', () => {
 		expect(floodFill(doc, 0, 0, 8, 0, 5)).toBeNull();
 	});
 
+	it('keeps duplicate palette indices distinct at zero tolerance', () => {
+		const doc = createDoc({ width: 2, height: 1, palette: ['#112233', '#112233'] });
+		doc.frames[0].layers[0].pixels.set([1, 2]);
+		expect(floodFill(doc, 0, 0, 0, 0, 2)!.pixelCount).toBe(1);
+	});
+
 	it('fills similar palette colors within tolerance', () => {
 		const doc = testDoc(3, 1);
 		doc.palette[0] = '#101010';
