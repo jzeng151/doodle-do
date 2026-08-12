@@ -22,13 +22,13 @@ export interface SheetLayout {
 }
 
 export function sheetLayout(frameCount: number, frameW: number, frameH: number): SheetLayout {
-	const columns = Math.ceil(Math.sqrt(frameCount));
-	const rows = Math.ceil(frameCount / columns);
+	const columns = frameCount;
+	const rows = 1;
 	const rects: SheetRect[] = [];
 	for (let i = 0; i < frameCount; i++) {
 		rects.push({
-			x: (i % columns) * frameW,
-			y: Math.floor(i / columns) * frameH,
+			x: i * frameW,
+			y: 0,
 			w: frameW,
 			h: frameH
 		});

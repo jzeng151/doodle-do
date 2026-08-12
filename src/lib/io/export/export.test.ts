@@ -16,14 +16,15 @@ describe('flattenFrameIndices', () => {
 });
 
 describe('sheetLayout', () => {
-	it('packs 4 frames of 32×32 into a 2×2 grid', () => {
+	it('packs frames into one horizontal strip', () => {
 		const layout = sheetLayout(4, 32, 32);
-		expect(layout).toMatchObject({ columns: 2, rows: 2, width: 64, height: 64 });
-		expect(layout.rects[3]).toEqual({ x: 32, y: 32, w: 32, h: 32 });
+		expect(layout).toMatchObject({ columns: 4, rows: 1, width: 128, height: 32 });
+		expect(layout.rects[3]).toEqual({ x: 96, y: 0, w: 32, h: 32 });
 	});
 
 	it('handles non-square counts without overlap', () => {
 		const layout = sheetLayout(5, 16, 16);
+		expect(layout).toMatchObject({ columns: 5, rows: 1, width: 80, height: 16 });
 		expect(layout.rects).toHaveLength(5);
 		const keys = new Set(layout.rects.map((r) => `${r.x},${r.y}`));
 		expect(keys.size).toBe(5);
@@ -55,7 +56,7 @@ describe('export metadata schemas', () => {
 		expect(frame.trimmed).toBe(false);
 		expect(frame.sourceSize).toEqual({ w: 32, h: 32 });
 		expect(parsed.meta.image).toBe('strut.png');
-		expect(parsed.meta.size).toEqual({ w: 64, h: 64 });
+		expect(parsed.meta.size).toEqual({ w: 128, h: 32 });
 		expect(parsed.meta.scale).toBe('1');
 	});
 
@@ -65,6 +66,6 @@ describe('export metadata schemas', () => {
 		expect(parsed.fps).toBe(8);
 		expect(parsed.frames[0].durationMs).toBe(125); // 1000/8
 		expect(parsed.frames[2].durationMs).toBe(250); // per-frame override
-		expect(parsed.frames[3]).toMatchObject({ x: 32, y: 32, w: 32, h: 32 });
+		expect(parsed.frames[3]).toMatchObject({ x: 96, y: 0, w: 32, h: 32 });
 	});
 });
