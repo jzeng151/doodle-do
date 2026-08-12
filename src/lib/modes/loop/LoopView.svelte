@@ -204,6 +204,7 @@
 		background-image: radial-gradient(rgba(17,17,17,.18) .7px, transparent .9px);
 		background-size: 6px 6px;
 	}
+	.loop-mode > :global(*) { flex-shrink: 0; }
 	.hero {
 		image-rendering: pixelated;
 		max-height: 60vh;

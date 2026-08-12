@@ -22,7 +22,7 @@
 		<h2>Layers</h2>
 		<div class="actions" role="group" aria-label="Layer actions">
 			<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
-			<button aria-label="Duplicate layer" title="Duplicate layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.duplicateLayer()}>⧉</button>
+			<button aria-label="Clone layer" title="Clone layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.duplicateLayer()}>⧉</button>
 			<button
 				aria-label="Extract selection to layer"
 				title="Extract selection to layer (Ctrl+J)"

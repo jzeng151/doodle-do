@@ -87,12 +87,13 @@
 		<button
 			class:active={session.mirrorX}
 			aria-pressed={session.mirrorX}
+			aria-label="Mirror"
 			title="Mirror-draw: paint both halves at once"
 			onclick={() => session.toggleMirror()}
 		>
 			Mirror X
 		</button>
-		<button class:active={session.mirrorY} aria-pressed={session.mirrorY} title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
+		<button class:active={session.mirrorY} aria-pressed={session.mirrorY} aria-label="Vertical symmetry" title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
 		{#if session.mirrorX}<label>X axis<input type="number" min="0" max={session.doc.meta.width - 1} step="0.5" bind:value={session.mirrorAxisX} /></label>{/if}
 		{#if session.mirrorY}<label>Y axis<input type="number" min="0" max={session.doc.meta.height - 1} step="0.5" bind:value={session.mirrorAxisY} /></label>{/if}
 		{#if session.tool === 'pencil'}

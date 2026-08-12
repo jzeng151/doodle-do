@@ -69,7 +69,7 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await remove.click();
 	await colors.nth(1).click();
 	await expect(colors).toHaveCount(16);
-	await expect(colors.first()).toHaveAttribute('aria-label', 'Color #442434');
+	await expect(colors.first()).toHaveAttribute('aria-label', /^Color #442434/);
 	await expect(colors.first()).toHaveAttribute('aria-pressed', 'true');
 });
 

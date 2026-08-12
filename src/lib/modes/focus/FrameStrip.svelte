@@ -65,7 +65,7 @@
 		<button title="Duplicate the frame, then nudge pixels for smoother motion" onclick={() => session.addFrame(true)}>
 			Duplicate
 		</button>
-		<button title="Duplicate with shared cel pixels" onclick={() => session.addLinkedFrame()}>Linked duplicate</button>
+		<button title="Create a frame with shared cel pixels" onclick={() => session.addLinkedFrame()}>Link cel</button>
 		<button disabled={!session.currentFrameLinked} title="Make this frame independent" onclick={() => session.unlinkCurrentFrame()}>Unlink</button>
 		<button
 			title="Delete frame"
