@@ -13,6 +13,7 @@ import {
 	FrameDeleteCommand,
 	FrameDurationCommand,
 	FrameReorderCommand,
+	LinkedFrameAddCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
 	LayerReorderCommand,
@@ -20,7 +21,8 @@ import {
 	PaletteAddCommand,
 	PaletteRemoveCommand,
 	PaletteSwapCommand,
-	ResizeCanvasCommand
+	ResizeCanvasCommand,
+	UnlinkFrameCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
 import { floodFill, floodRegion } from '../tools/fill';
@@ -144,7 +146,8 @@ export class EditorSession {
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
-			this.compositor.invalidate(doc.frames.some((frame) => frame.layers.some((layer) => layer.linkId)) ? { frame: null, rect: null } : region);
+			const pixels = doc.frames.flatMap((frame) => frame.layers.map((layer) => layer.pixels));
+			this.compositor.invalidate(new Set(pixels).size < pixels.length ? { frame: null, rect: null } : region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
@@ -246,7 +249,13 @@ export class EditorSession {
 	// shorter than the active layer
 	private editTargets(): number[] {
 		const frames = this.bulkFrames.length ? this.bulkFrames : [this.currentFrame];
-		return frames.filter((f) => this.currentLayer < this.doc.frames[f].layers.length);
+		const seen = new Set<Uint8Array>();
+		return frames.filter((f) => {
+			const pixels = this.doc.frames[f].layers[this.currentLayer]?.pixels;
+			if (!pixels || seen.has(pixels)) return false;
+			seen.add(pixels);
+			return true;
+		});
 	}
 
 	toggleBulkFrame(index: number): void {
@@ -829,27 +838,16 @@ export class EditorSession {
 	addLinkedFrame(): void {
 		this.commitFloating();
 		this.bulkFrames = [];
-		const next = structuredClone(this.doc);
 		const index = this.currentFrame + 1;
-		const source = next.frames[this.currentFrame];
-		const layers = source.layers.map((layer, layerIndex) => {
-			const linkId = layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`;
-			layer.linkId = linkId;
-			return { name: layer.name, visible: layer.visible, pixels: layer.pixels, linkId };
-		});
-		next.frames.splice(index, 0, { layers, ...(source.durationMs !== undefined && { durationMs: source.durationMs }) });
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const ids = this.frame.layers.map((layer, layerIndex) => layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`);
+		this.bus.dispatch(new LinkedFrameAddCommand(this.currentFrame, index, ids));
 		this.currentFrame = index;
 	}
 
 	unlinkCurrentFrame(): void {
 		if (!this.frame.layers.some((layer) => layer.linkId)) return;
-		const next = structuredClone(this.doc);
-		for (const layer of next.frames[this.currentFrame].layers) {
-			layer.pixels = layer.pixels.slice();
-			delete layer.linkId;
-		}
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.commitFloating();
+		this.bus.dispatch(new UnlinkFrameCommand(this.doc, this.currentFrame));
 	}
 
 	get currentFrameLinked(): boolean { return this.frame.layers.some((layer) => layer.linkId); }

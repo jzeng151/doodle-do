@@ -58,8 +58,11 @@ export function paletteFromArtwork(doc: Doc): { doc: Doc; map: Map<number, numbe
 	const map = new Map(values.map((value, index) => [value, index + 1]));
 	const next = structuredClone(doc);
 	next.palette = values.map((value) => doc.palette[value - 1]);
+	const remapped = new Set<Uint8Array>();
 	for (const frame of next.frames) {
 		for (const layer of frame.layers) {
+			if (remapped.has(layer.pixels)) continue;
+			remapped.add(layer.pixels);
 			for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i]) layer.pixels[i] = map.get(layer.pixels[i])!;
 		}
 	}

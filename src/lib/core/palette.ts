@@ -64,7 +64,10 @@ export function sortPaletteRange(doc: Doc, start: number, end: number, sort: Pal
 	for (let offset = 0; offset < entries.length; offset++) {
 		next.palette[lo + offset] = entries[offset].color;
 	}
+	const remapped = new Set<Uint8Array>();
 	for (const frame of next.frames) for (const layer of frame.layers) {
+		if (remapped.has(layer.pixels)) continue;
+		remapped.add(layer.pixels);
 		for (let i = 0; i < layer.pixels.length; i++) if (remap.has(layer.pixels[i])) layer.pixels[i] = remap.get(layer.pixels[i])!;
 	}
 	return { doc: next, map: remap, moved };

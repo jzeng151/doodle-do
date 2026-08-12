@@ -112,6 +112,59 @@ export class FrameAddCommand implements Command {
 	}
 }
 
+export class LinkedFrameAddCommand implements Command {
+	readonly kind = 'linked-frame-add';
+	readonly byteSize = 256;
+	private beforeTags?: AnimationTag[];
+	private beforeIds: (string | undefined)[] = [];
+	constructor(private readonly sourceIndex: number, private readonly index: number, private readonly linkIds: string[]) {}
+	do(doc: Doc): void {
+		this.beforeTags = copyTags(doc.meta.tags);
+		const source = doc.frames[this.sourceIndex];
+		this.beforeIds = source.layers.map((layer) => layer.linkId);
+		const layers = source.layers.map((layer, i) => {
+			layer.linkId = this.linkIds[i];
+			return { ...layer, pixels: layer.pixels, linkId: this.linkIds[i] };
+		});
+		doc.frames.splice(this.index, 0, { layers, ...(source.durationMs !== undefined && { durationMs: source.durationMs }) });
+		doc.meta.tags = addFrameTags(this.beforeTags, this.index);
+	}
+	undo(doc: Doc): void {
+		doc.frames.splice(this.index, 1);
+		const source = doc.frames[this.sourceIndex];
+		for (let i = 0; i < source.layers.length; i++) {
+			if (this.beforeIds[i]) source.layers[i].linkId = this.beforeIds[i];
+			else delete source.layers[i].linkId;
+		}
+		doc.meta.tags = copyTags(this.beforeTags);
+	}
+	serialize(): unknown { return { kind: this.kind, source: this.sourceIndex, index: this.index }; }
+	dirty(): DirtyRegion { return DOC_DIRTY; }
+}
+
+export class UnlinkFrameCommand implements Command {
+	readonly kind = 'unlink-frame';
+	readonly byteSize: number;
+	private readonly before: { pixels: Uint8Array; linkId?: string }[];
+	private readonly after: Uint8Array[];
+	constructor(doc: Doc, private readonly frameIndex: number) {
+		this.before = doc.frames[frameIndex].layers.map((layer) => ({ pixels: layer.pixels, ...(layer.linkId && { linkId: layer.linkId }) }));
+		this.after = this.before.map(({ pixels }) => pixels.slice());
+		this.byteSize = this.after.reduce((sum, pixels) => sum + pixels.byteLength, 128);
+	}
+	do(doc: Doc): void {
+		doc.frames[this.frameIndex].layers.forEach((layer, i) => { layer.pixels = this.after[i]; delete layer.linkId; });
+	}
+	undo(doc: Doc): void {
+		doc.frames[this.frameIndex].layers.forEach((layer, i) => {
+			layer.pixels = this.before[i].pixels;
+			if (this.before[i].linkId) layer.linkId = this.before[i].linkId;
+		});
+	}
+	serialize(): unknown { return { kind: this.kind, frame: this.frameIndex }; }
+	dirty(): DirtyRegion { return DOC_DIRTY; }
+}
+
 export class FrameDeleteCommand implements Command {
 	readonly kind = 'frame-delete';
 	readonly byteSize: number;
@@ -444,9 +497,12 @@ export class PaletteRemoveCommand implements Command {
 		this.removedValue = paletteIndex + 1;
 		this.targetValue = targetPaletteIndex + 1;
 		let count = 0;
+		const seen = new Set<Uint8Array>();
 		for (let f = 0; f < doc.frames.length; f++) {
 			for (let l = 0; l < doc.frames[f].layers.length; l++) {
 				const pixels = doc.frames[f].layers[l].pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				const hits: number[] = [];
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] === this.removedValue) hits.push(i);
@@ -465,9 +521,12 @@ export class PaletteRemoveCommand implements Command {
 			const pixels = doc.frames[frame].layers[layer].pixels;
 			for (const i of indices) pixels[i] = this.targetValue;
 		}
+		const seen = new Set<Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				const pixels = layer.pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] > this.removedValue) pixels[i]--;
 				}
@@ -478,9 +537,12 @@ export class PaletteRemoveCommand implements Command {
 
 	undo(doc: Doc): void {
 		doc.palette.splice(this.removedValue - 1, 0, this.color);
+		const seen = new Set<Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				const pixels = layer.pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] >= this.removedValue) pixels[i]++;
 				}
