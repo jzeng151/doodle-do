@@ -207,6 +207,7 @@ export class EditorSession {
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
 		this.previousSelectionMask = null;
+		this.stamp = null;
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
@@ -222,6 +223,7 @@ export class EditorSession {
 		const forkDoc = structuredClone(fork.doc);
 		this.selectionMask = fork.selectionMask = null;
 		this.previousSelectionMask = fork.previousSelectionMask = null;
+		this.stamp = fork.stamp = null;
 		this.clearGestures();
 		fork.clearGestures();
 		this.bulkFrames = fork.bulkFrames = [];
@@ -1052,6 +1054,7 @@ export class EditorSession {
 			0
 		);
 		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
+		this.stamp = null;
 		this.bus.dispatch(new PaletteReplaceCommand(this.doc.palette, colors));
 		this.colorValue = Math.min(this.colorValue, colors.length);
 		this.backgroundColorValue = Math.min(this.backgroundColorValue, colors.length);
@@ -1062,6 +1065,7 @@ export class EditorSession {
 		this.commitFloating();
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
+		this.stamp = null;
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
 		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
@@ -1089,6 +1093,7 @@ export class EditorSession {
 		this.commitFloating();
 		const sorted = sortPaletteRange(this.doc, start, end, sort);
 		if (!sorted.moved) return;
+		this.stamp = null;
 		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
 		const after: [number, number] = [sorted.map.get(before[0]) ?? before[0], sorted.map.get(before[1]) ?? before[1]];
 		this.bus.dispatch(new PaletteSortCommand(this.doc, sorted.doc, before, after));
