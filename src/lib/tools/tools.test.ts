@@ -188,4 +188,25 @@ describe('pixel-perfect pencil', () => {
 		stroke.moveTo(2, 2);
 		expect(doc.frames[0].layers[0].pixels[1 * 8 + 2]).toBe(3);
 	});
+
+	it('keeps alternating corners connected', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		stroke.moveTo(3, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[1 * 8 + 1], pixels[2 * 8 + 2], pixels[2 * 8 + 3]]).toEqual([3, 3, 3]);
+	});
+
+	it('does not erase mirrored endpoints at the center axis', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true);
+		stroke.begin(3, 1);
+		stroke.moveTo(3, 2);
+		stroke.moveTo(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3]);
+	});
 });
