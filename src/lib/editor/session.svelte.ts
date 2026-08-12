@@ -97,7 +97,7 @@ export class EditorSession {
 	// floating buffer are view state until commit, when the whole move
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
-	private previousSelectionMask: Uint8Array | null = null;
+	private previousSelectionMask = $state<Uint8Array | null>(null);
 	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
@@ -293,6 +293,7 @@ export class EditorSession {
 
 	selectAll(): void {
 		this.commitFloating();
+		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.overlayVersion++;
@@ -308,6 +309,7 @@ export class EditorSession {
 
 	invertSelection(): void {
 		this.commitFloating();
+		this.clearGestures();
 		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
 		this.selectionMask = new Uint8Array(length);
@@ -319,6 +321,7 @@ export class EditorSession {
 	reselect(): void {
 		if (!this.previousSelectionMask) return;
 		this.commitFloating();
+		this.clearGestures();
 		const current = this.selectionMask?.slice() ?? null;
 		this.selectionMask = this.previousSelectionMask;
 		this.previousSelectionMask = current;
@@ -924,6 +927,7 @@ export class EditorSession {
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
