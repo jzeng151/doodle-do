@@ -222,6 +222,46 @@ test('pointer pixels and transparency grid align with the drawable canvas', asyn
 	await expect(page.locator('.tile canvas').first()).toHaveCSS('background-size', '6px 6px');
 });
 
+test('mouse wheel zooms and middle-drag pans the canvas', async ({ page }) => {
+	await page.setViewportSize({ width: 1000, height: 600 });
+	await gotoApp(page);
+	const viewport = page.locator('.scroll');
+	let box = (await viewport.boundingBox())!;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	const zoom = page.getByRole('group', { name: 'Canvas view' }).locator('.zoom');
+	const beforeZoom = await zoom.textContent();
+	await page.mouse.wheel(0, -100);
+	await expect(zoom).not.toHaveText(beforeZoom!);
+
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: '64×64' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
+	box = (await viewport.boundingBox())!;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	for (let i = 0; i < 20; i++) await page.mouse.wheel(0, -100);
+	const beforePan = await viewport.evaluate((el) => {
+		el.scrollLeft = Math.min(150, el.scrollWidth - el.clientWidth);
+		el.scrollTop = Math.min(150, el.scrollHeight - el.clientHeight);
+		return { left: el.scrollLeft, top: el.scrollTop };
+	});
+	expect(beforePan.left).toBeGreaterThan(40);
+	expect(beforePan.top).toBeGreaterThan(40);
+
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down({ button: 'middle' });
+	await expect(viewport).toHaveClass(/panning/);
+	await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 30);
+	await page.mouse.up({ button: 'middle' });
+	const afterPan = await viewport.evaluate((el) => ({ left: el.scrollLeft, top: el.scrollTop }));
+	expect(afterPan.left).toBeLessThan(beforePan.left);
+	expect(afterPan.top).toBeLessThan(beforePan.top);
+	const widthBeforeUndo = Number(await page.locator('canvas.editor').getAttribute('width'));
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect
+		.poll(async () => Number(await page.locator('canvas.editor').getAttribute('width')))
+		.toBeLessThan(widthBeforeUndo); // the first undo is still Resize, so middle-drag did not paint
+});
+
 test('mobile editor keeps document status and tips in the layout', async ({ page }) => {
 	await page.setViewportSize({ width: 320, height: 568 });
 	await gotoApp(page);

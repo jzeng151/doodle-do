@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { buildLut } from '$lib/core/palette';
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
@@ -17,6 +18,7 @@
 	let keyboardFocused = $state(false);
 	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
+	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -445,10 +447,44 @@
 	}
 
 	function onWheel(e: WheelEvent) {
-		if (!e.ctrlKey) return;
 		e.preventDefault();
+		if (e.deltaY === 0) return;
+		const before = canvasEl.getBoundingClientRect();
+		const anchorX = Math.max(0, Math.min(1, (e.clientX - before.left) / before.width));
+		const anchorY = Math.max(0, Math.min(1, (e.clientY - before.top) / before.height));
 		const step = session.zoom < 1 ? 0.25 : 1;
-		session.zoom = Math.max(0.25, Math.min(24, session.zoom + (e.deltaY < 0 ? step : -step)));
+		const zoom = Math.max(0.25, Math.min(24, session.zoom + (e.deltaY < 0 ? step : -step)));
+		if (zoom === session.zoom) return;
+		flushSync(() => (session.zoom = zoom));
+		const after = canvasEl.getBoundingClientRect();
+		scrollEl.scrollLeft += after.left + anchorX * after.width - e.clientX;
+		scrollEl.scrollTop += after.top + anchorY * after.height - e.clientY;
+	}
+
+	function onCameraPointerDown(e: PointerEvent) {
+		if (e.button !== 1) return;
+		e.preventDefault();
+		e.stopPropagation();
+		cameraPan = {
+			x: e.clientX,
+			y: e.clientY,
+			left: scrollEl.scrollLeft,
+			top: scrollEl.scrollTop
+		};
+		scrollEl.setPointerCapture(e.pointerId);
+	}
+
+	function onCameraPointerMove(e: PointerEvent) {
+		if (!cameraPan) return;
+		e.preventDefault();
+		scrollEl.scrollLeft = cameraPan.left - (e.clientX - cameraPan.x);
+		scrollEl.scrollTop = cameraPan.top - (e.clientY - cameraPan.y);
+	}
+
+	function onCameraPointerUp(e: PointerEvent) {
+		if (!cameraPan) return;
+		cameraPan = null;
+		if (scrollEl.hasPointerCapture(e.pointerId)) scrollEl.releasePointerCapture(e.pointerId);
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
@@ -517,7 +553,19 @@
 	}
 </script>
 
-<div class="scroll" bind:this={scrollEl} onwheel={onWheel}>
+<div
+	class="scroll"
+	class:panning={cameraPan !== null}
+	role="region"
+	aria-label="Canvas viewport"
+	bind:this={scrollEl}
+	onwheel={onWheel}
+	onpointerdown={onCameraPointerDown}
+	onpointermove={onCameraPointerMove}
+	onpointerup={onCameraPointerUp}
+	onpointercancel={onCameraPointerUp}
+	onauxclick={(e) => e.preventDefault()}
+>
 	<p id="canvas-help" class="sr-only">
 		Arrow keys move the pixel cursor. Space or Enter uses the current tool. Alt plus arrow keys moves a
 		selection. Page Up and Page Down change frames. Tool letter shortcuts work while this canvas is focused.
@@ -554,6 +602,10 @@
 		background-color: var(--paper-2);
 		background-image: radial-gradient(rgba(17, 17, 17, 0.3) 0.8px, transparent 1px);
 		background-size: 9px 9px;
+	}
+	.scroll.panning,
+	.scroll.panning .editor {
+		cursor: grabbing;
 	}
 	.editor {
 		image-rendering: pixelated;
