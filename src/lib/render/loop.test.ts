@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDoc } from '../core/document';
-import { LoopPlayer, nextLoopFrame } from './loop';
+import { LoopPlayer, nextLoopFrame, nextPlaybackFrame } from './loop';
 
 describe('nextLoopFrame (playback range)', () => {
 	it('advances within the range and wraps from end to start', () => {
@@ -16,6 +16,15 @@ describe('nextLoopFrame (playback range)', () => {
 
 	it('holds still on a single-frame range', () => {
 		expect(nextLoopFrame(2, 2, 2)).toBe(2);
+	});
+});
+
+describe('playback modes', () => {
+	it('advances forward, reverse, and ping-pong ranges', () => {
+		expect(nextPlaybackFrame(3, 1, 3, 'forward')).toEqual({ frame: 1, direction: 1, wrapped: true });
+		expect(nextPlaybackFrame(1, 1, 3, 'reverse')).toEqual({ frame: 3, direction: -1, wrapped: true });
+		expect(nextPlaybackFrame(3, 1, 3, 'ping-pong', 1)).toEqual({ frame: 2, direction: -1, wrapped: false });
+		expect(nextPlaybackFrame(1, 1, 3, 'ping-pong', -1)).toEqual({ frame: 2, direction: 1, wrapped: true });
 	});
 });
 

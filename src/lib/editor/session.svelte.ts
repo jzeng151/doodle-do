@@ -34,6 +34,7 @@ import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
+import type { PlaybackMode } from '../render/loop';
 
 export type Tool =
 	| 'pencil'
@@ -97,6 +98,9 @@ export class EditorSession {
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
+	loopPlaybackMode = $state<PlaybackMode>('forward');
+	loopRepeatCount = $state(0);
+	activeAnimationTagName = $state('');
 	showPreviewBackground = $state(true);
 	comparisonSession: EditorSession | null = null;
 	comparisonVersion = $state(0);
@@ -891,8 +895,13 @@ export class EditorSession {
 	}
 
 	selectAnimationTag(name: string): void {
+		this.activeAnimationTagName = name;
 		const tag = this.doc.meta.tags?.find((item) => item.name === name);
-		if (tag) this.setLoopRange(tag.from, tag.to);
+		if (tag) {
+			this.setLoopRange(tag.from, tag.to);
+			this.loopPlaybackMode = tag.direction;
+			this.loopRepeatCount = tag.repeats;
+		} else this.setLoopRange(0, this.doc.frames.length - 1);
 	}
 
 	// --- layers (per-frame, cap 8) ---

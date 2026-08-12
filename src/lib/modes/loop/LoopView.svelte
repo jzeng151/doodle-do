@@ -38,7 +38,10 @@
 			heroEl,
 			(f) => (playFrame = f),
 			() => session.effectiveLoopRange(),
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount,
+			() => (playing = false)
 		);
 		playing = !media.matches;
 		if (playing) player.start();
@@ -131,6 +134,8 @@
 				{/each}
 			</select>
 		</label>
+		<label>Direction<select bind:value={session.loopPlaybackMode}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+		<label>Repeats<input type="number" min="0" max="99" bind:value={session.loopRepeatCount} title="0 repeats continuously" /></label>
 		<label>
 			From
 			<input
@@ -155,7 +160,7 @@
 		</label>
 	</div>
 	<div class="tag-controls" aria-label="Animation tags">
-		<label>Clip<select onchange={(e) => session.selectAnimationTag(e.currentTarget.value)}>
+		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => session.selectAnimationTag(e.currentTarget.value)}>
 			<option value="">All frames</option>
 			{#each session.doc.meta.tags ?? [] as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
 		</select></label>

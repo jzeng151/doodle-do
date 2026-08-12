@@ -51,7 +51,10 @@
 			currentEl,
 			(frame) => (currentFrame = frame),
 			undefined,
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount,
+			() => { playing = false; stop(); }
 		);
 		forkPlayer = new LoopPlayer(
 			fork.doc,
@@ -59,7 +62,9 @@
 			forkEl,
 			(frame) => (forkFrame = frame),
 			undefined,
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount
 		);
 		playing = !media.matches;
 		if (playing) start();
@@ -112,6 +117,8 @@
 					{/each}
 				</select>
 			</label>
+			<label>Direction<select bind:value={session.loopPlaybackMode}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+			<label>Repeats<input type="number" min="0" max="99" bind:value={session.loopRepeatCount} title="0 repeats continuously" /></label>
 			<button
 				class:active={session.showPreviewBackground}
 				aria-pressed={session.showPreviewBackground}
