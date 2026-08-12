@@ -949,6 +949,7 @@ export class EditorSession {
 
 	importPalette(colors: string[]): void {
 		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return;
+		this.commitFloating();
 		const highestUsed = this.doc.frames.reduce(
 			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
 			0
@@ -963,11 +964,12 @@ export class EditorSession {
 
 	createPaletteFromArtwork(): void {
 		if (this.paletteLocked) return;
-		const next = paletteFromArtwork(this.doc);
-		if (!next) return;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
-		this.colorValue = Math.min(this.colorValue, next.palette.length);
-		this.backgroundColorValue = Math.min(this.backgroundColorValue, next.palette.length);
+		this.commitFloating();
+		const compacted = paletteFromArtwork(this.doc);
+		if (!compacted) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
+		this.colorValue = compacted.map.get(this.colorValue) ?? Math.min(this.colorValue, compacted.doc.palette.length);
+		this.backgroundColorValue = compacted.map.get(this.backgroundColorValue) ?? Math.min(this.backgroundColorValue, compacted.doc.palette.length);
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
