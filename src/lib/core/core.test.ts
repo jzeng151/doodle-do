@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDoc, resizePixels } from './document';
-import { buildLut, packColor, DEFAULT_PALETTE } from './palette';
+import { buildLut, colorRamp, packColor, DEFAULT_PALETTE, sortPaletteRange } from './palette';
 import { CommandBus, CompositeCommand, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
 import { LayerAddCommand, ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
@@ -72,6 +72,20 @@ describe('palette LUT', () => {
 
 	it('packColor is opaque LE RGBA', () => {
 		expect(packColor('#102030') >>> 0).toBe(0xff302010);
+	});
+});
+
+describe('palette ranges', () => {
+	it('generates an inclusive RGB ramp', () => {
+		expect(colorRamp('#000000', '#ffffff', 3)).toEqual(['#000000', '#808080', '#ffffff']);
+	});
+
+	it('sorts entries while remapping indices to preserve artwork colors', () => {
+		const doc = createDoc({ width: 3, height: 1, palette: ['#ffffff', '#000000', '#ff0000'] });
+		doc.frames[0].layers[0].pixels.set([1, 2, 3]);
+		const next = sortPaletteRange(doc, 0, 2, 'luminance');
+		expect(next.palette).toEqual(['#000000', '#ff0000', '#ffffff']);
+		expect([...next.frames[0].layers[0].pixels]).toEqual([3, 1, 2]);
 	});
 });
 

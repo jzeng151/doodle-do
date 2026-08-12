@@ -30,7 +30,7 @@ import { ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
-import { DEFAULT_PALETTE } from '../core/palette';
+import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
 
@@ -941,6 +941,24 @@ export class EditorSession {
 		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
 		this.colorValue = Math.min(this.colorValue, next.palette.length);
 		this.backgroundColorValue = Math.min(this.backgroundColorValue, next.palette.length);
+	}
+
+	generatePaletteRamp(start: number, end: number): void {
+		if (this.paletteLocked || start === end) return;
+		const lo = Math.max(0, Math.min(start, end));
+		const hi = Math.min(this.doc.palette.length - 1, Math.max(start, end));
+		const colors = colorRamp(this.doc.palette[lo], this.doc.palette[hi], hi - lo + 1);
+		const cmds = colors
+			.map((color, offset) => ({ index: lo + offset, color }))
+			.filter(({ index, color }) => this.doc.palette[index] !== color)
+			.map(({ index, color }) => new PaletteSwapCommand(index, this.doc.palette[index], color));
+		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
+		else if (cmds.length) this.bus.dispatch(new CompositeCommand('palette-ramp', cmds));
+	}
+
+	sortPalette(start: number, end: number, sort: PaletteSort): void {
+		if (this.paletteLocked || start === end) return;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, sortPaletteRange(this.doc, start, end, sort)));
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
