@@ -516,7 +516,7 @@ export class EditorSession {
 	}
 
 	placeStamp(x: number, y: number): void {
-		if (!this.stamp) return;
+		if (!this.stamp || this.floating) return;
 		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
@@ -980,6 +980,8 @@ export class EditorSession {
 		if (inUse && remapTo === undefined) return false;
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
+		this.stamp = null;
+		if (this.tool === 'stamp') this.setTool('pencil');
 		this.colorValue = target < index ? target + 1 : target;
 		const removedValue = index + 1;
 		if (this.backgroundColorValue === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;

@@ -379,3 +379,19 @@ test('reselect availability updates and resets after canvas resize', async ({ pa
 	await page.locator('dialog').getByRole('button', { name: 'Resize' }).click();
 	await expect(reselect).toBeDisabled();
 });
+
+test('Make stamp is hidden after a selection becomes floating', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 6, 6);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 10);
+	await page.mouse.up();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toBeVisible();
+	await page.keyboard.press('Alt+ArrowRight');
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
+});
