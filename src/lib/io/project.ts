@@ -42,6 +42,7 @@ export function serializeProject(doc: Doc): string {
 			layers: frame.layers.map((layer) => ({
 				name: layer.name,
 				visible: layer.visible,
+				...(layer.linkId && { linkId: layer.linkId }),
 				pixels: encodeBase64(layer.pixels)
 			}))
 		}))
@@ -115,11 +116,17 @@ export function parseProject(text: string): Doc {
 					return {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,
 						visible: rawLayer.visible !== false,
+						...(typeof rawLayer.linkId === 'string' && { linkId: rawLayer.linkId }),
 						pixels
 					};
 				})
 			};
 		})
 	};
+	const linked = new Map<string, Uint8Array>();
+	for (const frame of doc.frames) for (const layer of frame.layers) if (layer.linkId) {
+		if (linked.has(layer.linkId)) layer.pixels = linked.get(layer.linkId)!;
+		else linked.set(layer.linkId, layer.pixels);
+	}
 	return doc;
 }

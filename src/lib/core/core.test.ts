@@ -60,6 +60,16 @@ describe('canvas resize', () => {
 		expect([doc.meta.width, doc.meta.height]).toEqual([2, 2]);
 		expect(Array.from(doc.frames[0].layers[0].pixels)).toEqual([1, 2, 3, 4]);
 	});
+
+	it('preserves shared linked-cel buffers through resize and undo', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2 });
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		const bus = new CommandBus(doc);
+		bus.dispatch(new ResizeCanvasCommand(doc, 2, 2, 4, 4, 'scale'));
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+		bus.undo();
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
 });
 
 describe('palette LUT', () => {

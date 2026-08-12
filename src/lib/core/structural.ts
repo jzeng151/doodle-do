@@ -169,10 +169,12 @@ export class ResizeCanvasCommand implements Command {
 		private readonly newH: number,
 		mode: 'crop' | 'scale'
 	) {
+		const resized = new Map<Uint8Array, Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				this.before.push(layer.pixels);
-				this.after.push(resizePixels(layer.pixels, oldW, oldH, newW, newH, mode));
+				if (!resized.has(layer.pixels)) resized.set(layer.pixels, resizePixels(layer.pixels, oldW, oldH, newW, newH, mode));
+				this.after.push(resized.get(layer.pixels)!);
 			}
 		}
 		// both buffer sets are retained (after = live doc, before = for undo)

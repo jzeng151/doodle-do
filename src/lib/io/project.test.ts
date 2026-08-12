@@ -36,6 +36,16 @@ describe('project file round-trip', () => {
 		expect(parseProject(JSON.stringify(legacy)).meta.tags).toBeUndefined();
 	});
 
+	it('restores linked cel buffers as shared references', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2 });
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'shared';
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		const restored = parseProject(serializeProject(doc));
+		expect(restored.frames[0].layers[0].pixels).toBe(restored.frames[1].layers[0].pixels);
+		restored.frames[0].layers[0].pixels[0] = 3;
+		expect(restored.frames[1].layers[0].pixels[0]).toBe(3);
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

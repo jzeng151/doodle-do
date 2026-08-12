@@ -140,7 +140,7 @@ export class EditorSession {
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
-			this.compositor.invalidate(region);
+			this.compositor.invalidate(doc.frames.some((frame) => frame.layers.some((layer) => layer.linkId)) ? { frame: null, rect: null } : region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
@@ -794,6 +794,34 @@ export class EditorSession {
 		if (duplicate) tips.fire('T03');
 		if (this.doc.frames.length === 6) tips.fire('T10');
 	}
+
+	addLinkedFrame(): void {
+		this.commitFloating();
+		this.bulkFrames = [];
+		const next = structuredClone(this.doc);
+		const index = this.currentFrame + 1;
+		const source = next.frames[this.currentFrame];
+		const layers = source.layers.map((layer, layerIndex) => {
+			const linkId = layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`;
+			layer.linkId = linkId;
+			return { name: layer.name, visible: layer.visible, pixels: layer.pixels, linkId };
+		});
+		next.frames.splice(index, 0, { layers, ...(source.durationMs !== undefined && { durationMs: source.durationMs }) });
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.currentFrame = index;
+	}
+
+	unlinkCurrentFrame(): void {
+		if (!this.frame.layers.some((layer) => layer.linkId)) return;
+		const next = structuredClone(this.doc);
+		for (const layer of next.frames[this.currentFrame].layers) {
+			layer.pixels = layer.pixels.slice();
+			delete layer.linkId;
+		}
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+	}
+
+	get currentFrameLinked(): boolean { return this.frame.layers.some((layer) => layer.linkId); }
 
 	deleteFrame(): void {
 		if (this.doc.frames.length <= 1) return;

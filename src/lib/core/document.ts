@@ -28,6 +28,7 @@ export interface Layer {
 	name: string;
 	visible: boolean;
 	pixels: Uint8Array; // width * height palette indices
+	linkId?: string;
 }
 
 export interface Frame {
