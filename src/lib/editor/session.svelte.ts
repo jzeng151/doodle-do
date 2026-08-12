@@ -90,6 +90,8 @@ export class EditorSession {
 	onionEnabled = $state(true); // on by default (§4.5)
 	onionPreviousEnabled = $state(true);
 	onionNextEnabled = $state(true);
+	onionPreviousRange = $state(1);
+	onionNextRange = $state(1);
 	onionOpacity = $state(0.35);
 	autosavedAt = $state<Date | null>(null);
 	// playback range (view state, B7): null = all frames; clamped on read

@@ -207,6 +207,7 @@
 		>
 			<i class="onion-swatch previous" aria-hidden="true"></i>Previous
 		</button>
+		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={session.onionPreviousRange} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
 		<button
 			class:active={session.onionNextEnabled}
 			aria-pressed={session.onionNextEnabled}
@@ -216,6 +217,7 @@
 		>
 			<i class="onion-swatch next" aria-hidden="true"></i>Next
 		</button>
+		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={session.onionNextRange} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
 	</div>
 </div>
 
@@ -255,6 +257,7 @@
 		width: 72px;
 		accent-color: var(--ink);
 	}
+	.onion input[type='number'] { width: 3.25rem; }
 	.onion-swatch { display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; vertical-align: -.05rem; }
 	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
 	.onion-swatch.next { background: var(--onion-next); }
