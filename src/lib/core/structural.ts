@@ -2,7 +2,7 @@
 // mutations, each one command with full before/after payloads.
 
 import type { Command, DirtyRegion } from './commands';
-import { resizePixels, type Doc, type Frame, type Layer } from './document';
+import { resizePixels, type AnimationTag, type Doc, type Frame, type Layer } from './document';
 
 const DOC_DIRTY: DirtyRegion = { frame: null, rect: null };
 const PALETTE_DIRTY: DirtyRegion = { frame: null, rect: null, palette: true };
@@ -16,6 +16,41 @@ function replaceDocument(doc: Doc, snapshot: Doc): void {
 	doc.meta = copy.meta;
 	doc.palette = copy.palette;
 	doc.frames = copy.frames;
+}
+
+const copyTags = (tags?: AnimationTag[]) => tags?.map((tag) => ({ ...tag }));
+
+export class AnimationTagsCommand implements Command {
+	readonly kind = 'animation-tags';
+	readonly byteSize: number;
+	constructor(private readonly before: AnimationTag[] | undefined, private readonly after: AnimationTag[] | undefined) {
+		this.byteSize = JSON.stringify([before, after]).length + 64;
+	}
+	do(doc: Doc): void { doc.meta.tags = copyTags(this.after); }
+	undo(doc: Doc): void { doc.meta.tags = copyTags(this.before); }
+	serialize(): unknown { return { kind: this.kind, tags: this.after }; }
+	dirty(): DirtyRegion { return DOC_DIRTY; }
+}
+
+function addFrameTags(tags: AnimationTag[] | undefined, index: number) {
+	return tags?.map((tag) => ({ ...tag, from: tag.from >= index ? tag.from + 1 : tag.from, to: tag.to >= index ? tag.to + 1 : tag.to }));
+}
+
+function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: number) {
+	return tags?.map((tag) => {
+		const from = tag.from > index ? tag.from - 1 : Math.min(tag.from, last);
+		const to = tag.to >= index ? tag.to - 1 : tag.to;
+		const safeFrom = Math.max(0, Math.min(from, last));
+		return { ...tag, from: safeFrom, to: Math.max(safeFrom, Math.min(to, last)) };
+	});
+}
+
+function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: number) {
+	const move = (index: number) => index === from ? to : from < to && index > from && index <= to ? index - 1 : from > to && index >= to && index < from ? index + 1 : index;
+	return tags?.map((tag) => {
+		const a = move(tag.from), b = move(tag.to);
+		return { ...tag, from: Math.min(a, b), to: Math.max(a, b) };
+	});
 }
 
 export class DocumentReplaceCommand implements Command {
@@ -50,6 +85,7 @@ export class DocumentReplaceCommand implements Command {
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
 	readonly byteSize: number;
+	private beforeTags?: AnimationTag[];
 
 	// covers blank add and duplicate — the caller builds the frame payload
 	constructor(
@@ -60,10 +96,13 @@ export class FrameAddCommand implements Command {
 	}
 
 	do(doc: Doc): void {
+		this.beforeTags = copyTags(doc.meta.tags);
 		doc.frames.splice(this.index, 0, this.frame);
+		doc.meta.tags = addFrameTags(this.beforeTags, this.index);
 	}
 	undo(doc: Doc): void {
 		doc.frames.splice(this.index, 1);
+		doc.meta.tags = copyTags(this.beforeTags);
 	}
 	serialize(): unknown {
 		return { kind: this.kind, index: this.index };
@@ -77,6 +116,7 @@ export class FrameDeleteCommand implements Command {
 	readonly kind = 'frame-delete';
 	readonly byteSize: number;
 	private readonly frame: Frame;
+	private readonly beforeTags?: AnimationTag[];
 
 	constructor(
 		doc: Doc,
@@ -84,14 +124,17 @@ export class FrameDeleteCommand implements Command {
 	) {
 		if (doc.frames.length <= 1) throw new Error('cannot delete the last frame');
 		this.frame = doc.frames[index];
+		this.beforeTags = copyTags(doc.meta.tags);
 		this.byteSize = frameBytes(this.frame);
 	}
 
 	do(doc: Doc): void {
 		doc.frames.splice(this.index, 1);
+		doc.meta.tags = deleteFrameTags(this.beforeTags, this.index, doc.frames.length - 1);
 	}
 	undo(doc: Doc): void {
 		doc.frames.splice(this.index, 0, this.frame);
+		doc.meta.tags = copyTags(this.beforeTags);
 	}
 	serialize(): unknown {
 		return { kind: this.kind, index: this.index };
@@ -104,6 +147,7 @@ export class FrameDeleteCommand implements Command {
 export class FrameReorderCommand implements Command {
 	readonly kind = 'frame-reorder';
 	readonly byteSize = 64;
+	private beforeTags?: AnimationTag[];
 
 	constructor(
 		private readonly from: number,
@@ -111,12 +155,15 @@ export class FrameReorderCommand implements Command {
 	) {}
 
 	do(doc: Doc): void {
+		this.beforeTags = copyTags(doc.meta.tags);
 		const [frame] = doc.frames.splice(this.from, 1);
 		doc.frames.splice(this.to, 0, frame);
+		doc.meta.tags = reorderFrameTags(this.beforeTags, this.from, this.to);
 	}
 	undo(doc: Doc): void {
 		const [frame] = doc.frames.splice(this.to, 1);
 		doc.frames.splice(this.from, 0, frame);
+		doc.meta.tags = copyTags(this.beforeTags);
 	}
 	serialize(): unknown {
 		return { kind: this.kind, from: this.from, to: this.to };

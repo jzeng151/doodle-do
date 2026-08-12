@@ -58,7 +58,8 @@ export function texturePackerJson(doc: Doc, layout: SheetLayout, imageName: stri
 				image: imageName,
 				format: 'RGBA8888',
 				size: { w: layout.width, h: layout.height },
-				scale: '1'
+				scale: '1',
+				...(doc.meta.tags?.length && { frameTags: doc.meta.tags })
 			}
 		},
 		null,
@@ -78,7 +79,8 @@ export function doodledoJson(doc: Doc, layout: SheetLayout, imageName: string): 
 			frames: layout.rects.map((rect, i) => ({
 				...rect,
 				durationMs: Math.round(frameDurationMs(doc, i))
-			}))
+			})),
+			...(doc.meta.tags?.length && { animations: doc.meta.tags })
 		},
 		null,
 		'\t'
