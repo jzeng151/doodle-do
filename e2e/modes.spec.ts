@@ -163,6 +163,31 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 	await editors.nth(1).getByRole('button', { name: 'Duplicate' }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
 	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
+	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();
+	await expect(editors.nth(0).getByText('3 frames · Save/export target')).toBeVisible();
+	await expect(editors.nth(1).getByText('2 frames · Session only')).toBeVisible();
+	expect(await locatorHasInk(currentCanvas)).toBe(true);
+	expect(await locatorHasInk(forkCanvas)).toBe(false);
+	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();
+	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
+	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
+
+	for (const name of ['Save project', 'Export sheet', 'Export GIF', 'Export frames']) {
+		await expect(editors.nth(1).getByRole('button', { name })).toBeVisible();
+	}
+	await page.evaluate(() => {
+		const target = window as typeof window & { savedForkName?: string };
+		Object.defineProperty(window, 'showSaveFilePicker', {
+			configurable: true,
+			value: async ({ suggestedName }: { suggestedName: string }) => {
+				target.savedForkName = suggestedName;
+				return { createWritable: async () => ({ write: async () => {}, close: async () => {} }) };
+			}
+		});
+	});
+	await editors.nth(1).getByRole('button', { name: 'Save project' }).click();
+	await expect.poll(() => page.evaluate(() => (window as typeof window & { savedForkName?: string }).savedForkName))
+		.toBe('Untitled-fork.doodledo');
 
 	page.once('dialog', (dialog) => dialog.accept());
 	await editors.nth(1).getByRole('button', { name: 'Apply as current' }).click();

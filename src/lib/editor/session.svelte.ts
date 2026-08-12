@@ -175,6 +175,23 @@ export class EditorSession {
 		this.bus.dispatch(new DocumentReplaceCommand(this.doc, this.comparisonSession.doc));
 	}
 
+	swapComparisonFork(): void {
+		const fork = this.comparisonSession;
+		if (!fork) return;
+		this.commitFloating();
+		fork.commitFloating();
+		const currentDoc = structuredClone(this.doc);
+		const forkDoc = structuredClone(fork.doc);
+		this.selectionMask = fork.selectionMask = null;
+		this.clearGestures();
+		fork.clearGestures();
+		this.bulkFrames = fork.bulkFrames = [];
+		this.overlayVersion++;
+		fork.overlayVersion++;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, forkDoc));
+		fork.bus.dispatch(new DocumentReplaceCommand(fork.doc, currentDoc));
+	}
+
 	selectFrame(index: number): void {
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing

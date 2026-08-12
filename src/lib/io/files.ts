@@ -18,9 +18,9 @@ export function downloadBlob(blob: Blob, filename: string): void {
 	URL.revokeObjectURL(url);
 }
 
-export async function saveProjectToDisk(doc: Doc): Promise<void> {
+export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promise<void> {
 	const text = serializeProject(doc);
-	const filename = `${doc.meta.name || 'untitled'}${PROJECT_EXTENSION}`;
+	const filename = `${filenameBase || doc.meta.name || 'untitled'}${PROJECT_EXTENSION}`;
 	if ('showSaveFilePicker' in window) {
 		let handle: FileSystemFileHandle;
 		try {
