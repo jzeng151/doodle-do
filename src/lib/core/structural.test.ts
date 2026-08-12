@@ -14,6 +14,7 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteReplaceCommand,
 	PaletteSwapCommand
 } from './structural';
 
@@ -98,6 +99,17 @@ describe('layer commands', () => {
 });
 
 describe('palette commands', () => {
+	it('replaces only the palette and undoes compactly', () => {
+		const doc = testDoc();
+		const bus = new CommandBus(doc);
+		const cmd = new PaletteReplaceCommand(doc.palette, ['#000000']);
+		expect(cmd.byteSize).toBeLessThan(512);
+		bus.dispatch(cmd);
+		expect(doc.palette).toEqual(['#000000']);
+		bus.undo();
+		expect(doc.palette).toEqual(DEFAULT_PALETTE);
+	});
+
 	it('add and swap undo cleanly and mark the palette dirty', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
