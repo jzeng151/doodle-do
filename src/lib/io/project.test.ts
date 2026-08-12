@@ -46,6 +46,14 @@ describe('project file round-trip', () => {
 		expect(restored.frames[1].layers[0].pixels[0]).toBe(3);
 	});
 
+	it('round-trips layer lock and opacity', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE });
+		doc.frames[0].layers[0].locked = true;
+		doc.frames[0].layers[0].opacity = .4;
+		const restored = parseProject(serializeProject(doc));
+		expect(restored.frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

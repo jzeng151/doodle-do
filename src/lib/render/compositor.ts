@@ -79,18 +79,23 @@ export class Compositor {
 			for (let x = rect.x; x < rect.x + rect.w; x++) {
 				const i = row + x;
 				let color = 0;
-				// topmost visible non-transparent pixel wins (indexed color has
-				// no per-pixel alpha to blend — 0 is fully transparent)
-				for (let l = layers.length - 1; l >= 0; l--) {
+				for (let l = 0; l < layers.length; l++) {
 					if (!layers[l].visible) continue;
 					const v = layers[l].pixels[i];
-					if (v !== 0) {
-						color = this.lut[v];
-						break;
-					}
+					if (v !== 0) color = blendPacked(color, this.lut[v], layers[l].opacity ?? 1);
 				}
 				u32[i] = color;
 			}
 		}
 	}
+}
+
+export function blendPacked(bottom: number, top: number, opacity: number): number {
+	if (opacity >= 1) return top;
+	if (opacity <= 0) return bottom;
+	const channel = (value: number, shift: number) => (value >>> shift) & 255;
+	const bottomAlpha = channel(bottom, 24) / 255;
+	const alpha = opacity + bottomAlpha * (1 - opacity);
+	const mix = (shift: number) => Math.round((channel(top, shift) * opacity + channel(bottom, shift) * bottomAlpha * (1 - opacity)) / alpha);
+	return ((Math.round(alpha * 255) << 24) | (mix(16) << 16) | (mix(8) << 8) | mix(0)) >>> 0;
 }

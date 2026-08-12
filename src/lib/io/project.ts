@@ -43,6 +43,8 @@ export function serializeProject(doc: Doc): string {
 				name: layer.name,
 				visible: layer.visible,
 				...(layer.linkId && { linkId: layer.linkId }),
+				...(layer.locked && { locked: true }),
+				...(layer.opacity !== undefined && layer.opacity !== 1 && { opacity: layer.opacity }),
 				pixels: encodeBase64(layer.pixels)
 			}))
 		}))
@@ -117,6 +119,8 @@ export function parseProject(text: string): Doc {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,
 						visible: rawLayer.visible !== false,
 						...(typeof rawLayer.linkId === 'string' && { linkId: rawLayer.linkId }),
+						...(rawLayer.locked === true && { locked: true }),
+						...(typeof rawLayer.opacity === 'number' && { opacity: Math.max(0, Math.min(1, rawLayer.opacity)) }),
 						pixels
 					};
 				})

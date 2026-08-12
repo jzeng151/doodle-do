@@ -22,6 +22,7 @@
 		<h2>Layers</h2>
 		<div class="actions" role="group" aria-label="Layer actions">
 			<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
+			<button aria-label="Duplicate layer" title="Duplicate layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.duplicateLayer()}>⧉</button>
 			<button
 				aria-label="Extract selection to layer"
 				title="Extract selection to layer (Ctrl+J)"
@@ -79,6 +80,8 @@
 				>
 					{layer.visible ? '👁' : '—'}
 				</button>
+				<button aria-pressed={layer.locked === true} aria-label={`${layer.locked ? 'Unlock' : 'Lock'} ${layer.name}`} title={layer.locked ? 'Unlock layer' : 'Lock layer'} onclick={() => session.setLayerLocked(realIndex(di), !layer.locked)}>{layer.locked ? '🔒' : '○'}</button>
+				<label class="opacity" title={`${layer.name} opacity`}><span class="sr-only">{layer.name} opacity</span><input type="range" min="0" max="1" step="0.05" value={layer.opacity ?? 1} onchange={(e) => session.setLayerOpacity(realIndex(di), e.currentTarget.valueAsNumber)} /></label>
 			</li>
 		{/each}
 	</ul>
@@ -101,7 +104,7 @@
 	}
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
+		grid-template-columns: repeat(8, minmax(0, 1fr));
 		gap: 4px;
 	}
 	.actions button {
@@ -132,6 +135,8 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	.opacity { display: flex; align-items: center; width: 54px; }
+	.opacity input { width: 100%; }
 	@media (pointer: coarse) {
 		.actions { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
 		.actions button { min-width: 44px; }

@@ -457,7 +457,7 @@ export class EditorSession {
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
 	liftSelection(mirrored = this.mirrorX): void {
-		if (this.floating || !this.selectionMask) return;
+		if (this.floating || !this.selectionMask || this.currentLayerLocked) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
 		const mirroredMask = mirrored ? mirrorMaskX(mask, width, height) : null;
@@ -512,7 +512,7 @@ export class EditorSession {
 	}
 
 	placeStamp(x: number, y: number): void {
-		if (!this.stamp) return;
+		if (!this.stamp || this.currentLayerLocked) return;
 		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
@@ -605,7 +605,7 @@ export class EditorSession {
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
 	strokeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating) return; // B5: drawing disabled while floating
+		if (this.floating || this.currentLayerLocked) return;
 		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
@@ -651,7 +651,7 @@ export class EditorSession {
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating) return;
+		if (this.floating || this.currentLayerLocked) return;
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -695,7 +695,7 @@ export class EditorSession {
 	}
 
 	shapeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
+		if (this.floating || this.currentLayerLocked || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -742,7 +742,7 @@ export class EditorSession {
 	// --- other tools ---
 
 	fill(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating) return; // B5: drawing disabled while floating
+		if (this.floating || this.currentLayerLocked) return;
 		const cmds = this.editTargets()
 			.map((f) => floodFill(
 				this.doc,
@@ -782,6 +782,7 @@ export class EditorSession {
 	// (a bare marquee lifts first, keeping the one-command guarantee),
 	// else to the whole active layer.
 	flip(axis: 'horizontal' | 'vertical'): void {
+		if (this.currentLayerLocked) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -938,6 +939,30 @@ export class EditorSession {
 		tips.fire('T22'); // merge-down exists once there are two layers
 		if (this.doc.frames.length > 1) tips.fire('T23'); // send-to-frame (queues behind T22)
 	}
+
+	duplicateLayer(): void {
+		if (this.frame.layers.length >= MAX_LAYERS) return;
+		this.commitFloating();
+		const source = this.frame.layers[this.currentLayer];
+		const copy = { ...source, name: `${source.name} copy`, pixels: source.pixels.slice() };
+		delete copy.linkId;
+		this.bus.dispatch(new LayerAddCommand(this.currentFrame, this.currentLayer + 1, copy));
+		this.currentLayer++;
+	}
+
+	setLayerLocked(index: number, locked: boolean): void {
+		const next = structuredClone(this.doc);
+		next.frames[this.currentFrame].layers[index].locked = locked;
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+	}
+
+	setLayerOpacity(index: number, opacity: number): void {
+		const next = structuredClone(this.doc);
+		next.frames[this.currentFrame].layers[index].opacity = Math.max(0, Math.min(1, opacity));
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+	}
+
+	get currentLayerLocked(): boolean { return this.frame.layers[this.currentLayer].locked === true; }
 
 	// Extract the selection onto a new layer above the current one: clear the
 	// source pixels + add the layer, as ONE composite command. A bare mask
@@ -1100,6 +1125,7 @@ export class EditorSession {
 			}
 		}
 		const cmds = targets
+			.filter(({ frame, layer }) => !this.doc.frames[frame].layers[layer].locked)
 			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
 			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);

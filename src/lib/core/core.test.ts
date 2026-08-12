@@ -4,6 +4,7 @@ import { buildLut, colorRamp, packColor, DEFAULT_PALETTE, sortPaletteRange } fro
 import { CommandBus, CompositeCommand, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
 import { LayerAddCommand, ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
+import { blendPacked } from '../render/compositor';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 2, layerCount: 2 });
@@ -96,6 +97,13 @@ describe('palette ranges', () => {
 		const next = sortPaletteRange(doc, 0, 2, 'luminance');
 		expect(next.palette).toEqual(['#000000', '#ff0000', '#ffffff']);
 		expect([...next.frames[0].layers[0].pixels]).toEqual([3, 1, 2]);
+	});
+});
+
+describe('layer opacity', () => {
+	it('source-over blends packed RGBA colors', () => {
+		expect(blendPacked(0xff000000, 0xffffffff, .5) >>> 0).toBe(0xff808080);
+		expect(blendPacked(0, 0xff0000ff, .5) >>> 0).toBe(0x800000ff);
 	});
 });
 
