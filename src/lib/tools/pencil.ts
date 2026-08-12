@@ -10,6 +10,7 @@ export class StrokeBuilder {
 	private readonly dirty = new Map<number, number>(); // index → value before stroke
 	private last: { x: number; y: number } | null = null;
 	private origin: { x: number; y: number } | null = null;
+	private centers: { x: number; y: number }[] = [];
 
 	constructor(
 		private readonly doc: Doc,
@@ -18,7 +19,8 @@ export class StrokeBuilder {
 		private readonly value: number, // pixel value to place; 0 = eraser
 		private readonly size = 1,
 		private readonly mirrorX = false, // mirror-draw toggle (§4.1)
-		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke'
+		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
+		private readonly pixelPerfect = false
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -100,9 +102,31 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		const rect = this.stampOne(cx, cy);
-		if (!this.mirrorX) return rect;
-		return unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		let rect = this.stampOne(cx, cy);
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		if (!this.pixelPerfect || this.size !== 1) return rect;
+		const last = this.centers.at(-1);
+		if (last?.x === cx && last.y === cy) return rect;
+		this.centers.push({ x: cx, y: cy });
+		if (this.centers.length < 3) return rect;
+		const [a, b, c] = this.centers.slice(-3);
+		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
+		this.restorePixel(b.x, b.y);
+		rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
+		if (this.mirrorX) {
+			const mirrorX = this.doc.meta.width - 1 - b.x;
+			this.restorePixel(mirrorX, b.y);
+			rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
+		}
+		return rect;
+	}
+
+	private restorePixel(x: number, y: number): void {
+		const { width, height } = this.doc.meta;
+		if (x < 0 || y < 0 || x >= width || y >= height) return;
+		const index = y * width + x;
+		const before = this.dirty.get(index);
+		if (before !== undefined) this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
 	}
 
 	private stampOne(cx: number, cy: number): Rect | null {
