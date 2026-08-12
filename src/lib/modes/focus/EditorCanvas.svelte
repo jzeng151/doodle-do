@@ -342,6 +342,9 @@
 				session.beginLayerMove();
 				selectDrag = 'layer';
 				break;
+			case 'stamp':
+				session.placeStamp(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y, colorValue, secondaryColorValue);
 				break;
@@ -572,6 +575,9 @@
 				else session.beginLayerMove();
 				keyboardLayerMove = !keyboardLayerMove;
 				break;
+			case 'stamp':
+				session.placeStamp(keyboardX, keyboardY);
+				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);
 				break;
@@ -668,6 +674,7 @@
 		cursor: default;
 	}
 	.editor[data-tool='move'] { cursor: move; }
+	.editor[data-tool='stamp'] { cursor: copy; }
 	.sr-only {
 		position: absolute;
 		width: 1px;

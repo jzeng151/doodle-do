@@ -106,6 +106,7 @@
 			case 'eyedropper':
 				session.eyedrop(x, y, e.button === 2);
 				break;
+			case 'stamp': session.placeStamp(x, y); break;
 		}
 	}
 
@@ -158,6 +159,7 @@
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
+			case 'stamp': session.placeStamp(keyboardX, keyboardY); break;
 		}
 	}
 </script>

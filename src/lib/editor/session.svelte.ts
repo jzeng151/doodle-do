@@ -28,6 +28,7 @@ import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
+import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
@@ -40,6 +41,7 @@ export type Tool =
 	| 'rectangle'
 	| 'ellipse'
 	| 'move'
+	| 'stamp'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -76,6 +78,7 @@ export class EditorSession {
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
 	selectionMode = $state<SelectionMode>('replace');
+	stamp = $state<Stamp | null>(null);
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
@@ -478,6 +481,31 @@ export class EditorSession {
 	endLayerMove(): void {
 		this.commitFloating();
 	}
+
+	captureSelectionStamp(): void {
+		if (!this.selectionMask) return;
+		const bounds = this.selectionBounds();
+		if (!bounds) return;
+		const source = this.frame.layers[this.currentLayer].pixels;
+		const pixels = new Uint8Array(bounds.w * bounds.h);
+		for (let y = 0; y < bounds.h; y++) for (let x = 0; x < bounds.w; x++) {
+			const index = (bounds.y + y) * this.doc.meta.width + bounds.x + x;
+			if (this.selectionMask[index]) pixels[y * bounds.w + x] = source[index];
+		}
+		if (!pixels.some(Boolean)) return;
+		this.stamp = { width: bounds.w, height: bounds.h, pixels };
+		this.setTool('stamp');
+	}
+
+	placeStamp(x: number, y: number): void {
+		if (!this.stamp) return;
+		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
+		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
+	}
+
+	flipStamp(): void { if (this.stamp) this.stamp = flipStamp(this.stamp); }
+	rotateStamp(): void { if (this.stamp) this.stamp = rotateStamp(this.stamp); }
 
 	moveFloatingBy(dx: number, dy: number): void {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
