@@ -520,6 +520,7 @@
 				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+				if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
 			}
 			repaint();
 			return;
@@ -550,8 +551,8 @@
 				break;
 			case 'rectangle':
 			case 'ellipse':
-				session.shapeBegin(keyboardX, keyboardY);
-				session.shapeEnd();
+				if (session.shapeActive) session.shapeEnd();
+				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);

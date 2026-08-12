@@ -128,6 +128,7 @@
 			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+			if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
 			return;
 		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -143,6 +144,11 @@
 			case 'line':
 				if (session.lineActive) session.lineEnd();
 				else session.lineBegin(keyboardX, keyboardY);
+				break;
+			case 'rectangle':
+			case 'ellipse':
+				if (session.shapeActive) session.shapeEnd();
+				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
