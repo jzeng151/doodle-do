@@ -33,7 +33,8 @@ export function serializeProject(doc: Doc): string {
 			width: doc.meta.width,
 			height: doc.meta.height,
 			fps: doc.meta.fps,
-			syncMeta: doc.meta.syncMeta
+			syncMeta: doc.meta.syncMeta,
+			...(doc.meta.tags?.length && { tags: doc.meta.tags })
 		},
 		palette: doc.palette,
 		frames: doc.frames.map((frame) => ({
@@ -86,7 +87,16 @@ export function parseProject(text: string): Doc {
 			height,
 			fps: typeof meta.fps === 'number' && meta.fps >= 1 && meta.fps <= 24 ? meta.fps : 8,
 			version: PROJECT_VERSION,
-			syncMeta: null
+			syncMeta: null,
+			...(Array.isArray(meta.tags) && {
+				tags: (meta.tags as Record<string, unknown>[]).flatMap((tag) => {
+					const from = Number(tag.from), to = Number(tag.to);
+					const direction = tag.direction;
+					return typeof tag.name === 'string' && Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to >= from && to < rawFrames.length && ['forward', 'reverse', 'ping-pong'].includes(direction as string)
+						? [{ name: tag.name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats: Math.max(0, Number(tag.repeats) || 0) }]
+						: [];
+				})
+			})
 		},
 		palette,
 		frames: rawFrames.map((rawFrame, f) => {

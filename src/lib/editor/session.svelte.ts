@@ -3,7 +3,7 @@
 // bumps on every committed change so Svelte views can react to document
 // mutations that live outside its reactivity (Uint8Arrays).
 
-import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
+import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
 import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
 import {
 	DocumentReplaceCommand,
@@ -844,6 +844,25 @@ export class EditorSession {
 		const s = Math.max(0, Math.min(Math.min(start, end), last));
 		const e = Math.max(s, Math.min(Math.max(start, end), last));
 		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
+	}
+
+	addAnimationTag(tag: AnimationTag): void {
+		const name = tag.name.trim();
+		if (!name) return;
+		const next = structuredClone(this.doc);
+		next.meta.tags = [...(next.meta.tags ?? []).filter((item) => item.name !== name), { ...tag, name }];
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+	}
+
+	deleteAnimationTag(name: string): void {
+		const next = structuredClone(this.doc);
+		next.meta.tags = (next.meta.tags ?? []).filter((tag) => tag.name !== name);
+		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+	}
+
+	selectAnimationTag(name: string): void {
+		const tag = this.doc.meta.tags?.find((item) => item.name === name);
+		if (tag) this.setLoopRange(tag.from, tag.to);
 	}
 
 	// --- layers (per-frame, cap 8) ---

@@ -27,6 +27,15 @@ describe('project file round-trip', () => {
 		expect(restored.frames[2].layers[0].pixels).toEqual(doc.frames[2].layers[0].pixels);
 	});
 
+	it('round-trips animation tags while accepting files without them', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 0, to: 2, direction: 'ping-pong', repeats: 2 }];
+		expect(parseProject(serializeProject(doc)).meta.tags).toEqual(doc.meta.tags);
+		const legacy = JSON.parse(serializeProject(doc));
+		delete legacy.meta.tags;
+		expect(parseProject(JSON.stringify(legacy)).meta.tags).toBeUndefined();
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

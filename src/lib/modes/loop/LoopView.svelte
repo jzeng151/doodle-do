@@ -10,6 +10,9 @@
 	let heroEl: HTMLCanvasElement;
 	let filmEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	let player: LoopPlayer;
+	let tagName = $state('');
+	let tagDirection = $state<'forward' | 'reverse' | 'ping-pong'>('forward');
+	let tagRepeats = $state(0);
 	let playing = $state(false);
 	let playFrame = $state(0);
 	const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2] as const;
@@ -151,6 +154,17 @@
 			/>
 		</label>
 	</div>
+	<div class="tag-controls" aria-label="Animation tags">
+		<label>Clip<select onchange={(e) => session.selectAnimationTag(e.currentTarget.value)}>
+			<option value="">All frames</option>
+			{#each session.doc.meta.tags ?? [] as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
+		</select></label>
+		<label>Name<input maxlength="32" bind:value={tagName} /></label>
+		<label>Direction<select bind:value={tagDirection}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+		<label>Repeats<input type="number" min="0" max="99" bind:value={tagRepeats} title="0 means continuous preview" /></label>
+		<button disabled={!tagName.trim()} onclick={() => session.addAnimationTag({ name: tagName, from: rangeStart, to: rangeEnd, direction: tagDirection, repeats: tagRepeats })}>Save clip</button>
+		<button disabled={!tagName.trim()} onclick={() => session.deleteAnimationTag(tagName)}>Delete clip</button>
+	</div>
 
 	<div class="filmstrip" role="group" aria-label="Filmstrip">
 		{#each { length: frameCount } as _, i (i)}
@@ -202,6 +216,9 @@
 		width: min(760px, 100%);
 		flex-wrap: wrap;
 	}
+	.tag-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-top: .5rem; }
+	.tag-controls label { display: grid; gap: .2rem; font-size: .6875rem; font-weight: 700; }
+	.tag-controls input { width: 7rem; }
 	.scrubber {
 		flex: 1 1 12rem;
 	}
