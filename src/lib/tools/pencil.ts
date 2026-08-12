@@ -45,6 +45,13 @@ export class StrokeBuilder {
 		return unionRect(previous, this.line(this.origin.x, this.origin.y, x, y));
 	}
 
+	previewPoints(points: { x: number; y: number }[]): Rect | null {
+		const previous = this.restorePreview();
+		let rect: Rect | null = null;
+		for (const point of points) rect = unionRect(rect, this.stamp(point.x, point.y));
+		return unionRect(previous, rect);
+	}
+
 	end(): PixelDiffCommand | null {
 		const { width } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
@@ -82,6 +89,14 @@ export class StrokeBuilder {
 			maxY = Math.max(maxY, y);
 		}
 		return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+	}
+
+	private restorePreview(): Rect | null {
+		const previous = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return previous;
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {

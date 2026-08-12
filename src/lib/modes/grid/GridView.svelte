@@ -37,7 +37,7 @@
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
-				const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
+				const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
 				const bounds = brushBounds(
 					keyboardX,
 					keyboardY,
@@ -83,6 +83,12 @@
 				strokeTile = i;
 				session.lineBegin(x, y);
 				break;
+			case 'rectangle':
+			case 'ellipse':
+				el.setPointerCapture(e.pointerId);
+				strokeTile = i;
+				session.shapeBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -98,6 +104,7 @@
 		keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
 		if (strokeTile === i && session.strokeActive) {
 			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
 	}
@@ -105,6 +112,7 @@
 	function onPointerUp() {
 		strokeTile = -1;
 		if (session.tool === 'line') session.lineEnd();
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
 		else session.strokeEnd();
 	}
 

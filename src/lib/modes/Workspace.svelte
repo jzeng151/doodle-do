@@ -65,6 +65,12 @@
 			case 'n':
 				editingSession.setTool('line');
 				break;
+			case 'r':
+				editingSession.setTool('rectangle');
+				break;
+			case 'c':
+				editingSession.setTool('ellipse');
+				break;
 			case 'e':
 				editingSession.setTool('eraser');
 				break;

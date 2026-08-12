@@ -103,7 +103,7 @@
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
 		const z = renderZoom;
-		const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
+		const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
 		const bounds = brushBounds(
 			keyboardX,
 			keyboardY,
@@ -327,6 +327,11 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				session.lineBegin(x, y);
 				break;
+			case 'rectangle':
+			case 'ellipse':
+				canvasEl.setPointerCapture(e.pointerId);
+				session.shapeBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -440,6 +445,7 @@
 		}
 		if (session.strokeActive) {
 			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
 		else if (cursorMoved) repaint();
@@ -452,6 +458,7 @@
 		rotateStart = null;
 		dragMirrored = false;
 		if (session.tool === 'line') session.lineEnd();
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
 		else session.strokeEnd();
 	}
 
@@ -542,6 +549,11 @@
 				if (keyboardLine) session.lineEnd();
 				else session.lineBegin(keyboardX, keyboardY);
 				keyboardLine = !keyboardLine;
+				break;
+			case 'rectangle':
+			case 'ellipse':
+				session.shapeBegin(keyboardX, keyboardY);
+				session.shapeEnd();
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);

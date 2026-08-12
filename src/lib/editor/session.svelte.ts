@@ -26,6 +26,7 @@ import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
+import { ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
@@ -34,6 +35,8 @@ import { tips } from '../learn/tips';
 export type Tool =
 	| 'pencil'
 	| 'line'
+	| 'rectangle'
+	| 'ellipse'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -62,6 +65,7 @@ export class EditorSession {
 	mode = $state<Mode>('focus'); // workspace mode is view state (B7), never document state
 	tool = $state<Tool>('pencil');
 	brushSize = $state(1);
+	shapeFilled = $state(false);
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
@@ -108,6 +112,7 @@ export class EditorSession {
 
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
 	private lineOrigin: { x: number; y: number } | null = null;
+	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
 
 	constructor(doc: Doc) {
@@ -568,6 +573,40 @@ export class EditorSession {
 
 	lineEnd(): void {
 		this.lineOrigin = null;
+		this.strokeEnd();
+	}
+
+	shapeBegin(x: number, y: number): void {
+		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
+		this.shapeOrigin = { x, y };
+		this.strokes = this.editTargets().map((frame) => ({
+			frame,
+			builder: new StrokeBuilder(
+				this.doc,
+				frame,
+				this.currentLayer,
+				this.colorValue,
+				this.brushSize,
+				this.mirrorX,
+				this.tool
+			)
+		}));
+		this.shapeMove(x, y);
+	}
+
+	shapeMove(x: number, y: number): void {
+		if (!this.shapeOrigin) return;
+		const points = this.tool === 'ellipse'
+			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled)
+			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled);
+		for (const s of this.strokes) {
+			const rect = s.builder.previewPoints(points);
+			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+		}
+	}
+
+	shapeEnd(): void {
+		this.shapeOrigin = null;
 		this.strokeEnd();
 	}
 
