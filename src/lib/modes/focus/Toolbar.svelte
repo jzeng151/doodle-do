@@ -85,7 +85,7 @@
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
-		<button aria-label="Zoom out" title="Zoom out" onclick={() => (session.zoom = Math.max(2, session.zoom - 2))}>−</button>
+		<button aria-label="Zoom out" title="Zoom out" onclick={() => (session.zoom = Math.max(1, session.zoom - 2))}>−</button>
 		<span class="zoom">{session.zoom}×</span>
 		<button aria-label="Zoom in" title="Zoom in" onclick={() => (session.zoom = Math.min(24, session.zoom + 2))}>+</button>
 	</div>

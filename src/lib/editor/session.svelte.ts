@@ -63,6 +63,7 @@ export class EditorSession {
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
+	fitCheckedDimensions = '';
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
 	showGrid = $state(false);
 	paletteLocked = $state(false);

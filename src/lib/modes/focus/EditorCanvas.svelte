@@ -6,6 +6,7 @@
 
 	let { session }: { session: EditorSession } = $props();
 
+	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
 	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | null = null;
 	let rotateStart: { angle0: number; grab: number } | null = null;
@@ -23,6 +24,26 @@
 
 	const cssW = $derived((session.version, session.doc.meta.width * session.zoom));
 	const cssH = $derived((session.version, session.doc.meta.height * session.zoom));
+
+	$effect(() => {
+		void session.version;
+		const { width, height } = session.doc.meta;
+		const dimensions = `${width}x${height}`;
+		if (!scrollEl || !canvasEl || dimensions === session.fitCheckedDimensions) return;
+		session.fitCheckedDimensions = dimensions;
+		const borderW = canvasEl.offsetWidth - canvasEl.clientWidth;
+		const borderH = canvasEl.offsetHeight - canvasEl.clientHeight;
+		const viewport = scrollEl.getBoundingClientRect();
+		const availableW = Math.min(scrollEl.clientWidth, window.innerWidth - Math.max(0, viewport.left));
+		const availableH = Math.min(scrollEl.clientHeight, window.innerHeight - Math.max(0, viewport.top));
+		const fitZoom = Math.max(
+			1,
+			Math.floor(
+				Math.min((availableW - borderW) / width, (availableH - borderH) / height)
+			)
+		);
+		if (session.zoom > fitZoom) session.zoom = fitZoom;
+	});
 
 	function repaint() {
 		if (!canvasEl) return;
@@ -422,7 +443,7 @@
 	function onWheel(e: WheelEvent) {
 		if (!e.ctrlKey) return;
 		e.preventDefault();
-		session.zoom = Math.max(2, Math.min(24, session.zoom + (e.deltaY < 0 ? 1 : -1)));
+		session.zoom = Math.max(1, Math.min(24, session.zoom + (e.deltaY < 0 ? 1 : -1)));
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
@@ -491,7 +512,7 @@
 	}
 </script>
 
-<div class="scroll" onwheel={onWheel}>
+<div class="scroll" bind:this={scrollEl} onwheel={onWheel}>
 	<p id="canvas-help" class="sr-only">
 		Arrow keys move the pixel cursor. Space or Enter uses the current tool. Alt plus arrow keys moves a
 		selection. Page Up and Page Down change frames. Tool letter shortcuts work while this canvas is focused.

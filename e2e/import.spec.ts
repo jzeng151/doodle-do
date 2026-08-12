@@ -69,6 +69,28 @@ test('open dispatches a lone PNG to the importer with default timing', async ({ 
 	await expect(page.locator('.actions input[type="number"]')).toHaveValue('');
 });
 
+test('opening an oversized image reduces zoom to fit the viewport', async ({ page }) => {
+	await page.setViewportSize({ width: 800, height: 600 });
+	await gotoApp(page);
+	const png = await page.evaluate(() => {
+		const canvas = document.createElement('canvas');
+		canvas.width = canvas.height = 128;
+		return canvas.toDataURL('image/png').split(',')[1];
+	});
+	await openFiles(page, [
+		{ name: 'large.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }
+	]);
+
+	const editor = page.locator('canvas.editor');
+	const fits = await page.locator('.scroll').evaluate((viewport, canvas) => {
+		const view = viewport.getBoundingClientRect();
+		const art = canvas!.getBoundingClientRect();
+		return art.width <= view.width && art.height <= view.height;
+	}, await editor.elementHandle());
+	expect(fits).toBe(true);
+	await expect(page.getByRole('group', { name: 'Canvas view' }).locator('.zoom')).not.toHaveText('12×');
+});
+
 test('open dispatches a .doodledo file to the project parser', async ({ page }) => {
 	await gotoApp(page);
 	// 4×4 project, 3 frames, one red pixel in frame 1

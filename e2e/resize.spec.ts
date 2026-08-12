@@ -23,19 +23,35 @@ test('resize changes an existing canvas via a preset', async ({ page }) => {
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '48×48' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(48 * ZOOM));
-	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(48 * ZOOM));
+	const zoom = Number(
+		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
+	);
+	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(48 * zoom));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(48 * zoom));
+	expect(zoom).toBeLessThan(ZOOM);
 });
 
 test('resize custom size clamps to the 128 cap', async ({ page }) => {
+	await page.setViewportSize({ width: 800, height: 600 });
 	await gotoApp(page);
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.locator('input[type=number]').first().fill('200');
 	await dialog.locator('input[type=number]').nth(1).fill('64');
 	await dialog.getByRole('button', { name: 'Resize' }).click();
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(128 * ZOOM));
-	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(64 * ZOOM));
+	const editor = page.locator('canvas.editor');
+	const zoom = Number(
+		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
+	);
+	await expect(editor).toHaveAttribute('width', String(128 * zoom));
+	await expect(editor).toHaveAttribute('height', String(64 * zoom));
+	expect(zoom).toBeLessThan(ZOOM);
+	const fits = await page.locator('.scroll').evaluate((viewport, canvas) => {
+		const view = viewport.getBoundingClientRect();
+		const art = canvas!.getBoundingClientRect();
+		return art.width <= view.width && art.height <= view.height;
+	}, await editor.elementHandle());
+	expect(fits).toBe(true);
 });
 
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {

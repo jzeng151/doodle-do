@@ -20,8 +20,12 @@ test('custom size clamps to the 128 cap', async ({ page }) => {
 	await dialog.locator('input').first().fill('300');
 	await dialog.locator('input').nth(1).fill('24');
 	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(128 * 12));
-	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(24 * 12));
+	const zoom = Number(
+		(await page.getByRole('group', { name: 'Canvas view' }).locator('.zoom').textContent())!.replace('×', '')
+	);
+	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(128 * zoom));
+	await expect(page.locator('canvas.editor')).toHaveAttribute('height', String(24 * zoom));
+	expect(zoom).toBeLessThan(12);
 });
 
 test('tips: fire on triggers, cap per session, dismiss forever, hide all', async ({ page }) => {
