@@ -65,6 +65,18 @@ describe('floodFill (B3)', () => {
 		cmd.do(doc);
 		expect([...pixels]).toEqual([3, 2, 3, 2]);
 	});
+
+	it('normalizes nearby colors to the clicked replacement without recording unchanged pixels', () => {
+		const doc = testDoc(3, 1);
+		doc.palette[0] = '#101010';
+		doc.palette[1] = '#181818';
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 1]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 1, 10)!;
+		expect(cmd.pixelCount).toBe(1);
+		cmd.do(doc);
+		expect([...pixels]).toEqual([1, 1, 1]);
+	});
 });
 
 describe('floodRegion (wand)', () => {
@@ -181,6 +193,10 @@ describe('shape tools', () => {
 			new Set(points.map(({ x, y }) => `${x},${y}`))
 		);
 	});
+
+	it('clamps an off-canvas shape preview before enumerating points', () => {
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 })).toHaveLength(24);
+	});
 });
 
 describe('pixel-perfect pencil', () => {
@@ -204,5 +220,26 @@ describe('pixel-perfect pencil', () => {
 		stroke.moveTo(2, 1);
 		stroke.moveTo(2, 2);
 		expect(doc.frames[0].layers[0].pixels[1 * 8 + 2]).toBe(3);
+	});
+
+	it('keeps alternating corners connected', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		stroke.moveTo(3, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[1 * 8 + 1], pixels[2 * 8 + 2], pixels[2 * 8 + 3]]).toEqual([3, 3, 3]);
+	});
+
+	it('does not erase mirrored endpoints at the center axis', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true);
+		stroke.begin(3, 1);
+		stroke.moveTo(3, 2);
+		stroke.moveTo(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3]);
 	});
 });
