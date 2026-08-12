@@ -5,7 +5,7 @@
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
 	import { brushBounds, canvasPoint } from '../canvas';
 
-	let { session }: { session: EditorSession } = $props();
+	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
 
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
@@ -575,6 +575,7 @@
 		bind:this={canvasEl}
 		class="editor"
 		data-editor-canvas
+		data-editor-branch={branch}
 		data-tool={session.tool}
 		tabindex="0"
 		aria-label={`Editable pixel canvas, frame ${session.currentFrame + 1}, ${session.tool} tool`}

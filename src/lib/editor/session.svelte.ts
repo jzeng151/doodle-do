@@ -41,7 +41,7 @@ export type Tool =
 	| 'polygon';
 export type Mode = 'focus' | 'grid' | 'loop' | 'compare';
 
-// selection gestures are focus-mode only (B5)
+// selection gestures stay in the editable single-canvas views (B5)
 export const SELECT_TOOLS: readonly Tool[] = ['select', 'lasso', 'wand', 'polygon'];
 
 export function createDefaultDoc(): Doc {
@@ -76,7 +76,7 @@ export class EditorSession {
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
 	showPreviewBackground = $state(true);
-	comparisonFork: Doc | null = null;
+	comparisonSession: EditorSession | null = null;
 	comparisonVersion = $state(0);
 	// bulk edit set: frame indices mutations fan out to; empty = just the
 	// current frame. Sorted, and always includes currentFrame when non-empty.
@@ -151,15 +151,15 @@ export class EditorSession {
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
-		if (mode !== 'focus' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil'; // selection is focus-only
-		if (mode === 'compare' && !this.comparisonFork) this.refreshComparisonFork();
+		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
+		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
 		this.mode = mode;
 		if (mode === 'loop') tips.fire('T21'); // playback range
 	}
 
-	refreshComparisonFork(): void {
+	resetComparisonFork(): void {
 		this.commitFloating();
-		this.comparisonFork = structuredClone(this.doc);
+		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
 	}
 

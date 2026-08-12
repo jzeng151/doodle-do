@@ -1,9 +1,16 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 function canvasHasInk(sel: string) {
 	const canvas = document.querySelector(sel) as HTMLCanvasElement;
 	const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
 	return data.some((v) => v !== 0);
+}
+
+function locatorHasInk(locator: Locator) {
+	return locator.evaluate((canvas: HTMLCanvasElement) => {
+		const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+		return data.some((value) => value !== 0);
+	});
 }
 
 async function gotoApp(page: Page) {
@@ -127,21 +134,44 @@ test('preview background setting is shared with Loop mode', async ({ page }) => 
 	);
 });
 
-test('compare mode keeps and refreshes an independent animation fork', async ({ page }) => {
+test('compare mode edits an independent fork and opens playback comparison', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await expect(page.getByRole('button', { name: 'Edit side by side' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	const editors = page.locator('.editor-pane');
+	await expect(editors).toHaveCount(2);
+	const currentCanvas = editors.nth(0).locator('canvas.editor');
+	const forkCanvas = editors.nth(1).locator('canvas.editor');
+	await drawOn(page, forkCanvas);
+	expect(await locatorHasInk(currentCanvas)).toBe(false);
+	expect(await locatorHasInk(forkCanvas)).toBe(true);
+
+	await forkCanvas.focus();
+	await page.keyboard.press('e');
+	await expect(editors.nth(1).getByRole('button', { name: 'Eraser' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await expect(editors.nth(0).getByRole('button', { name: 'Pencil' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+
+	await editors.nth(1).getByRole('button', { name: 'Duplicate' }).click();
+	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
+	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Compare animations' }).click();
 	await expect(page.getByRole('heading', { name: 'Animation comparison' })).toBeVisible();
 	await expect(page.locator('canvas.compare-canvas')).toHaveCount(2);
-	await expect(page.getByText('2 · Saved reference', { exact: false })).toBeVisible();
+	await expect(page.getByText('3 · Fork edits', { exact: false })).toBeVisible();
 
-	await switcher(page).getByRole('button', { name: 'Focus' }).click();
-	await page.getByRole('button', { name: 'Duplicate' }).click();
-	await switcher(page).getByRole('button', { name: 'Compare' }).click();
-	await expect(page.getByText('3 · Live document', { exact: false })).toBeVisible();
-	await expect(page.getByText('2 · Saved reference', { exact: false })).toBeVisible();
-
-	await page.getByRole('button', { name: 'Refresh fork' }).click();
-	await expect(page.getByText('3 · Saved reference', { exact: false })).toBeVisible();
+	await page.getByRole('button', { name: 'Edit side by side' }).click();
+	await expect(page.locator('.editor-pane')).toHaveCount(2);
+	await expect(page.getByText('3 frames · Session only')).toBeVisible();
 });
 
 test('B5: a floating selection commits on mode switch', async ({ page }) => {

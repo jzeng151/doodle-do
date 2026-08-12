@@ -33,8 +33,8 @@
 			<button
 				class:active={session.tool === t.id}
 				aria-pressed={session.tool === t.id}
-				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus'}
-				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' ? '. Focus mode only' : ''}`}
+				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' && session.mode !== 'compare'}
+				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' && session.mode !== 'compare' ? '. Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}

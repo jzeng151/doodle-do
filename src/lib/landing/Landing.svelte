@@ -46,7 +46,7 @@
 		</section>
 
 		<section class="strip" id="views">
-			<div class="section-head"><h2>CHOOSE A VIEW.</h2><p>Focus, Grid, Loop, and Compare share the live document and editing state. Compare keeps a session-only fork so you can check later edits against it.</p></div>
+			<div class="section-head"><h2>CHOOSE A VIEW.</h2><p>Focus, Grid, Loop, and Compare share the current document and editing state. Compare adds a session-only fork you can edit beside the original and play with it.</p></div>
 			<div class="mode-table"><div class="table-head"><span>VIEW</span><span>BEST FOR</span><span>LESS USEFUL FOR</span></div>{#each copy.modes as mode}<div class="mode-row"><strong>{mode.label}</strong><p>{mode.great}</p><p>{mode.strains}</p></div>{/each}</div>
 		</section>
 

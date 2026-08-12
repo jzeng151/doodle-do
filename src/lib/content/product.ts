@@ -35,8 +35,8 @@ export const PRODUCT_CONTENT = {
 		{
 			id: 'compare',
 			label: 'Compare',
-			great: 'Playing the live animation beside a saved fork.',
-			strains: 'Drawing. Switch back to Focus or Grid.'
+			great: 'Editing two versions side by side, then playing them together.',
+			strains: 'Saving the fork. Only the current document can be saved or exported.'
 		}
 	],
 	tips: ['T02', 'T09', 'T15'].map((id) => TIPS[id]),

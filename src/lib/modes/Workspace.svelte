@@ -20,21 +20,25 @@
 	function onKeyDown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
 		if (target.closest('input, select, textarea, [contenteditable="true"]')) return;
+		const editingSession =
+			session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
+				? (session.comparisonSession ?? session)
+				: session;
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 'z') {
 			e.preventDefault();
-			if (e.shiftKey) session.redo();
-			else session.undo();
+			if (e.shiftKey) editingSession.redo();
+			else editingSession.undo();
 			return;
 		}
 		if (mod && e.key.toLowerCase() === 'y') {
 			e.preventDefault();
-			session.redo();
+			editingSession.redo();
 			return;
 		}
 		if (mod && e.key.toLowerCase() === 'j') {
 			e.preventDefault();
-			session.extractSelectionToLayer();
+			editingSession.extractSelectionToLayer();
 			return;
 		}
 		if (mod) return;
@@ -56,47 +60,47 @@
 				session.setMode('compare');
 				break;
 			case 'b':
-				session.setTool('pencil');
+				editingSession.setTool('pencil');
 				break;
 			case 'e':
-				session.setTool('eraser');
+				editingSession.setTool('eraser');
 				break;
 			case 'g':
-				session.setTool('fill');
+				editingSession.setTool('fill');
 				break;
 			case 'i':
-				session.setTool('eyedropper');
+				editingSession.setTool('eyedropper');
 				break;
 			case 'm':
-				if (session.mode === 'focus') session.setTool('select');
+				if (editingSession.mode === 'focus' || editingSession.mode === 'compare') editingSession.setTool('select');
 				break;
 			case 'l':
-				if (session.mode === 'focus') session.setTool('lasso');
+				if (editingSession.mode === 'focus' || editingSession.mode === 'compare') editingSession.setTool('lasso');
 				break;
 			case 'w':
-				if (session.mode === 'focus') session.setTool('wand');
+				if (editingSession.mode === 'focus' || editingSession.mode === 'compare') editingSession.setTool('wand');
 				break;
 			case 'p':
-				if (session.mode === 'focus') session.setTool('polygon');
+				if (editingSession.mode === 'focus' || editingSession.mode === 'compare') editingSession.setTool('polygon');
 				break;
 			case 'o':
-				session.toggleOnion();
+				editingSession.toggleOnion();
 				break;
 			case '[':
-				session.brushSize = Math.max(1, session.brushSize - 1);
+				editingSession.brushSize = Math.max(1, editingSession.brushSize - 1);
 				break;
 			case ']':
-				session.brushSize = Math.min(4, session.brushSize + 1);
+				editingSession.brushSize = Math.min(4, editingSession.brushSize + 1);
 				break;
 			case 'pageup':
 				e.preventDefault();
-				session.selectFrame(
-					(session.currentFrame - 1 + session.doc.frames.length) % session.doc.frames.length
+				editingSession.selectFrame(
+					(editingSession.currentFrame - 1 + editingSession.doc.frames.length) % editingSession.doc.frames.length
 				);
 				break;
 			case 'pagedown':
 				e.preventDefault();
-				session.selectFrame((session.currentFrame + 1) % session.doc.frames.length);
+				editingSession.selectFrame((editingSession.currentFrame + 1) % editingSession.doc.frames.length);
 				break;
 		}
 	}
