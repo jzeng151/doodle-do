@@ -74,6 +74,7 @@ export class EditorSession {
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
+	showPreviewBackground = $state(true);
 	// bulk edit set: frame indices mutations fan out to; empty = just the
 	// current frame. Sorted, and always includes currentFrame when non-empty.
 	// Cleared by plain frame select, frame add/delete/reorder, mode switch.

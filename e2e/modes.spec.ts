@@ -104,6 +104,29 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await expect(page.getByLabel('Playback speed')).toHaveValue('0.25');
 });
 
+test('preview background setting is shared with Loop mode', async ({ page }) => {
+	await gotoApp(page);
+	const sidePanel = page.locator('.loop-panel');
+	const sideToggle = sidePanel.getByRole('button', { name: 'Background' });
+	await expect(sideToggle).toHaveAttribute('aria-pressed', 'true');
+
+	await sideToggle.click();
+	await expect(sidePanel.locator('canvas.loop')).toHaveCSS('background-image', 'none');
+
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	const loopToggle = page.getByRole('button', { name: 'Background' });
+	await expect(loopToggle).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.locator('canvas.hero')).toHaveCSS('background-image', 'none');
+
+	await loopToggle.click();
+	await expect(page.locator('canvas.hero')).not.toHaveCSS('background-image', 'none');
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await expect(sidePanel.getByRole('button', { name: 'Background' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+});
+
 test('B5: a floating selection commits on mode switch', async ({ page }) => {
 	await gotoApp(page);
 	const editor = page.locator('canvas.editor');

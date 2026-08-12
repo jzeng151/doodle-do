@@ -53,6 +53,7 @@
 	<canvas
 		bind:this={loopEl}
 		class="loop"
+		class:background-hidden={!session.showPreviewBackground}
 		aria-label={`Loop preview, ${paused ? 'paused' : 'playing'}`}
 		width={loopW}
 		height={loopH}
@@ -69,6 +70,14 @@
 				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
 			/>
 		</label>
+		<button
+			class:active={session.showPreviewBackground}
+			aria-pressed={session.showPreviewBackground}
+			title="Show or hide the transparency background"
+			onclick={() => (session.showPreviewBackground = !session.showPreviewBackground)}
+		>
+			Background
+		</button>
 	</div>
 </section>
 
@@ -95,10 +104,15 @@
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 2px solid var(--edge);
 	}
+	.loop.background-hidden {
+		background: transparent;
+	}
 	.controls {
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
+		justify-content: center;
+		flex-wrap: wrap;
 	}
 	input[type='number'] {
 		width: 3.5em;

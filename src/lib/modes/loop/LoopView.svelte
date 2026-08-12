@@ -89,6 +89,7 @@
 	<canvas
 		bind:this={heroEl}
 		class="hero"
+		class:background-hidden={!session.showPreviewBackground}
 		aria-label={`Animation preview, frame ${playFrame + 1} of ${frameCount}`}
 		width={heroW}
 		height={heroH}
@@ -96,6 +97,14 @@
 
 	<div class="controls">
 		<button onclick={togglePlay}>{playing ? 'Pause' : 'Play'}</button>
+		<button
+			class:active={session.showPreviewBackground}
+			aria-pressed={session.showPreviewBackground}
+			title="Show or hide the transparency background"
+			onclick={() => (session.showPreviewBackground = !session.showPreviewBackground)}
+		>
+			Background
+		</button>
 		<input
 			class="scrubber"
 			type="range"
@@ -183,11 +192,14 @@
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 3px solid var(--edge);
 	}
+	.hero.background-hidden {
+		background: transparent;
+	}
 	.controls {
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
-		width: min(640px, 100%);
+		width: min(760px, 100%);
 		flex-wrap: wrap;
 	}
 	.scrubber {
