@@ -84,14 +84,16 @@
 				{/each}
 			</select>
 		</label>
-		<button
-			class:active={session.mirrorX}
-			aria-pressed={session.mirrorX}
-			title="Mirror-draw: paint both halves at once"
-			onclick={() => session.toggleMirror()}
-		>
-			Mirror
-		</button>
+		{#if session.tool !== 'stamp'}
+			<button
+				class:active={session.mirrorX}
+				aria-pressed={session.mirrorX}
+				title="Mirror-draw: paint both halves at once"
+				onclick={() => session.toggleMirror()}
+			>
+				Mirror
+			</button>
+		{/if}
 		{#if session.tool === 'pencil'}
 			<button
 				class:active={session.pixelPerfect}
