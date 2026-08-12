@@ -2,7 +2,7 @@
 	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { buildLut } from '$lib/core/palette';
-	import { drawOnionGhost, onionSequence, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
+	import { combinedOnionSequence, drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
 	import { brushBounds, canvasPoint } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
@@ -59,17 +59,14 @@
 		const { frames } = session.doc;
 		const f = session.currentFrame;
 		if (session.onionEnabled && frames.length > 1) {
-			const seenGhosts = new Set([f]);
-			// previous N=1 red, next N=1 green (§4.3 defaults), flattened composite
-			if (session.onionPreviousEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionPreviousRange, -1, seenGhosts)) {
-					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_PREV_COLOR, session.onionOpacity * .55 * ghost.fade);
-				}
-			}
-			if (session.onionNextEnabled) {
-				for (const ghost of onionSequence(f, frames.length, session.onionNextRange, 1, seenGhosts)) {
-					drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), ONION_NEXT_COLOR, session.onionOpacity * ghost.fade);
-				}
+			for (const ghost of combinedOnionSequence(
+				f,
+				frames.length,
+				session.onionPreviousEnabled ? session.onionPreviousRange : 0,
+				session.onionNextEnabled ? session.onionNextRange : 0
+			)) {
+				const previous = ghost.direction === -1;
+				drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), previous ? ONION_PREV_COLOR : ONION_NEXT_COLOR, session.onionOpacity * (previous ? .55 : 1) * ghost.fade);
 			}
 		}
 		if (session.bulkFrames.length > 1) {
