@@ -5,6 +5,7 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import SidePanel from '../SidePanel.svelte';
 	import FrameStrip from '../focus/FrameStrip.svelte';
+	import { buildLut } from '$lib/core/palette';
 	import { brushBounds, canvasPoint } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
@@ -21,12 +22,30 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
 	const tileH = $derived((session.version, session.doc.meta.height * session.gridZoom));
+	const floatCache = new WeakMap<object, { version: number; canvas: HTMLCanvasElement }>();
+
+	function floatingCanvas(selection: NonNullable<typeof session.floating>) {
+		const cached = floatCache.get(selection);
+		if (cached?.version === selection.version) return cached.canvas;
+		const canvas = document.createElement('canvas');
+		canvas.width = selection.renderRect.w;
+		canvas.height = selection.renderRect.h;
+		const ctx = canvas.getContext('2d')!;
+		const image = ctx.createImageData(canvas.width, canvas.height);
+		const rgba = new Uint32Array(image.data.buffer);
+		const lut = buildLut(session.doc.palette);
+		for (let j = 0; j < selection.buffer.length; j++) rgba[j] = lut[selection.buffer[j]];
+		ctx.putImageData(image, 0, 0);
+		floatCache.set(selection, { version: selection.version, canvas });
+		return canvas;
+	}
 
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
 		void session.brushSize;
 		void session.tool;
+		void session.overlayVersion;
 		void focusedTile;
 		void keyboardX;
 		void keyboardY;
@@ -37,6 +56,10 @@
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
+			for (const selection of session.floatingSelections(i)) {
+				const rect = selection.renderRect;
+				ctx.drawImage(floatingCanvas(selection), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
+			}
 			if (i === focusedTile) {
 				const z = session.gridZoom;
 				const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
@@ -138,9 +161,20 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
-			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+			if (session.tool === 'move' && session.floating) session.moveFloatingBy(...move);
+			else {
+				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
+				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+			}
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+			if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
+			return;
+		}
+		if (e.key === 'Escape' && session.tool === 'move' && session.floating) {
+			e.preventDefault();
+			e.stopPropagation();
+			session.cancelFloating();
 			return;
 		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -152,6 +186,19 @@
 			case 'eraser':
 				session.strokeBegin(keyboardX, keyboardY);
 				session.strokeEnd();
+				break;
+			case 'line':
+				if (session.lineActive) session.lineEnd();
+				else session.lineBegin(keyboardX, keyboardY);
+				break;
+			case 'rectangle':
+			case 'ellipse':
+				if (session.shapeActive) session.shapeEnd();
+				else session.shapeBegin(keyboardX, keyboardY);
+				break;
+			case 'move':
+				if (session.floating) session.endLayerMove();
+				else session.beginLayerMove();
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
