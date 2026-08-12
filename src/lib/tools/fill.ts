@@ -58,12 +58,13 @@ export function floodFill(
 	if (x < 0 || y < 0 || x >= width || y >= height) return null;
 	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
 	const target = pixels[y * width + x];
-	if (target === value) return null;
 
 	const matches = (candidate: number) => colorDistance(doc, target, candidate) <= tolerance;
-	const hits = contiguous
+	const hits = (contiguous
 		? connectedRegion(pixels, width, height, x, y, matches)
-		: Array.from(pixels.keys()).filter((index) => matches(pixels[index]));
+		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])))
+		.filter((index) => pixels[index] !== value);
+	if (!hits.length) return null;
 	const indices = new Uint32Array(hits);
 	const before = new Uint8Array(hits.map((index) => pixels[index]));
 	const after = new Uint8Array(hits.length).fill(value);
