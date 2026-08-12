@@ -45,6 +45,7 @@ describe('export metadata schemas', () => {
 		frameCount: 4
 	});
 	doc.frames[2].durationMs = 250;
+	doc.meta.tags = [{ name: 'walk', from: 0, to: 3, direction: 'ping-pong', repeats: 2 }];
 	const layout = sheetLayout(4, 32, 32);
 
 	it('TexturePacker JSON-hash has the fields Phaser expects', () => {
@@ -58,6 +59,7 @@ describe('export metadata schemas', () => {
 		expect(parsed.meta.image).toBe('strut.png');
 		expect(parsed.meta.size).toEqual({ w: 128, h: 32 });
 		expect(parsed.meta.scale).toBe('1');
+		expect(parsed.meta.frameTags).toEqual(doc.meta.tags);
 	});
 
 	it('doodledo.json carries fps and per-frame durations', () => {
@@ -67,5 +69,6 @@ describe('export metadata schemas', () => {
 		expect(parsed.frames[0].durationMs).toBe(125); // 1000/8
 		expect(parsed.frames[2].durationMs).toBe(250); // per-frame override
 		expect(parsed.frames[3]).toMatchObject({ x: 96, y: 0, w: 32, h: 32 });
+		expect(parsed.animations).toEqual(doc.meta.tags);
 	});
 });

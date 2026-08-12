@@ -6,6 +6,7 @@
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
 import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
 import {
+	AnimationTagsCommand,
 	DocumentReplaceCommand,
 	FpsCommand,
 	FrameAddCommand,
@@ -95,6 +96,9 @@ export class EditorSession {
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
+	loopPlaybackMode = $state<'forward' | 'reverse' | 'ping-pong'>('forward');
+	loopRepeatCount = $state(0);
+	activeAnimationTagName = $state('');
 	showPreviewBackground = $state(true);
 	comparisonSession: EditorSession | null = null;
 	comparisonVersion = $state(0);
@@ -876,20 +880,34 @@ export class EditorSession {
 	addAnimationTag(tag: AnimationTag): void {
 		const name = tag.name.trim();
 		if (!name) return;
-		const next = structuredClone(this.doc);
-		next.meta.tags = [...(next.meta.tags ?? []).filter((item) => item.name !== name), { ...tag, name }];
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const before = this.doc.meta.tags;
+		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name }];
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		this.activeAnimationTagName = name;
 	}
 
 	deleteAnimationTag(name: string): void {
-		const next = structuredClone(this.doc);
-		next.meta.tags = (next.meta.tags ?? []).filter((tag) => tag.name !== name);
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		const before = this.doc.meta.tags;
+		const after = (before ?? []).filter((tag) => tag.name !== name);
+		if (after.length === before?.length) return;
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		if (this.activeAnimationTagName === name) this.selectAnimationTag('');
 	}
 
 	selectAnimationTag(name: string): void {
+		this.activeAnimationTagName = name;
+		if (!name) {
+			this.loopRange = null;
+			this.loopPlaybackMode = 'forward';
+			this.loopRepeatCount = 0;
+			return;
+		}
 		const tag = this.doc.meta.tags?.find((item) => item.name === name);
-		if (tag) this.setLoopRange(tag.from, tag.to);
+		if (tag) {
+			this.setLoopRange(tag.from, tag.to);
+			this.loopPlaybackMode = tag.direction;
+			this.loopRepeatCount = tag.repeats;
+		}
 	}
 
 	// --- layers (per-frame, cap 8) ---
