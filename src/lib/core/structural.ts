@@ -351,6 +351,18 @@ export class PaletteAddCommand implements Command {
 	}
 }
 
+export class PaletteReplaceCommand implements Command {
+	readonly kind = 'palette-replace';
+	readonly byteSize: number;
+	constructor(private readonly before: string[], private readonly after: string[]) {
+		this.byteSize = JSON.stringify([before, after]).length + 64;
+	}
+	do(doc: Doc): void { doc.palette = [...this.after]; }
+	undo(doc: Doc): void { doc.palette = [...this.before]; }
+	serialize(): unknown { return { kind: this.kind, palette: this.after }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
+}
+
 // Palette swap (§4.2): replacing an entry updates every pixel using it
 // instantly — O(1) on the document, the compositor just rebuilds its LUT.
 export class PaletteSwapCommand implements Command {
