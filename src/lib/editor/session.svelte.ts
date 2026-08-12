@@ -18,6 +18,7 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	ResizeCanvasCommand
 } from '../core/structural';
@@ -1003,9 +1004,7 @@ export class EditorSession {
 			0
 		);
 		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
-		const next = structuredClone(this.doc);
-		next.palette = colors;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, next));
+		this.bus.dispatch(new PaletteReplaceCommand(this.doc.palette, colors));
 		this.colorValue = Math.min(this.colorValue, colors.length);
 		this.backgroundColorValue = Math.min(this.backgroundColorValue, colors.length);
 	}
@@ -1015,9 +1014,11 @@ export class EditorSession {
 		this.commitFloating();
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
+		const foreground = this.colorValue;
+		const background = this.backgroundColorValue;
 		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
-		this.colorValue = compacted.map.get(this.colorValue) ?? Math.min(this.colorValue, compacted.doc.palette.length);
-		this.backgroundColorValue = compacted.map.get(this.backgroundColorValue) ?? Math.min(this.backgroundColorValue, compacted.doc.palette.length);
+		this.colorValue = compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length);
+		this.backgroundColorValue = compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length);
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
