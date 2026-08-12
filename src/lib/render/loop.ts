@@ -12,7 +12,14 @@ export function nextLoopFrame(frame: number, start: number, end: number): number
 }
 
 export type PlaybackMode = 'forward' | 'reverse' | 'ping-pong';
-export function nextPlaybackFrame(frame: number, start: number, end: number, mode: PlaybackMode, direction = 1) {
+
+export function nextPlaybackFrame(
+	frame: number,
+	start: number,
+	end: number,
+	mode: PlaybackMode,
+	direction = 1
+) {
 	if (start === end) return { frame: start, direction, wrapped: true };
 	if (mode === 'reverse') return frame <= start || frame > end
 		? { frame: end, direction: -1, wrapped: frame <= start }
@@ -32,6 +39,8 @@ export class LoopPlayer {
 	private lastTime = 0;
 	private direction = 1;
 	private cycles = 0;
+	private config = '';
+	private started = false;
 
 	constructor(
 		private readonly doc: Doc,
@@ -54,31 +63,19 @@ export class LoopPlayer {
 	}
 
 	start(): void {
-		this.stop();
-		this.cycles = 0;
-		this.direction = this.playbackMode?.() === 'reverse' ? -1 : 1;
+		if (this.raf) return;
+		this.syncConfig();
 		this.lastTime = performance.now();
 		const tick = (now: number) => {
 			const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
+			this.syncConfig();
 			const before = this.frame;
-			if (this.frame < start || this.frame > end) this.frame = this.direction < 0 ? end : start;
 			this.acc += (now - this.lastTime) * (this.playbackSpeed?.() ?? 1);
 			this.lastTime = now;
 			let duration = frameDurationMs(this.doc, this.frame);
 			while (this.acc >= duration) {
 				this.acc -= duration;
-				const next = nextPlaybackFrame(this.frame, start, end, this.playbackMode?.() ?? 'forward', this.direction);
-				this.frame = next.frame;
-				this.direction = next.direction;
-				if (next.wrapped) this.cycles++;
-				const repeats = Math.max(0, this.repeatCount?.() ?? 0);
-				if (repeats && this.cycles >= repeats) {
-					this.onFrame?.(this.frame);
-					this.blit();
-					this.raf = 0;
-					this.onComplete?.();
-					return;
-				}
+				if (this.advance(start, end)) return;
 				duration = frameDurationMs(this.doc, this.frame);
 			}
 			if (this.frame !== before) this.onFrame?.(this.frame);
@@ -86,6 +83,53 @@ export class LoopPlayer {
 			this.raf = requestAnimationFrame(tick);
 		};
 		this.raf = requestAnimationFrame(tick);
+	}
+
+	private syncConfig(): void {
+		const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
+		const mode = this.playbackMode?.() ?? 'forward';
+		const repeats = Math.max(0, this.repeatCount?.() ?? 0);
+		const config = `${start}:${end}:${mode}:${repeats}`;
+		if (this.started && config === this.config) return;
+		this.config = config;
+		this.started = true;
+		this.cycles = 0;
+		this.acc = 0;
+		this.direction = mode === 'reverse' ? -1 : 1;
+		this.frame = mode === 'reverse' ? end : start;
+		this.onFrame?.(this.frame);
+		this.blit();
+	}
+
+	private advance(start: number, end: number): boolean {
+		const mode = this.playbackMode?.() ?? 'forward';
+		const repeats = Math.max(0, this.repeatCount?.() ?? 0);
+		let completed = false;
+		if (start === end) completed = true;
+		else if (mode === 'reverse') {
+			if (this.frame <= start) completed = true;
+			else this.frame--;
+		} else if (mode === 'ping-pong') {
+			if (this.direction > 0 && this.frame >= end) {
+				this.direction = -1;
+				this.frame--;
+			} else if (this.direction < 0 && this.frame <= start) completed = true;
+			else this.frame += this.direction;
+		} else if (this.frame >= end) completed = true;
+		else this.frame++;
+		if (!completed) return false;
+		this.cycles++;
+		if (repeats && this.cycles >= repeats) {
+			this.onFrame?.(this.frame);
+			this.blit();
+			this.raf = 0;
+			this.started = false;
+			this.onComplete?.();
+			return true;
+		}
+		this.frame = mode === 'reverse' ? end : start;
+		this.direction = mode === 'reverse' ? -1 : 1;
+		return false;
 	}
 
 	stop(): void {
@@ -97,6 +141,7 @@ export class LoopPlayer {
 		this.frame = Math.max(0, Math.min(this.doc.frames.length - 1, frame));
 		this.acc = 0;
 		this.cycles = 0;
+		this.started = true;
 		this.onFrame?.(this.frame);
 		this.blit();
 	}

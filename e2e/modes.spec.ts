@@ -82,6 +82,75 @@ test('grid mode: strokes land on the frame you draw on', async ({ page }) => {
 	).toBe(false);
 });
 
+test('keyboard lines commit on tool changes and work in Grid', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Line' }).click();
+	const editor = page.locator('canvas.editor');
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.getByRole('button', { name: 'Pencil' }).click();
+	expect(await locatorHasInk(editor)).toBe(true);
+	await page.keyboard.press('Control+z');
+
+	await page.getByRole('button', { name: 'Line' }).click();
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	const tile = page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first();
+	await tile.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	expect(await locatorHasInk(tile)).toBe(true);
+});
+
+test('keyboard shapes preview until the second activation', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Rect' }).click();
+	const editor = page.locator('canvas.editor');
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('Space');
+	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	expect(await locatorHasInk(editor)).toBe(true);
+	await page.keyboard.press('Control+z');
+	expect(await locatorHasInk(editor)).toBe(false);
+});
+
+test('selection shortcuts stay in editable selection views and target the fork pane', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	await page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first().focus();
+	await page.keyboard.press('Control+a');
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await expect(page.getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const panes = page.locator('.editor-pane');
+	await panes.nth(1).getByRole('button', { name: 'Select', exact: true }).click();
+	await page.keyboard.press('Control+a');
+	await expect(panes.nth(1).getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeEnabled();
+	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+});
+
+test('Grid previews and keyboard-moves a floating layer', async ({ page }) => {
+	await gotoApp(page);
+	await drawOn(page, page.locator('canvas.editor'));
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	const tile = page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first();
+	await tile.focus();
+	await page.keyboard.press('Space');
+	await page.getByRole('button', { name: 'Loop' }).focus();
+	expect(await locatorHasInk(tile)).toBe(true);
+	await tile.focus();
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	await page.getByRole('button', { name: 'Loop' }).focus();
+	expect(await locatorHasInk(tile)).toBe(true);
+});
+
 test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
