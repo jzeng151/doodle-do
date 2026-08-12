@@ -81,6 +81,9 @@ export class EditorSession {
 	selectionMode = $state<SelectionMode>('replace');
 	stamp = $state<Stamp | null>(null);
 	mirrorX = $state(false);
+	mirrorY = $state(false);
+	mirrorAxisX = $state(0);
+	mirrorAxisY = $state(0);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
 	zoom = $state(12);
@@ -142,6 +145,8 @@ export class EditorSession {
 		this.bus = new CommandBus(doc);
 		this.compositor = new Compositor(doc);
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
+		this.mirrorAxisX = (doc.meta.width - 1) / 2;
+		this.mirrorAxisY = (doc.meta.height - 1) / 2;
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(doc.frames.some((frame) => frame.layers.some((layer) => layer.linkId)) ? { frame: null, rect: null } : region);
@@ -273,6 +278,8 @@ export class EditorSession {
 		this.mirrorX = !this.mirrorX;
 		if (this.mirrorX) tips.fire('T13');
 	}
+
+	toggleMirrorY(): void { this.mirrorY = !this.mirrorY; }
 
 	togglePaletteLock(): void {
 		this.paletteLocked = !this.paletteLocked;
@@ -612,7 +619,10 @@ export class EditorSession {
 				undefined,
 				this.tool === 'pencil' && this.pixelPerfect,
 				this.ditherEnabled && this.tool !== 'eraser' ? secondaryColorValue : undefined,
-				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0
+				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		for (const s of this.strokes) {
@@ -653,7 +663,10 @@ export class EditorSession {
 				'line',
 				false,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		for (const s of this.strokes) {
@@ -693,7 +706,10 @@ export class EditorSession {
 				this.tool,
 				false,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		this.shapeMove(x, y);
@@ -1098,6 +1114,8 @@ export class EditorSession {
 		this.bus.dispatch(
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
+		this.mirrorAxisX = Math.min(w - 1, this.mirrorAxisX);
+		this.mirrorAxisY = Math.min(h - 1, this.mirrorAxisY);
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;

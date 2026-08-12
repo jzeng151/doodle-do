@@ -23,7 +23,10 @@ export class StrokeBuilder {
 		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
 		private readonly pixelPerfect = false,
 		private readonly secondaryValue?: number,
-		private readonly ditherSize: 0 | 2 | 4 = 0
+		private readonly ditherSize: 0 | 2 | 4 = 0,
+		private readonly mirrorAxisX = (doc.meta.width - 1) / 2,
+		private readonly mirrorY = false,
+		private readonly mirrorAxisY = (doc.meta.height - 1) / 2
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -106,7 +109,11 @@ export class StrokeBuilder {
 
 	private stamp(cx: number, cy: number): Rect | null {
 		let rect = this.stampOne(cx, cy);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		const mx = Math.round(2 * this.mirrorAxisX - cx);
+		const my = Math.round(2 * this.mirrorAxisY - cy);
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(mx, cy));
+		if (this.mirrorY) rect = unionRect(rect, this.stampOne(cx, my));
+		if (this.mirrorX && this.mirrorY) rect = unionRect(rect, this.stampOne(mx, my));
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
@@ -117,9 +124,14 @@ export class StrokeBuilder {
 		this.restorePixel(b.x, b.y);
 		rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
 		if (this.mirrorX) {
-			const mirrorX = this.doc.meta.width - 1 - b.x;
+			const mirrorX = Math.round(2 * this.mirrorAxisX - b.x);
 			this.restorePixel(mirrorX, b.y);
 			rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
+		}
+		if (this.mirrorY) {
+			const mirrorY = Math.round(2 * this.mirrorAxisY - b.y);
+			this.restorePixel(b.x, mirrorY);
+			rect = unionRect(rect, { x: b.x, y: mirrorY, w: 1, h: 1 });
 		}
 		return rect;
 	}

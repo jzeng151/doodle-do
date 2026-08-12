@@ -142,6 +142,14 @@ describe('mirror-draw', () => {
 		expect(cmd.pixelCount).toBe(2);
 	});
 
+	it('supports movable X axes and combined X/Y symmetry', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, undefined, 0, 2, true, 2);
+		stroke.begin(1, 1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[1, 1], [3, 1], [1, 3], [3, 3]].every(([x, y]) => pixels[y * 8 + x] === 3)).toBe(true);
+	});
+
 	it('center column with mirror does not double-record', () => {
 		const doc = testDoc(7, 7); // odd width, center x = 3 mirrors to itself
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
