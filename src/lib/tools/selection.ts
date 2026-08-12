@@ -16,6 +16,24 @@
 import type { Doc } from '../core/document';
 import { PixelDiffCommand, type Rect } from '../core/commands';
 
+export type SelectionMode = 'replace' | 'add' | 'subtract' | 'intersect';
+
+export function combineMasks(
+	current: Uint8Array | null,
+	next: Uint8Array,
+	mode: SelectionMode
+): Uint8Array | null {
+	const result = new Uint8Array(next.length);
+	for (let i = 0; i < result.length; i++) {
+		const a = current?.[i] === 1;
+		const b = next[i] === 1;
+		result[i] = Number(
+			mode === 'replace' ? b : mode === 'add' ? a || b : mode === 'subtract' ? a && !b : a && b
+		);
+	}
+	return result.some(Boolean) ? result : null;
+}
+
 export function clampRect(rect: Rect, width: number, height: number): Rect | null {
 	const x = Math.max(0, rect.x);
 	const y = Math.max(0, rect.y);

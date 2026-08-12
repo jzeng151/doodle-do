@@ -41,6 +41,22 @@
 			editingSession.extractSelectionToLayer();
 			return;
 		}
+		if (mod && e.key.toLowerCase() === 'a') {
+			e.preventDefault();
+			editingSession.selectAll();
+			return;
+		}
+		if (mod && e.key.toLowerCase() === 'd') {
+			e.preventDefault();
+			if (e.shiftKey) editingSession.reselect();
+			else editingSession.deselect();
+			return;
+		}
+		if (mod && e.shiftKey && e.key.toLowerCase() === 'i') {
+			e.preventDefault();
+			editingSession.invertSelection();
+			return;
+		}
 		if (mod) return;
 		if (target.closest('button')) return;
 		// Bare character shortcuts are active only while an editor canvas has

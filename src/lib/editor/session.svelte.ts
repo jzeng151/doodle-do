@@ -27,7 +27,7 @@ import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
-import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
+import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
@@ -69,6 +69,7 @@ export class EditorSession {
 	shapeFilled = $state(false);
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
+	selectionMode = $state<SelectionMode>('replace');
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
@@ -96,6 +97,8 @@ export class EditorSession {
 	// floating buffer are view state until commit, when the whole move
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
+	private previousSelectionMask: Uint8Array | null = null;
+	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
 	polygonVerts = $state<{ x: number; y: number }[] | null>(null);
@@ -266,26 +269,52 @@ export class EditorSession {
 
 	// --- selection (B5) ---
 
-	// a non-additive gesture replaces the selection; shift keeps it and adds
+	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
-		if (!additive) {
-			this.commitFloating();
-			this.selectionMask = null;
-		}
+		this.commitFloating();
+		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
+		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
 	}
 
-	// OR a gesture's mask into the baked selection (empty adds are dropped)
+	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
-		if (!add.some((v) => v !== 0)) return;
-		if (!this.selectionMask) {
-			this.selectionMask = add;
-		} else {
-			const merged = this.selectionMask.slice();
-			for (let i = 0; i < merged.length; i++) if (add[i]) merged[i] = 1;
-			this.selectionMask = merged;
-		}
+		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
 		tips.fire('T16'); // shift-add + rotate handle
 		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
+	}
+
+	selectAll(): void {
+		this.commitFloating();
+		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
+		this.overlayVersion++;
+	}
+
+	deselect(): void {
+		this.commitFloating();
+		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.selectionMask = null;
+		this.clearGestures();
+		this.overlayVersion++;
+	}
+
+	invertSelection(): void {
+		this.commitFloating();
+		const before = this.selectionMask?.slice() ?? null;
+		const length = this.doc.meta.width * this.doc.meta.height;
+		this.selectionMask = new Uint8Array(length);
+		for (let i = 0; i < length; i++) this.selectionMask[i] = Number(!before?.[i]);
+		this.previousSelectionMask = before;
+		this.overlayVersion++;
+	}
+
+	reselect(): void {
+		if (!this.previousSelectionMask) return;
+		this.commitFloating();
+		const current = this.selectionMask?.slice() ?? null;
+		this.selectionMask = this.previousSelectionMask;
+		this.previousSelectionMask = current;
+		this.overlayVersion++;
 	}
 
 	beginMarquee(x: number, y: number, additive = false): void {
@@ -468,6 +497,10 @@ export class EditorSession {
 
 	get hasSelection(): boolean {
 		return this.floating !== null || this.selectionMask !== null;
+	}
+
+	get canReselect(): boolean {
+		return this.previousSelectionMask !== null;
 	}
 
 	commitFloating(): void {

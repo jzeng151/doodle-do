@@ -378,7 +378,7 @@
 				const insideTwin = session.floating
 					? (session.floatingTwin?.contains(x, y) ?? false)
 					: session.mirrorX && session.selectionContains(mx, y);
-				if ((insideMain || insideTwin) && !e.shiftKey) {
+				if ((insideMain || insideTwin) && !e.shiftKey && session.selectionMode === 'replace') {
 					session.liftSelection(); // no-op when already floating
 					// dragging the twin: mirror the deltas so it follows the pointer
 					dragMirrored = insideTwin && !insideMain;

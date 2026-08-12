@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { FloatingSelection, clampRect, maskFromPolygon, maskFromRects, mirrorMaskX } from './selection';
+import { combineMasks, FloatingSelection, clampRect, maskFromPolygon, maskFromRects, mirrorMaskX } from './selection';
 
 function testDoc() {
 	const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
@@ -20,6 +20,22 @@ describe('clampRect', () => {
 	it('clips to bounds and rejects empty results', () => {
 		expect(clampRect({ x: -2, y: -2, w: 4, h: 4 }, 8, 8)).toEqual({ x: 0, y: 0, w: 2, h: 2 });
 		expect(clampRect({ x: 10, y: 0, w: 4, h: 4 }, 8, 8)).toBeNull();
+	});
+});
+
+describe('selection modes', () => {
+	const current = new Uint8Array([1, 1, 0, 0]);
+	const next = new Uint8Array([0, 1, 1, 0]);
+
+	it('replaces, adds, subtracts, and intersects masks', () => {
+		expect([...(combineMasks(current, next, 'replace') ?? [])]).toEqual([0, 1, 1, 0]);
+		expect([...(combineMasks(current, next, 'add') ?? [])]).toEqual([1, 1, 1, 0]);
+		expect([...(combineMasks(current, next, 'subtract') ?? [])]).toEqual([1, 0, 0, 0]);
+		expect([...(combineMasks(current, next, 'intersect') ?? [])]).toEqual([0, 1, 0, 0]);
+	});
+
+	it('returns no selection for an empty result', () => {
+		expect(combineMasks(null, next, 'subtract')).toBeNull();
 	});
 });
 
