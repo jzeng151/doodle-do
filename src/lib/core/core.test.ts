@@ -5,6 +5,7 @@ import { CommandBus, CompositeCommand, PixelDiffCommand, UNDO_MAX_COMMANDS } fro
 import { LayerAddCommand, ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
 import { blendPacked } from '../render/compositor';
+import { flattenFrameIndices } from './flatten';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 2, layerCount: 2 });
@@ -100,9 +101,12 @@ describe('palette ranges', () => {
 	it('sorts entries while remapping indices to preserve artwork colors', () => {
 		const doc = createDoc({ width: 3, height: 1, palette: ['#ffffff', '#000000', '#ff0000'] });
 		doc.frames[0].layers[0].pixels.set([1, 2, 3]);
-		const next = sortPaletteRange(doc, 0, 2, 'luminance');
+		const { doc: next, map, moved } = sortPaletteRange(doc, 0, 2, 'luminance');
 		expect(next.palette).toEqual(['#000000', '#ff0000', '#ffffff']);
 		expect([...next.frames[0].layers[0].pixels]).toEqual([3, 1, 2]);
+		expect(map.get(1)).toBe(3);
+		expect(moved).toBe(true);
+		expect(sortPaletteRange(next, 0, 2, 'luminance').moved).toBe(false);
 	});
 });
 
@@ -110,6 +114,13 @@ describe('layer opacity', () => {
 	it('source-over blends packed RGBA colors', () => {
 		expect(blendPacked(0xff000000, 0xffffffff, .5) >>> 0).toBe(0xff808080);
 		expect(blendPacked(0, 0xff0000ff, .5) >>> 0).toBe(0x800000ff);
+	});
+
+	it('omits sub-threshold pixels over transparency in indexed output', () => {
+		const doc = testDoc(1, 1);
+		doc.frames[0].layers[1].pixels[0] = 2;
+		doc.frames[0].layers[1].opacity = .05;
+		expect(flattenFrameIndices(doc, 0)[0]).toBe(0);
 	});
 });
 

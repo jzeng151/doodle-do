@@ -50,6 +50,13 @@ describe('mergeDownCommand', () => {
 		expect(doc.frames[0].layers.length).toBe(2);
 	});
 
+	it('does not reveal pixels from a fully transparent upper layer', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[1].opacity = 0;
+		new CommandBus(doc).dispatch(mergeDownCommand(doc, 0, 1)!);
+		expect([...doc.frames[0].layers[0].pixels.slice(0, 3)]).toEqual([3, 5, 0]);
+	});
+
 	it('refuses when there is no layer below', () => {
 		expect(mergeDownCommand(testDoc(), 0, 0)).toBeNull();
 	});
@@ -71,6 +78,14 @@ describe('sendLayerCommand', () => {
 		expect(bus.undoDepth).toBe(1);
 		bus.undo();
 		expect(doc.frames[1].layers.length).toBe(2);
+	});
+
+	it('preserves lock and opacity metadata when copying', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[1].locked = true;
+		doc.frames[0].layers[1].opacity = .4;
+		new CommandBus(doc).dispatch(sendLayerCommand(doc, 0, 1, 1, false)!);
+		expect(doc.frames[1].layers[2]).toMatchObject({ locked: true, opacity: .4 });
 	});
 
 	it('move also removes the source layer; one undo restores both frames', () => {

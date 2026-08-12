@@ -14,13 +14,14 @@ export function mergeDownCommand(
 ): CompositeCommand | null {
 	if (layerIndex <= 0) return null;
 	const layers = doc.frames[frameIndex].layers;
-	const upper = layers[layerIndex].pixels;
+	const upperLayer = layers[layerIndex];
+	const upper = upperLayer.pixels;
 	const lower = layers[layerIndex - 1].pixels;
 	const indices: number[] = [];
 	const before: number[] = [];
 	const after: number[] = [];
 	for (let i = 0; i < upper.length; i++) {
-		if (upper[i] !== 0 && lower[i] !== upper[i]) {
+		if ((upperLayer.opacity ?? 1) >= .5 && upper[i] !== 0 && lower[i] !== upper[i]) {
 			indices.push(i);
 			before.push(lower[i]);
 			after.push(upper[i]);
@@ -61,10 +62,10 @@ export function sendLayerCommand(
 	if (target.layers.length >= MAX_LAYERS) return null;
 	if (move && doc.frames[frameIndex].layers.length <= 1) return null;
 	const src = doc.frames[frameIndex].layers[layerIndex];
+	const { linkId: _, ...copy } = src;
 	const cmds: Command[] = [
 		new LayerAddCommand(targetFrame, target.layers.length, {
-			name: src.name,
-			visible: src.visible,
+			...copy,
 			pixels: src.pixels.slice()
 		})
 	];

@@ -129,7 +129,11 @@ export function parseProject(text: string): Doc {
 	};
 	const linked = new Map<string, Uint8Array>();
 	for (const frame of doc.frames) for (const layer of frame.layers) if (layer.linkId) {
-		if (linked.has(layer.linkId)) layer.pixels = linked.get(layer.linkId)!;
+		if (linked.has(layer.linkId)) {
+			const source = linked.get(layer.linkId)!;
+			if (source.some((value, index) => value !== layer.pixels[index])) fail(`linked cel ${layer.linkId} has inconsistent pixels`);
+			layer.pixels = source;
+		}
 		else linked.set(layer.linkId, layer.pixels);
 	}
 	return doc;

@@ -21,7 +21,9 @@ function integer(args: Args, key: string, min: number, max: number): number {
 
 function target(session: EditorSession, args: Args): { frame: number; layer: number } {
 	const frame = integer(args, 'frame', 0, session.doc.frames.length - 1);
-	return { frame, layer: integer(args, 'layer', 0, session.doc.frames[frame].layers.length - 1) };
+	const layer = integer(args, 'layer', 0, session.doc.frames[frame].layers.length - 1);
+	if (session.doc.frames[frame].layers[layer].locked) throw new Error('layer is locked');
+	return { frame, layer };
 }
 
 function editable(session: EditorSession, args: Args): void {

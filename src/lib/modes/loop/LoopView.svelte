@@ -20,6 +20,7 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const rangeStart = $derived((session.version, session.loopRange, session.effectiveLoopRange().start));
 	const rangeEnd = $derived((session.version, session.loopRange, session.effectiveLoopRange().end));
+	const tags = $derived((session.version, session.doc.meta.tags ?? []));
 	const heroScale = $derived(
 		(session.version,
 		Math.max(1, Math.floor(512 / Math.max(session.doc.meta.width, session.doc.meta.height))))
@@ -70,6 +71,14 @@
 		playing = false;
 		player.stop();
 		player.seek((e.currentTarget as HTMLInputElement).valueAsNumber);
+	}
+
+	function selectTag(name: string) {
+		session.selectAnimationTag(name);
+		const tag = tags.find((item) => item.name === name);
+		tagName = tag?.name ?? '';
+		tagDirection = tag?.direction ?? 'forward';
+		tagRepeats = tag?.repeats ?? 0;
 	}
 
 	$effect(() => {
@@ -160,15 +169,15 @@
 		</label>
 	</div>
 	<div class="tag-controls" aria-label="Animation tags">
-		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => session.selectAnimationTag(e.currentTarget.value)}>
+		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => selectTag(e.currentTarget.value)}>
 			<option value="">All frames</option>
-			{#each session.doc.meta.tags ?? [] as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
+			{#each tags as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
 		</select></label>
 		<label>Name<input maxlength="32" bind:value={tagName} /></label>
 		<label>Direction<select bind:value={tagDirection}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
 		<label>Repeats<input type="number" min="0" max="99" bind:value={tagRepeats} title="0 means continuous preview" /></label>
 		<button disabled={!tagName.trim()} onclick={() => session.addAnimationTag({ name: tagName, from: rangeStart, to: rangeEnd, direction: tagDirection, repeats: tagRepeats })}>Save clip</button>
-		<button disabled={!tagName.trim()} onclick={() => session.deleteAnimationTag(tagName)}>Delete clip</button>
+		<button disabled={!session.activeAnimationTagName} onclick={() => session.deleteAnimationTag(session.activeAnimationTagName)}>Delete clip</button>
 	</div>
 
 	<div class="filmstrip" role="group" aria-label="Filmstrip">
