@@ -139,6 +139,7 @@ export class EditorSession {
 				doc.frames[this.currentFrame].layers.length - 1
 			);
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
+			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			this.version++;
 		});
 		this.bus.onCommit(() => this.unsavedCommits++);
