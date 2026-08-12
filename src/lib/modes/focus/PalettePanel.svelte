@@ -123,13 +123,13 @@
 			<label>From<select bind:value={replaceFrom}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>To<select bind:value={replaceTo}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>Scope<select bind:value={replaceScope}>
-				<option value="selection" disabled={!session.hasSelection}>Selection</option>
+				<option value="selection" disabled={!session.selectionMask}>Selection</option>
 				<option value="layer">Current layer</option>
 				<option value="frame">Current frame</option>
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.selectionMask)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
 		</div>
 	{/if}
 

@@ -257,4 +257,12 @@ describe('replace color', () => {
 		cmd.undo(doc);
 		expect([...pixels]).toEqual([1, 2, 1, 1]);
 	});
+
+	it('stores whole-layer replacement history as a compact bitset', () => {
+		const doc = testDoc(512, 512);
+		doc.frames[0].layers[0].pixels.fill(1);
+		const cmd = replaceColorCommand(doc, 0, 0, 1, 3)!;
+		expect(cmd.byteSize).toBeLessThan(33_000);
+		expect(cmd.pixelCount).toBe(512 * 512);
+	});
 });

@@ -935,6 +935,7 @@ export class EditorSession {
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
 		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
+		if (scope === 'selection' && !this.selectionMask) return;
 		const selection = this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
