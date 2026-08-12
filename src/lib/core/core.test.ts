@@ -40,6 +40,12 @@ describe('canvas resize', () => {
 		]);
 	});
 
+	it('Scale2x preserves hard diagonal edges when doubling', () => {
+		const src = new Uint8Array([1, 0, 1, 1]);
+		const scaled = resizePixels(src, 2, 2, 4, 4, 'scale2x');
+		expect([...scaled]).toEqual([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]);
+	});
+
 	it('command resizes every layer of every frame and updates meta', () => {
 		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2, layerCount: 2 });
 		doc.frames[0].layers[0].pixels.set([1, 2, 3, 4]);

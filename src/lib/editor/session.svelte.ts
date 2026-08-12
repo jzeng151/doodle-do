@@ -549,6 +549,12 @@ export class EditorSession {
 		if (this.floating) this.rotateFloating(this.floating.angle + deltaRad);
 	}
 
+	rotateSelectionQuarter(direction: -1 | 1): void {
+		if (this.currentLayerLocked) return;
+		if (this.selectionMask && !this.floating) this.liftSelection();
+		if (this.floating) this.rotateFloating(this.floating.angle + direction * Math.PI / 2);
+	}
+
 	// arrow-key nudge: a bare mask lifts first, like flip()
 	nudgeSelection(dx: number, dy: number): void {
 		if (this.selectionMask && !this.floating) this.liftSelection();
@@ -1136,7 +1142,7 @@ export class EditorSession {
 
 	// Resize the canvas of the existing document (extends §4.1 beyond
 	// creation-time). 'crop' keeps the art in place; 'scale' resamples it.
-	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale'): void {
+	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale' | 'scale2x'): void {
 		this.commitFloating();
 		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(width)));
 		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(height)));

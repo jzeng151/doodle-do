@@ -104,7 +104,7 @@
 		onOpenDoc(createDoc({ width, height, palette: DEFAULT_PALETTE }), true);
 	}
 
-	function resizeCanvas(width: number, height: number, mode: 'crop' | 'scale') {
+	function resizeCanvas(width: number, height: number, mode: 'crop' | 'scale' | 'scale2x') {
 		session.resizeCanvas(width, height, mode);
 	}
 
