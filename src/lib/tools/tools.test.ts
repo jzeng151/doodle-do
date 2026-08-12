@@ -44,6 +44,27 @@ describe('floodFill (B3)', () => {
 		expect(floodFill(doc, 0, 0, -1, 0, 5)).toBeNull();
 		expect(floodFill(doc, 0, 0, 8, 0, 5)).toBeNull();
 	});
+
+	it('fills similar palette colors within tolerance', () => {
+		const doc = testDoc(3, 1);
+		doc.palette[0] = '#101010';
+		doc.palette[1] = '#181818';
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 3]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 4, 10)!;
+		expect(cmd.pixelCount).toBe(2);
+		cmd.do(doc);
+		expect([...pixels]).toEqual([4, 4, 3]);
+	});
+
+	it('fills all matching regions when contiguous is off', () => {
+		const doc = testDoc(4, 1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 1, 2]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 3, 0, false)!;
+		cmd.do(doc);
+		expect([...pixels]).toEqual([3, 2, 3, 2]);
+	});
 });
 
 describe('floodRegion (wand)', () => {

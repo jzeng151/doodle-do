@@ -67,6 +67,8 @@ export class EditorSession {
 	brushSize = $state(1);
 	pixelPerfect = $state(false);
 	shapeFilled = $state(false);
+	fillTolerance = $state(0);
+	fillContiguous = $state(true);
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
@@ -629,7 +631,16 @@ export class EditorSession {
 	fill(x: number, y: number): void {
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmds = this.editTargets()
-			.map((f) => floodFill(this.doc, f, this.currentLayer, x, y, this.colorValue))
+			.map((f) => floodFill(
+				this.doc,
+				f,
+				this.currentLayer,
+				x,
+				y,
+				this.colorValue,
+				Math.max(0, Math.min(255, this.fillTolerance || 0)),
+				this.fillContiguous
+			))
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		if (!cmds.length) return;
 		if (cmds.length === 1) {

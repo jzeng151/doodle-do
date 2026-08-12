@@ -72,6 +72,20 @@
 				Pixel perfect
 			</button>
 		{/if}
+		{#if session.tool === 'fill'}
+			<label title="How similar colors must be to the clicked color">
+				Tolerance
+				<input type="number" min="0" max="255" bind:value={session.fillTolerance} />
+			</label>
+			<button
+				class:active={session.fillContiguous}
+				aria-pressed={session.fillContiguous}
+				title="Fill only the connected region or every matching pixel"
+				onclick={() => (session.fillContiguous = !session.fillContiguous)}
+			>
+				{session.fillContiguous ? 'Connected' : 'All matching'}
+			</button>
+		{/if}
 		{#if session.tool === 'rectangle' || session.tool === 'ellipse'}
 			<button
 				class:active={session.shapeFilled}
@@ -193,6 +207,7 @@
 		gap: 0.35em;
 		align-items: center;
 	}
+	label input[type='number'] { width: 4rem; }
 	.onion input {
 		width: 72px;
 		accent-color: var(--ink);
