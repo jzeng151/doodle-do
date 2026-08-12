@@ -187,6 +187,7 @@ export class EditorSession {
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
@@ -201,6 +202,7 @@ export class EditorSession {
 		const currentDoc = structuredClone(this.doc);
 		const forkDoc = structuredClone(fork.doc);
 		this.selectionMask = fork.selectionMask = null;
+		this.previousSelectionMask = fork.previousSelectionMask = null;
 		this.clearGestures();
 		fork.clearGestures();
 		this.bulkFrames = fork.bulkFrames = [];
@@ -300,6 +302,7 @@ export class EditorSession {
 	}
 
 	deselect(): void {
+		if (!this.selectionMask && !this.floating) return;
 		this.commitFloating();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
 		this.selectionMask = null;
@@ -312,8 +315,9 @@ export class EditorSession {
 		this.clearGestures();
 		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
-		this.selectionMask = new Uint8Array(length);
-		for (let i = 0; i < length; i++) this.selectionMask[i] = Number(!before?.[i]);
+		const inverted = new Uint8Array(length);
+		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
+		this.selectionMask = inverted.some(Boolean) ? inverted : null;
 		this.previousSelectionMask = before;
 		this.overlayVersion++;
 	}
@@ -536,6 +540,7 @@ export class EditorSession {
 	}
 
 	cancelFloating(): void {
+		const restoreGesture = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (this.floating) {
 			const sel = this.floating;
 			this.floating = null;
@@ -548,7 +553,7 @@ export class EditorSession {
 			}
 			this.floatingPeers = [];
 		}
-		this.selectionMask = null;
+		this.selectionMask = restoreGesture ? this.previousSelectionMask?.slice() ?? null : null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
