@@ -141,6 +141,7 @@ export class EditorSession {
 
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
+		this.lineEnd();
 		this.commitFloating();
 		this.selectionMask = null;
 		this.clearGestures();
@@ -154,6 +155,7 @@ export class EditorSession {
 	// document, current frame, zoom, and palette because nothing is rebuilt.
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
+		this.lineEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -201,6 +203,7 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index !== this.currentFrame) this.lineEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -612,6 +615,10 @@ export class EditorSession {
 
 	get strokeActive(): boolean {
 		return this.strokes.length > 0;
+	}
+
+	get lineActive(): boolean {
+		return this.lineOrigin !== null;
 	}
 
 	// --- other tools ---
