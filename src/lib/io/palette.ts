@@ -13,7 +13,7 @@ export function parseTextPalette(text: string): string[] {
 			: rgbMatch && rgbMatch.slice(1).every((value) => Number(value) <= 255)
 				? hex(...(rgbMatch.slice(1).map(Number) as [number, number, number]))
 				: null;
-		if (color && !colors.includes(color)) colors.push(color);
+		if (color) colors.push(color);
 	}
 	if (!colors.length) throw new Error('No RGB colors were found in that palette file.');
 	return colors.slice(0, MAX_PALETTE);
@@ -50,7 +50,7 @@ export function hexPalette(colors: string[]): string {
 	return `${colors.join('\n')}\n`;
 }
 
-export function paletteFromArtwork(doc: Doc): Doc | null {
+export function paletteFromArtwork(doc: Doc): { doc: Doc; map: Map<number, number> } | null {
 	const used = new Set<number>();
 	for (const frame of doc.frames) for (const layer of frame.layers) for (const value of layer.pixels) if (value) used.add(value);
 	if (!used.size) return null;
@@ -58,10 +58,13 @@ export function paletteFromArtwork(doc: Doc): Doc | null {
 	const map = new Map(values.map((value, index) => [value, index + 1]));
 	const next = structuredClone(doc);
 	next.palette = values.map((value) => doc.palette[value - 1]);
+	const remapped = new Set<Uint8Array>();
 	for (const frame of next.frames) {
 		for (const layer of frame.layers) {
+			if (remapped.has(layer.pixels)) continue;
+			remapped.add(layer.pixels);
 			for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i]) layer.pixels[i] = map.get(layer.pixels[i])!;
 		}
 	}
-	return next;
+	return { doc: next, map };
 }

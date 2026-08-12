@@ -80,7 +80,8 @@ export function doodledoJson(doc: Doc, layout: SheetLayout, imageName: string): 
 			frames: layout.rects.map((rect, i) => ({
 				...rect,
 				durationMs: Math.round(frameDurationMs(doc, i))
-			}))
+			})),
+			...(doc.meta.tags?.length && { animations: doc.meta.tags })
 		},
 		null,
 		'\t'

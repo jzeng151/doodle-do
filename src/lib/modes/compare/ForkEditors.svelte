@@ -76,7 +76,7 @@
 </script>
 
 <div class="fork-editors" role="region" aria-label="Side-by-side editors">
-	<section class="editor-pane" aria-labelledby="current-editor-heading">
+	<section class="editor-pane" aria-labelledby="current-editor-heading" data-editor-branch="current">
 		<header class="pane-heading">
 			<div class="pane-title">
 				<strong id="current-editor-heading">Current</strong>
@@ -94,7 +94,7 @@
 		<FrameStrip {session} />
 	</section>
 
-	<section class="editor-pane" aria-labelledby="fork-editor-heading">
+	<section class="editor-pane" aria-labelledby="fork-editor-heading" data-editor-branch="fork">
 		<header class="pane-heading">
 			<div class="pane-title">
 				<strong id="fork-editor-heading">Fork</strong>
