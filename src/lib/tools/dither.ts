@@ -10,7 +10,8 @@ export function ditherValue(
 ): number {
 	if (!size || secondary === undefined) return primary;
 	const matrix = size === 2 ? BAYER_2 : BAYER_4;
-	return matrix[(y % size + size) % size * size + (x % size + size) % size] < matrix.length / 2
+	const threshold = matrix[(y % size + size) % size * size + (x % size + size) % size];
+	return (size === 2 ? threshold < 2 : threshold % 4 < 2)
 		? primary
 		: secondary;
 }

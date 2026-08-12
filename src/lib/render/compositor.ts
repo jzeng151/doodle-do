@@ -24,6 +24,7 @@ export class Compositor {
 	}
 
 	invalidate(region: DirtyRegion): void {
+		if (region.metadata) return;
 		if (region.palette) {
 			this.invalidatePalette();
 			return;
