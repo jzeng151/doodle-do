@@ -607,7 +607,10 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else {
+			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, rect: null });
+		}
 	}
 
 	cancelFloating(): void {

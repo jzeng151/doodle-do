@@ -24,7 +24,7 @@ export class LoopPlayer {
 		private readonly onFrame?: (frame: number) => void,
 		private readonly range?: () => { start: number; end: number }, // live playback range, inclusive
 		private readonly playbackSpeed?: () => number,
-		private readonly drawOverlay?: (ctx: CanvasRenderingContext2D, frame: number) => void
+		private readonly drawFrame?: (ctx: CanvasRenderingContext2D, frame: number) => boolean
 	) {}
 
 	get playing(): boolean {
@@ -74,13 +74,8 @@ export class LoopPlayer {
 		const ctx = this.target.getContext('2d')!;
 		ctx.imageSmoothingEnabled = false;
 		ctx.clearRect(0, 0, this.target.width, this.target.height);
-		ctx.drawImage(
-			this.compositor.frameCanvas(this.frame),
-			0,
-			0,
-			this.target.width,
-			this.target.height
-		);
-		this.drawOverlay?.(ctx, this.frame);
+		if (!this.drawFrame?.(ctx, this.frame)) {
+			ctx.drawImage(this.compositor.frameCanvas(this.frame), 0, 0, this.target.width, this.target.height);
+		}
 	}
 }
