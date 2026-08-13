@@ -77,6 +77,8 @@ type AxisHistory = {
 	projectedAfter?: (number | undefined)[];
 	exactAfter?: (number | undefined)[];
 	projectedBefore?: (number | undefined)[];
+	projectedAfterGeneration?: (number | undefined)[];
+	projectedBeforeGeneration?: (number | undefined)[];
 };
 
 export class EditorSession {
@@ -163,6 +165,7 @@ export class EditorSession {
 	private manualPaletteAdds = 0;
 	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, AxisHistory>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, AxisHistory>();
+	private mirrorAxisGeneration: [number, number] = [0, 0];
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
@@ -430,6 +433,7 @@ export class EditorSession {
 	setMirrorAxis(axis: 'x' | 'y', value: number): void {
 		this.lineEnd();
 		this.shapeEnd();
+		this.mirrorAxisGeneration[axis === 'x' ? 0 : 1]++;
 		if (axis === 'x') this.mirrorAxisX = this.normalizeAxis(value, this.doc.meta.width - 1);
 		else this.mirrorAxisY = this.normalizeAxis(value, this.doc.meta.height - 1);
 	}
@@ -456,15 +460,17 @@ export class EditorSession {
 		const toSize = undo ? axes.beforeSize : axes.afterSize;
 		const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
 		return [0, 1].map((index) => {
-			if (action === 'undo' && axes.projectedAfter?.[index] === current[index]) return axes.exactBefore![index]!;
-			if (action === 'redo' && axes.projectedBefore?.[index] === current[index]) return axes.exactAfter![index]!;
+			if (action === 'undo' && axes.projectedAfter?.[index] === current[index] && axes.projectedAfterGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactBefore![index]!;
+			if (action === 'redo' && axes.projectedBefore?.[index] === current[index] && axes.projectedBeforeGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactAfter![index]!;
 			const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
 			if (axes.scaled && action === 'undo' && current[index] !== before[index]) {
 				(axes.exactAfter ??= [])[index] = current[index];
 				(axes.projectedBefore ??= [])[index] = next;
+				(axes.projectedBeforeGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
 			} else if (axes.scaled && action === 'redo' && current[index] !== before[index]) {
 				(axes.exactBefore ??= [])[index] = current[index];
 				(axes.projectedAfter ??= [])[index] = next;
+				(axes.projectedAfterGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
 			}
 			return next;
 		}) as [number, number];
@@ -1087,7 +1093,8 @@ export class EditorSession {
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
 				this.fillContiguous,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.tiledDrawing
 			))
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		if (!cmds.length) return;
