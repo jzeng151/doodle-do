@@ -11,6 +11,8 @@
 	let currentPlayer: LoopPlayer;
 	let forkPlayer: LoopPlayer;
 	let playing = $state(false);
+	let currentComplete = false;
+	let forkComplete = false;
 	let currentFrame = $state(0);
 	let forkFrame = $state(0);
 
@@ -28,8 +30,18 @@
 	}
 
 	function start() {
-		currentPlayer.start();
-		forkPlayer.start();
+		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
+		if (!currentComplete) currentPlayer.start();
+		if (!forkComplete) forkPlayer.start();
+	}
+
+	function complete(side: 'current' | 'fork') {
+		if (side === 'current') currentComplete = true;
+		else forkComplete = true;
+		if (currentComplete && forkComplete) {
+			playing = false;
+			stop();
+		}
 	}
 
 	function stop() {
@@ -53,7 +65,8 @@
 			undefined,
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
-			() => session.loopRepeatCount
+			() => session.loopRepeatCount,
+			() => complete('current')
 		);
 		forkPlayer = new LoopPlayer(
 			fork.doc,
@@ -63,7 +76,8 @@
 			undefined,
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
-			() => session.loopRepeatCount
+			() => session.loopRepeatCount,
+			() => complete('fork')
 		);
 		playing = !media.matches;
 		if (playing) start();
