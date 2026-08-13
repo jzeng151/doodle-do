@@ -1132,21 +1132,22 @@ export class EditorSession {
 				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
 			}
 		}
-		const source = this.floating ? structuredClone(this.doc) : this.doc;
+		const staged = new Map<string, Uint8Array>();
 		if (this.floating) {
 			for (const { main, twin } of [
 				{ main: this.floating, twin: this.floatingTwin },
 				...this.floatingPeers
 			]) {
 				const layerPixels = (twin ? main.extractPair(twin) : main.extract()).layerPixels;
-				const pixels = source.frames[main.frameIndex].layers[main.layerIndex].pixels;
+				const pixels = this.doc.frames[main.frameIndex].layers[main.layerIndex].pixels.slice();
 				for (let i = 0; i < pixels.length; i++) if (layerPixels[i]) pixels[i] = layerPixels[i];
+				staged.set(`${main.frameIndex}:${main.layerIndex}`, pixels);
 			}
 		}
 		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
 		let byteSize = 0;
 		for (const { frame, layer, mask } of targets) {
-			const cmd = replaceColorCommand(source, frame, layer, from, to, mask);
+			const cmd = replaceColorCommand(this.doc, frame, layer, from, to, mask, staged.get(`${frame}:${layer}`));
 			if (!cmd) continue;
 			byteSize += cmd.byteSize;
 			if (byteSize + (cmds.length ? 64 : 0) > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
