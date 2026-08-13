@@ -729,6 +729,10 @@ export class EditorSession {
 			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
 			this.floatingTwin.moveBy(desiredX - this.floatingTwin.renderRect.x, 0);
 		}
+		for (const peer of this.floatingPeers) if (peer.twin) {
+			const desiredX = this.doc.meta.width - peer.main.renderRect.x - peer.twin.renderRect.w;
+			peer.twin.moveBy(desiredX - peer.twin.renderRect.x, 0);
+		}
 	}
 
 	// arrow-key nudge: a bare mask lifts first, like flip()
