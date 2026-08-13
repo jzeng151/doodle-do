@@ -335,6 +335,8 @@ export class EditorSession {
 	}
 
 	deselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (!this.selectionMask && !this.floating && !pending) return;
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
@@ -346,6 +348,8 @@ export class EditorSession {
 	}
 
 	invertSelection(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
@@ -358,6 +362,8 @@ export class EditorSession {
 	}
 
 	reselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
 		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
