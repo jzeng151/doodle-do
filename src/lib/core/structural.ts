@@ -11,6 +11,12 @@ function frameBytes(frame: Frame): number {
 	return frame.layers.reduce((sum, l) => sum + l.pixels.byteLength, 0) + 64;
 }
 
+function documentBytes(doc: Doc): number {
+	const buffers = new Set<Uint8Array>();
+	for (const frame of doc.frames) for (const layer of frame.layers) buffers.add(layer.pixels);
+	return doc.frames.length * 64 + [...buffers].reduce((sum, pixels) => sum + pixels.byteLength, 0);
+}
+
 function replaceDocument(doc: Doc, snapshot: Doc): void {
 	const copy = structuredClone(snapshot);
 	doc.meta = copy.meta;
@@ -62,10 +68,7 @@ export class DocumentReplaceCommand implements Command {
 	constructor(doc: Doc, replacement: Doc) {
 		this.before = structuredClone(doc);
 		this.after = structuredClone(replacement);
-		this.byteSize = [...this.before.frames, ...this.after.frames].reduce(
-			(sum, frame) => sum + frameBytes(frame),
-			256
-		);
+		this.byteSize = 256 + documentBytes(this.before) + documentBytes(this.after);
 	}
 
 	do(doc: Doc): void {
@@ -86,18 +89,19 @@ export class PaletteSortCommand implements Command {
 	readonly kind = 'palette-sort';
 	private readonly replacement: DocumentReplaceCommand;
 	readonly byteSize: number;
+	readonly reverseColors: ReadonlyMap<number, number>;
 	constructor(
 		doc: Doc,
 		after: Doc,
-		readonly beforeColors: [number, number],
-		readonly afterColors: [number, number]
+		readonly forwardColors: ReadonlyMap<number, number>
 	) {
 		this.replacement = new DocumentReplaceCommand(doc, after);
 		this.byteSize = this.replacement.byteSize;
+		this.reverseColors = new Map([...forwardColors].map(([before, after]) => [after, before]));
 	}
 	do(doc: Doc): void { this.replacement.do(doc); }
 	undo(doc: Doc): void { this.replacement.undo(doc); }
-	serialize(): unknown { return { kind: this.kind }; }
+	serialize(): unknown { return { kind: this.kind, colors: [...this.forwardColors] }; }
 	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 
@@ -176,8 +180,13 @@ export class UnlinkFrameCommand implements Command {
 	}
 	undo(doc: Doc): void {
 		doc.frames[this.frameIndex].layers.forEach((layer, i) => {
-			layer.pixels = this.before[i].pixels;
-			if (this.before[i].linkId) layer.linkId = this.before[i].linkId;
+			const before = this.before[i];
+			const peer = before.linkId
+				? doc.frames.flatMap((frame) => frame.layers).find((other) => other !== layer && other.linkId === before.linkId)
+				: undefined;
+			layer.pixels = peer?.pixels ?? before.pixels;
+			if (before.linkId) layer.linkId = before.linkId;
+			else delete layer.linkId;
 		});
 	}
 	serialize(): unknown { return { kind: this.kind, frame: this.frameIndex }; }

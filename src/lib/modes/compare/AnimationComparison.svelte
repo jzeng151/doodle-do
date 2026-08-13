@@ -29,6 +29,13 @@
 		return Math.max(1, Math.floor(512 / Math.max(doc.meta.width, doc.meta.height)));
 	}
 
+	function playbackRange(target: EditorSession) {
+		const range = session.effectiveLoopRange();
+		const last = target.doc.frames.length - 1;
+		const start = Math.min(range.start, last);
+		return { start, end: Math.max(start, Math.min(range.end, last)) };
+	}
+
 	function start() {
 		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
 		if (!currentComplete) currentPlayer.start();
@@ -61,7 +68,7 @@
 			session.compositor,
 			currentEl,
 			(frame) => (currentFrame = frame),
-			undefined,
+			() => playbackRange(session),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
@@ -72,7 +79,7 @@
 			fork.compositor,
 			forkEl,
 			(frame) => (forkFrame = frame),
-			undefined,
+			() => playbackRange(fork),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
@@ -106,6 +113,16 @@
 	$effect(() => {
 		void fork.version;
 		if (forkPlayer && !playing) forkPlayer.blit();
+	});
+
+	$effect(() => {
+		const range = session.effectiveLoopRange();
+		void `${range.start}:${range.end}:${session.loopPlaybackMode}:${session.loopRepeatCount}:${currentCount}:${forkCount}`;
+		if (!currentPlayer) return;
+		currentComplete = forkComplete = false;
+		currentPlayer.reset();
+		forkPlayer.reset();
+		if (playing) start();
 	});
 </script>
 

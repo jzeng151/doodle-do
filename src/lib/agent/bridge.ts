@@ -19,9 +19,22 @@ function integer(args: Args, key: string, min: number, max: number): number {
 	return value as number;
 }
 
+function number(args: Args, key: string, min: number, max: number, fallback: number): number {
+	const value = args[key] ?? fallback;
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+		throw new Error(`${key} must be a number from ${min} to ${max}`);
+	}
+	return value;
+}
+
 function target(session: EditorSession, args: Args): { frame: number; layer: number } {
 	const frame = integer(args, 'frame', 0, session.doc.frames.length - 1);
-	return { frame, layer: integer(args, 'layer', 0, session.doc.frames[frame].layers.length - 1) };
+	const layer = integer(args, 'layer', 0, session.doc.frames[frame].layers.length - 1);
+	const pixels = session.doc.frames[frame].layers[layer].pixels;
+	if (session.doc.frames.some((candidate) => candidate.layers.some((item) => item !== session.doc.frames[frame].layers[layer] && item.pixels === pixels))) {
+		throw new Error('target is a linked cel; unlink it before applying an agent edit');
+	}
+	return { frame, layer };
 }
 
 function editable(session: EditorSession, args: Args): void {
@@ -64,7 +77,8 @@ export function executeAgentOperation(
 				layers: frame.layers.map((layer, layerIndex) => ({
 					index: layerIndex,
 					name: layer.name,
-					visible: layer.visible
+					visible: layer.visible,
+					linkId: layer.linkId ?? null
 				}))
 			})),
 			history: { canUndo: session.bus.canUndo, canRedo: session.bus.canRedo }
@@ -106,6 +120,10 @@ export function executeAgentOperation(
 		const value = pixelValue(session, args);
 		const brushSize = integer(args, 'brushSize', 1, 4);
 		if (typeof args.mirrorX !== 'boolean') throw new Error('mirrorX must be boolean');
+		const mirrorY = args.mirrorY ?? false;
+		if (typeof mirrorY !== 'boolean') throw new Error('mirrorY must be boolean');
+		const mirrorAxisX = number(args, 'mirrorAxisX', 0, doc.meta.width - 1, (doc.meta.width - 1) / 2);
+		const mirrorAxisY = number(args, 'mirrorAxisY', 0, doc.meta.height - 1, (doc.meta.height - 1) / 2);
 		if (!Array.isArray(args.points) || args.points.length < 1 || args.points.length > 2048) {
 			throw new Error('points must contain 1 to 2048 coordinates');
 		}
@@ -116,7 +134,7 @@ export function executeAgentOperation(
 				y: integer(p, 'y', 0, doc.meta.height - 1)
 			};
 		});
-		const stroke = new StrokeBuilder(doc, frame, layer, value, brushSize, args.mirrorX);
+		const stroke = new StrokeBuilder(doc, frame, layer, value, brushSize, args.mirrorX, undefined, false, undefined, 0, mirrorAxisX, mirrorY, mirrorAxisY);
 		stroke.begin(points[0].x, points[0].y);
 		for (const point of points.slice(1)) stroke.moveTo(point.x, point.y);
 		const command = stroke.end();
