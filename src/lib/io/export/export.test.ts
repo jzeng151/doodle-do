@@ -22,6 +22,14 @@ describe('flattenFrameIndices', () => {
 		}
 		expect(flattenFrameIndices(doc, 0)[0]).toBe(1);
 	});
+
+	it('quantizes translucent blends to the nearest visible palette color', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#ff0000', '#0000ff'], layerCount: 2 });
+		doc.frames[0].layers[0].pixels[0] = 1;
+		doc.frames[0].layers[1].pixels[0] = 2;
+		doc.frames[0].layers[1].opacity = .05;
+		expect(flattenFrameIndices(doc, 0)[0]).toBe(1);
+	});
 });
 
 describe('sheetLayout', () => {

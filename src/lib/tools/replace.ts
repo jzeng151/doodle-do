@@ -14,9 +14,10 @@ export class ReplaceColorCommand implements Command {
 		private readonly layerIndex: number,
 		private readonly from: number,
 		private readonly to: number,
-		mask?: Uint8Array | null
+		mask?: Uint8Array | null,
+		sourcePixels?: Uint8Array
 	) {
-		const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
+		const pixels = sourcePixels ?? doc.frames[frameIndex].layers[layerIndex].pixels;
 		const indices: number[] = [];
 		let count = 0, minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
 		for (let i = 0; i < pixels.length; i++) {
@@ -56,9 +57,10 @@ export function replaceColorCommand(
 	layerIndex: number,
 	from: number,
 	to: number,
-	mask?: Uint8Array | null
+	mask?: Uint8Array | null,
+	sourcePixels?: Uint8Array
 ): ReplaceColorCommand | null {
 	if (from === to) return null;
-	const command = new ReplaceColorCommand(doc, frameIndex, layerIndex, from, to, mask);
+	const command = new ReplaceColorCommand(doc, frameIndex, layerIndex, from, to, mask, sourcePixels);
 	return command.pixelCount ? command : null;
 }
