@@ -6,7 +6,7 @@ import type { Doc, Layer } from './document';
 import { buildLut } from './palette';
 import { blendPacked } from '../render/compositor';
 
-export function compositePixelIndex(layers: Layer[], index: number, palette: string[], lut = buildLut(palette), alphaThreshold = 128): number {
+export function compositePixelIndex(layers: Layer[], index: number, palette: string[], lut = buildLut(palette), alphaThreshold = 128, quantized?: Map<number, number>): number {
 	let color = 0;
 	for (const layer of layers) {
 		if (!layer.visible) continue;
@@ -14,6 +14,8 @@ export function compositePixelIndex(layers: Layer[], index: number, palette: str
 		if (value) color = blendPacked(color, lut[value], layer.opacity ?? 1);
 	}
 	if ((color >>> 24) < alphaThreshold) return 0;
+	const cached = quantized?.get(color);
+	if (cached !== undefined) return cached;
 	let nearest = 1, distance = Infinity;
 	for (let value = 1; value <= palette.length; value++) {
 		const red = (color & 255) - (lut[value] & 255);
@@ -22,6 +24,7 @@ export function compositePixelIndex(layers: Layer[], index: number, palette: str
 		const score = red * red + green * green + blue * blue;
 		if (score < distance) [nearest, distance] = [value, score];
 	}
+	quantized?.set(color, nearest);
 	return nearest;
 }
 
@@ -30,6 +33,8 @@ export function flattenFrameIndices(doc: Doc, frameIndex: number): Uint8Array {
 	const out = new Uint8Array(width * height);
 	const layers = doc.frames[frameIndex].layers;
 	const lut = buildLut(doc.palette);
-	for (let i = 0; i < out.length; i++) out[i] = compositePixelIndex(layers, i, doc.palette, lut);
+	const quantized = new Map<number, number>();
+	for (let value = 1; value <= doc.palette.length; value++) if (!quantized.has(lut[value])) quantized.set(lut[value], value);
+	for (let i = 0; i < out.length; i++) out[i] = compositePixelIndex(layers, i, doc.palette, lut, 128, quantized);
 	return out;
 }

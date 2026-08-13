@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDoc } from '../../core/document';
 import { DEFAULT_PALETTE } from '../../core/palette';
-import { flattenFrameIndices } from '../../core/flatten';
+import { compositePixelIndex, flattenFrameIndices } from '../../core/flatten';
 import { doodledoJson, sheetLayout, texturePackerJson } from './spritesheet';
 
 describe('flattenFrameIndices', () => {
@@ -29,6 +29,17 @@ describe('flattenFrameIndices', () => {
 		doc.frames[0].layers[1].pixels[0] = 2;
 		doc.frames[0].layers[1].opacity = .05;
 		expect(flattenFrameIndices(doc, 0)[0]).toBe(1);
+	});
+
+	it('reuses composited-color quantization', () => {
+		const doc = createDoc({ width: 2, height: 1, palette: ['#ff0000', '#0000ff'], layerCount: 2 });
+		for (const layer of doc.frames[0].layers) layer.pixels.fill(1);
+		doc.frames[0].layers[1].pixels.fill(2);
+		doc.frames[0].layers[1].opacity = .5;
+		const quantized = new Map<number, number>();
+		expect(compositePixelIndex(doc.frames[0].layers, 0, doc.palette, undefined, 128, quantized)).toBe(1);
+		expect(compositePixelIndex(doc.frames[0].layers, 1, doc.palette, undefined, 128, quantized)).toBe(1);
+		expect(quantized.size).toBe(1);
 	});
 });
 
