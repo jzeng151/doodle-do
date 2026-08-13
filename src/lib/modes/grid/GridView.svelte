@@ -78,6 +78,7 @@
 		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
 		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
+		const secondaryColorValue = backgroundAction ? session.colorValue : session.backgroundColorValue;
 		keyboardX = x;
 		keyboardY = y;
 		session.selectFrame(i);
@@ -86,20 +87,20 @@
 			case 'eraser':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
-				session.strokeBegin(x, y, colorValue);
+				session.strokeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'line':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
 				linePointer = e.pointerId;
-				session.lineBegin(x, y, colorValue);
+				session.lineBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
 				shapePointer = e.pointerId;
-				session.shapeBegin(x, y, colorValue);
+				session.shapeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'move':
 				el.setPointerCapture(e.pointerId);
@@ -109,7 +110,7 @@
 				session.beginLayerMove();
 				break;
 			case 'fill':
-				session.fill(x, y, colorValue);
+				session.fill(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'eyedropper':
 				session.eyedrop(x, y, backgroundAction);

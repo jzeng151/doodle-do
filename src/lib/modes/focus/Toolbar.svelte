@@ -104,6 +104,19 @@
 				{session.fillContiguous ? 'Connected' : 'All matching'}
 			</button>
 		{/if}
+		{#if ['pencil', 'line', 'fill', 'rectangle', 'ellipse'].includes(session.tool)}
+			<button
+				class:active={session.ditherEnabled}
+				aria-pressed={session.ditherEnabled}
+				title="Alternate foreground and background colors in a fixed pattern"
+				onclick={() => { session.lineEnd(); session.shapeEnd(); session.ditherEnabled = !session.ditherEnabled; }}
+			>
+				Dither
+			</button>
+			{#if session.ditherEnabled}
+				<label>Pattern<select value={session.ditherSize} onchange={(e) => { session.lineEnd(); session.shapeEnd(); session.ditherSize = Number(e.currentTarget.value) as 2 | 4; }}><option value={2}>2×2</option><option value={4}>4×4</option></select></label>
+			{/if}
+		{/if}
 		{#if session.tool === 'rectangle' || session.tool === 'ellipse'}
 			<button
 				class:active={session.shapeFilled}

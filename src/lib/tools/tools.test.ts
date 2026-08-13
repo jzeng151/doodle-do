@@ -7,6 +7,7 @@ import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
 import { ellipsePoints, rectanglePoints } from './shapes';
 import { replaceColorCommand } from './replace';
+import { ditherValue } from './dither';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -163,6 +164,30 @@ describe('mirror-draw', () => {
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
 		stroke.begin(3, 3);
 		expect(stroke.end()!.pixelCount).toBe(1);
+	});
+
+	it('mirrors dither colors with the stroke geometry', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(1, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
+
+	it('does not repaint an overlapping mirrored dither stamp', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(3, 2);
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 4]).toBe(ditherValue(4, 2, 3, 4, 2));
+	});
+
+	it('preserves mirrored dither colors across successive brush centers', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(2, 2);
+		stroke.moveTo(3, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 3]).toBe(pixels[2 * 8 + 4]);
 	});
 });
 
@@ -335,5 +360,22 @@ describe('replace color', () => {
 		expect(cmd.byteSize).toBeLessThan(100);
 		cmd.do(doc);
 		expect(doc.frames[0].layers[0].pixels[123]).toBe(3);
+	});
+});
+
+describe('dithering', () => {
+	it('alternates primary and secondary colors in stable 2x2 and 4x4 patterns', () => {
+		expect([0, 1, 2, 3].map((i) => ditherValue(i % 2, (i / 2) | 0, 1, 2, 2))).toEqual([1, 2, 2, 1]);
+		const four = Array.from({ length: 16 }, (_, i) => ditherValue(i % 4, (i / 4) | 0, 1, 2, 4));
+		expect(four.filter((v) => v === 1)).toHaveLength(8);
+		expect(four).not.toEqual(Array.from({ length: 16 }, (_, i) => ditherValue(i % 4, (i / 4) | 0, 1, 2, 2)));
+	});
+
+	it('applies the pattern to fill output', () => {
+		const doc = testDoc(2, 2);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 1, 0, true, 2, 2)!;
+		cmd.do(doc);
+		expect([...doc.frames[0].layers[0].pixels]).toEqual([1, 2, 2, 1]);
+		expect(floodFill(doc, 0, 0, 0, 0, 1, 1, true, 2, 2)).toBeNull();
 	});
 });

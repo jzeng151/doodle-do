@@ -3,6 +3,7 @@
 
 import type { Doc } from '../core/document';
 import { PixelDiffCommand } from '../core/commands';
+import { ditherValue } from './dither';
 
 // The contiguous same-value region containing (x, y), as pixel indices.
 // Shared by the fill tool and the magic-wand selection.
@@ -52,7 +53,9 @@ export function floodFill(
 	y: number,
 	value: number,
 	tolerance = 0,
-	contiguous = true
+	contiguous = true,
+	secondaryValue?: number,
+	ditherSize: 0 | 2 | 4 = 0
 ): PixelDiffCommand | null {
 	const { width, height } = doc.meta;
 	if (x < 0 || y < 0 || x >= width || y >= height) return null;
@@ -64,12 +67,14 @@ export function floodFill(
 	const matches = (candidate: number) => !!match[candidate];
 	const hits = (contiguous
 		? connectedRegion(pixels, width, height, x, y, matches)
-		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])))
-		.filter((index) => pixels[index] !== value);
-	if (!hits.length) return null;
-	const indices = new Uint32Array(hits);
-	const before = new Uint8Array(hits.map((index) => pixels[index]));
-	const after = new Uint8Array(hits.length).fill(value);
+		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])));
+	const changes = hits
+		.map((index) => ({ index, after: ditherValue(index % width, (index / width) | 0, value, secondaryValue, ditherSize) }))
+		.filter(({ index, after }) => pixels[index] !== after);
+	if (!changes.length) return null;
+	const indices = new Uint32Array(changes.map(({ index }) => index));
+	const before = new Uint8Array(changes.map(({ index }) => pixels[index]));
+	const after = new Uint8Array(changes.map(({ after }) => after));
 	return new PixelDiffCommand('flood-fill', frameIndex, layerIndex, indices, before, after, width);
 }
 
