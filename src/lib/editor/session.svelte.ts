@@ -152,7 +152,11 @@ export class EditorSession {
 				this.overlayVersion++;
 			}
 			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
-			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
+			if (colors && action === 'dispatch') [this.colorValue, this.backgroundColorValue] = colors.after;
+			else if (command instanceof PaletteRemoveCommand && action !== 'dispatch') {
+				this.colorValue = command.mapActiveColor(this.colorValue, action);
+				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
+			}
 			this.unsavedCommits++;
 		});
 	}
