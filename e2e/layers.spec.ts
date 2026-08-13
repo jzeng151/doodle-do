@@ -82,3 +82,16 @@ test('Move clamps the active layer when changing to a shorter frame', async ({ p
 	await page.keyboard.press('Space');
 	expect(errors).toEqual([]);
 });
+
+test('layer flip commits a pending whole-layer move first', async ({ page }) => {
+	await page.goto('/canvas');
+	const editor = page.locator('canvas.editor');
+	await editor.waitFor();
+	await drawDot(page, 8, 8);
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.getByRole('button', { name: 'Flip H' }).click();
+	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [23, 8] as [number, number])).toBe(true);
+});
