@@ -1139,6 +1139,7 @@ export class EditorSession {
 
 	importPalette(colors: string[]): boolean {
 		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return false;
+		if (colors.length === this.doc.palette.length && colors.every((color, index) => color === this.doc.palette[index])) return true;
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating();

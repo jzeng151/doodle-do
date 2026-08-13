@@ -82,6 +82,7 @@
 					? `Imported ${colors.length} colors.`
 					: 'Unlock the palette before importing.';
 			} catch (error) {
+				if (generation !== importGeneration) return;
 				ioStatus = error instanceof Error ? error.message : 'Palette import failed.';
 			}
 		};
