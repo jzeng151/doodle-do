@@ -76,6 +76,10 @@ describe('project file round-trip', () => {
 			raw.meta.tags = [{ name: 'walk', from: 0, to: 0, direction: 'forward', repeats }];
 			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
 		}
+		for (const value of [null, '', '0']) {
+			raw.meta.tags = [{ name: 'walk', from: value, to: 0, direction: 'forward', repeats: 0 }];
+			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
+		}
 	});
 
 	it('rejects wrong format, version, and corrupt payloads', () => {

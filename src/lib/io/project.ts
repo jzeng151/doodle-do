@@ -86,10 +86,9 @@ export function parseProject(text: string): Doc {
 		const names = new Set<string>();
 		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {
 			const name = typeof tag.name === 'string' ? tag.name.trim() : '';
-			const from = Number(tag.from), to = Number(tag.to);
-			const repeats = Number(tag.repeats);
+			const { from, to, repeats } = tag;
 			const direction = tag.direction;
-			if (!name || names.has(name) || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
+			if (!name || names.has(name) || typeof from !== 'number' || typeof to !== 'number' || typeof repeats !== 'number' || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
 			names.add(name);
 			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats };
 		});

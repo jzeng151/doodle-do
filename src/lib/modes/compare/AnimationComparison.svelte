@@ -62,7 +62,7 @@
 			session.compositor,
 			currentEl,
 			(frame) => (currentFrame = frame),
-			undefined,
+			() => session.effectiveLoopRange(),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
@@ -73,7 +73,12 @@
 			fork.compositor,
 			forkEl,
 			(frame) => (forkFrame = frame),
-			undefined,
+			() => {
+				const range = session.effectiveLoopRange();
+				const last = fork.doc.frames.length - 1;
+				const start = Math.min(range.start, last);
+				return { start, end: Math.max(start, Math.min(range.end, last)) };
+			},
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
