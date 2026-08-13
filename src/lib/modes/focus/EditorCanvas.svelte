@@ -383,7 +383,7 @@
 				}
 				// 4) otherwise start this tool's gesture; without shift it
 				// replaces the selection (committing any pending float, B5)
-				const additive = e.shiftKey && !session.floating;
+				const additive = e.shiftKey;
 				switch (session.tool) {
 					case 'select':
 						session.beginMarquee(x, y, additive);

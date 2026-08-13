@@ -326,6 +326,10 @@ export class EditorSession {
 		return !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 	}
 
+	get selectionGestureActive(): boolean {
+		return this.selectionGesturePending();
+	}
+
 	private effectiveSelectionMask(): Uint8Array | null {
 		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		const twin = this.floatingTwin?.coverageMask()
@@ -347,7 +351,8 @@ export class EditorSession {
 	private bakeMask(add: Uint8Array): void {
 		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
 		const next = this.canonicalSelectionMask(combineMasks(this.effectiveSelectionMask(), add, this.gestureSelectionMode));
-		const changed = !next || !this.gestureBaseMask || next.some((value, index) => value !== this.gestureBaseMask![index]);
+		const changed = !!next !== !!this.gestureBaseMask
+			|| !!next?.some((value, index) => value !== this.gestureBaseMask![index]);
 		this.selectionMask = next;
 		if (changed) this.previousSelectionMask = this.gestureBaseMask;
 		this.gestureBaseMask = null;
@@ -504,6 +509,7 @@ export class EditorSession {
 
 	// mask extents, for the rotate handle before the selection lifts
 	selectionBounds(): Rect | null {
+		if (this.selectionGesturePending()) return null;
 		const mask = this.selectionMask;
 		if (!mask) return null;
 		const { width, height } = this.doc.meta;
