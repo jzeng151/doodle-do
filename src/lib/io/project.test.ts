@@ -62,6 +62,14 @@ describe('project file round-trip', () => {
 		expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
 	});
 
+	it('rejects invalid animation tag repeat counts', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
+		for (const repeats of [-1, 1.5, 100]) {
+			raw.meta.tags = [{ name: 'walk', from: 0, to: 0, direction: 'forward', repeats }];
+			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
+		}
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

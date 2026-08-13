@@ -40,7 +40,7 @@ export class ReplaceColorCommand implements Command {
 	do(doc: Doc): void { this.apply(doc, this.to); }
 	undo(doc: Doc): void { this.apply(doc, this.from); }
 	serialize(): unknown { return { kind: this.kind, frame: this.frameIndex, layer: this.layerIndex, from: this.from, to: this.to, hits: Array.from(this.hits) }; }
-	dirty(): DirtyRegion { return { frame: this.frameIndex, rect: this.bbox }; }
+	dirty(): DirtyRegion { return { frame: this.frameIndex, layer: this.layerIndex, rect: this.bbox }; }
 }
 
 export function replaceColorCommand(
