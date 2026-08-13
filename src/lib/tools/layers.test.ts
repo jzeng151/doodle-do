@@ -53,8 +53,16 @@ describe('mergeDownCommand', () => {
 	it('does not reveal pixels from a fully transparent upper layer', () => {
 		const doc = testDoc();
 		doc.frames[0].layers[1].opacity = 0;
-		new CommandBus(doc).dispatch(mergeDownCommand(doc, 0, 1)!);
-		expect([...doc.frames[0].layers[0].pixels.slice(0, 3)]).toEqual([3, 5, 0]);
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+	});
+
+	it('refuses merges that cannot preserve locks or opacity', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].locked = true;
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+		doc.frames[0].layers[0].locked = false;
+		doc.frames[0].layers[0].opacity = .5;
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
 	});
 
 	it('refuses when there is no layer below', () => {

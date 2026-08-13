@@ -147,6 +147,12 @@ export class LoopPlayer {
 		this.raf = 0;
 	}
 
+	reset(): void {
+		this.stop();
+		this.started = false;
+		this.syncConfig();
+	}
+
 	seek(frame: number): void {
 		this.frame = Math.max(0, Math.min(this.doc.frames.length - 1, frame));
 		this.acc = 0;
