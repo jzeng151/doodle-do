@@ -322,6 +322,17 @@ describe('tiled drawing', () => {
 		expect(points.length).toBeLessThanOrEqual(512 * 512);
 	});
 
+	it('keeps wrapped pixels from intermediate rows of tall narrow ellipses', () => {
+		const points = ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 4, y: 12 },
+			false,
+			undefined,
+			{ width: 2, height: 2 }
+		);
+		expect(points).toContainEqual({ x: 1, y: 0 });
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
@@ -378,6 +389,14 @@ describe('tiled drawing', () => {
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
 		stroke.begin(0, 0);
 		stroke.moveTo(-8, -6);
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
+	});
+
+	it('keeps the full remainder of realistic tiled pixel-perfect moves', () => {
+		const doc = testDoc(2, 3);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 1, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-7, -12);
 		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
 	});
 });
