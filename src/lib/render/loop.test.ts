@@ -78,4 +78,20 @@ describe('LoopPlayer playback speed', () => {
 		now.mockRestore();
 		vi.unstubAllGlobals();
 	});
+
+	it('does not hold the first frame twice between ping-pong cycles', () => {
+		let tick: FrameRequestCallback = () => {};
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => ((tick = callback), 1));
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
+		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'], frameCount: 3 });
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, undefined, undefined, () => 'ping-pong', () => 2);
+		player.start();
+		for (let time = 100; time <= 500; time += 100) tick(time);
+		expect(player.currentFrame).toBe(1);
+		player.stop();
+		now.mockRestore();
+		vi.unstubAllGlobals();
+	});
 });
