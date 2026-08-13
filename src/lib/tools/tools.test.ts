@@ -173,6 +173,13 @@ describe('mirror-draw', () => {
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
 	});
+
+	it('does not repaint an overlapping mirrored dither stamp', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(3, 2);
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 4]).toBe(ditherValue(4, 2, 3, 4, 2));
+	});
 });
 
 describe('line tool', () => {
