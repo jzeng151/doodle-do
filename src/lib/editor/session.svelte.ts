@@ -203,6 +203,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index === this.currentFrame) {
+			this.bulkFrames = [];
+			return;
+		}
 		this.lineEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
@@ -262,6 +266,7 @@ export class EditorSession {
 	}
 
 	selectLayer(index: number): void {
+		this.lineEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}

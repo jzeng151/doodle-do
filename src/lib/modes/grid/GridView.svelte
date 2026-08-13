@@ -11,6 +11,7 @@
 
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
+	let linePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -81,6 +82,7 @@
 			case 'line':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
+				linePointer = e.pointerId;
 				session.lineBegin(x, y);
 				break;
 			case 'fill':
@@ -103,12 +105,16 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
 			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
 			session.lineMove(x, y, e.shiftKey);
 		}
 		strokeTile = -1;
-		if (session.tool === 'line') session.lineEnd();
+		if (session.tool === 'line') {
+			linePointer = null;
+			session.lineEnd();
+		}
 		else session.strokeEnd();
 	}
 
@@ -143,7 +149,10 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (session.lineActive) session.lineEnd();
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
 				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;

@@ -19,6 +19,7 @@
 	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
+	let linePointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -324,6 +325,7 @@
 				break;
 			case 'line':
 				canvasEl.setPointerCapture(e.pointerId);
+				linePointer = e.pointerId;
 				session.lineBegin(x, y);
 				break;
 			case 'fill':
@@ -445,6 +447,7 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
@@ -456,6 +459,7 @@
 				session.lineMove(x, y, e.shiftKey);
 			}
 			session.lineEnd();
+			linePointer = null;
 		}
 		else session.strokeEnd();
 	}
@@ -545,7 +549,10 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (session.lineActive) session.lineEnd();
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
 				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'fill':
