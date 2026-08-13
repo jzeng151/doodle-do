@@ -2,7 +2,7 @@
 	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
-	import { brushBounds, canvasPoint, floatingCanvas } from '../canvas';
+	import { brushBounds, canvasPoint, floatingCanvas, floatingFrameCanvas } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
 
@@ -19,6 +19,7 @@
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 	let linePointer: number | null = null;
 	let shapePointer: number | null = null;
+	let layerPointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -101,22 +102,9 @@
 	}
 
 	function drawMovedFrame(ctx: CanvasRenderingContext2D, frame: number, alpha: number) {
-		const floating = session.floatingSelections(frame);
-		if (!floating.length) {
-			ctx.globalAlpha = alpha;
-			ctx.drawImage(session.compositor.frameCanvas(frame), 0, 0, canvasEl.width, canvasEl.height);
-			ctx.globalAlpha = 1;
-			return;
-		}
-		for (const [layerIndex, layer] of session.doc.frames[frame].layers.entries()) {
-			if (!layer.visible) continue;
-			ctx.globalAlpha = alpha;
-			ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, canvasEl.width, canvasEl.height);
-			for (const selection of floating) if (selection.layerIndex === layerIndex) {
-				const r = selection.renderRect;
-				ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
-			}
-		}
+		const source = floatingFrameCanvas(session, frame) ?? session.compositor.frameCanvas(frame);
+		ctx.globalAlpha = alpha;
+		ctx.drawImage(source, 0, 0, canvasEl.width, canvasEl.height);
 		ctx.globalAlpha = 1;
 	}
 
@@ -339,6 +327,7 @@
 				break;
 			case 'move':
 				canvasEl.setPointerCapture(e.pointerId);
+				layerPointer = e.pointerId;
 				lastPixel = { x, y };
 				session.beginLayerMove();
 				selectDrag = 'layer';
@@ -436,7 +425,7 @@
 			session.updateLasso(f.x, f.y);
 			return;
 		}
-		if (selectDrag === 'float' || selectDrag === 'layer') {
+		if (selectDrag === 'float' || (selectDrag === 'layer' && e.pointerId === layerPointer)) {
 			const dx = x - lastPixel.x;
 			session.moveFloatingBy(selectDrag === 'float' && dragMirrored ? -dx : dx, y - lastPixel.y);
 			lastPixel = { x, y };
@@ -463,7 +452,11 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
-		if (selectDrag === 'layer') session.endLayerMove();
+		if (selectDrag === 'layer' && e.pointerId !== layerPointer) return;
+		if (selectDrag === 'layer') {
+			session.endLayerMove();
+			layerPointer = null;
+		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
