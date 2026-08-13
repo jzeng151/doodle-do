@@ -117,9 +117,11 @@
 				editingSession.toggleOnion();
 				break;
 			case '[':
+				editingSession.lineEnd(); editingSession.shapeEnd();
 				editingSession.brushSize = Math.max(1, editingSession.brushSize - 1);
 				break;
 			case ']':
+				editingSession.lineEnd(); editingSession.shapeEnd();
 				editingSession.brushSize = Math.min(4, editingSession.brushSize + 1);
 				break;
 			case 'pageup':
