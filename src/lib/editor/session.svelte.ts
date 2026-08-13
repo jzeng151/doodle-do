@@ -27,7 +27,7 @@ import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
-import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
+import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
@@ -69,6 +69,7 @@ export class EditorSession {
 	shapeFilled = $state(false);
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
+	selectionMode = $state<SelectionMode>('replace');
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	zoom = $state(12);
@@ -96,6 +97,9 @@ export class EditorSession {
 	// floating buffer are view state until commit, when the whole move
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
+	private previousSelectionMask = $state<Uint8Array | null>(null);
+	private gestureBaseMask: Uint8Array | null = null;
+	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
 	polygonVerts = $state<{ x: number; y: number }[] | null>(null);
@@ -133,7 +137,15 @@ export class EditorSession {
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
 			this.version++;
 		});
-		this.bus.onCommit(() => this.unsavedCommits++);
+		this.bus.onCommit((command) => {
+			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
+				this.selectionMask = null;
+				this.previousSelectionMask = null;
+				this.clearGestures();
+				this.overlayVersion++;
+			}
+			this.unsavedCommits++;
+		});
 	}
 
 	get frame() {
@@ -192,6 +204,7 @@ export class EditorSession {
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
@@ -210,6 +223,7 @@ export class EditorSession {
 		const currentDoc = structuredClone(this.doc);
 		const forkDoc = structuredClone(fork.doc);
 		this.selectionMask = fork.selectionMask = null;
+		this.previousSelectionMask = fork.previousSelectionMask = null;
 		this.clearGestures();
 		fork.clearGestures();
 		this.bulkFrames = fork.bulkFrames = [];
@@ -295,27 +309,108 @@ export class EditorSession {
 	}
 
 	// --- selection (B5) ---
-
-	// a non-additive gesture replaces the selection; shift keeps it and adds
-	private startGesture(additive: boolean): void {
-		if (!additive) {
-			this.commitFloating();
-			this.selectionMask = null;
+	private canonicalSelectionMask(mask: Uint8Array | null): Uint8Array | null {
+		if (!mask || !this.mirrorX) return mask;
+		const { width, height } = this.doc.meta;
+		const canonical = new Uint8Array(mask.length);
+		for (let y = 0; y < height; y++) for (let x = 0; x <= (width - 1) / 2; x++) {
+			const mirror = width - 1 - x;
+			if (mask[y * width + x] || mask[y * width + mirror]) canonical[y * width + x] = 1;
 		}
+		return canonical.some(Boolean) ? canonical : null;
 	}
 
-	// OR a gesture's mask into the baked selection (empty adds are dropped)
+	private selectionGesturePending(): boolean {
+		return !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+	}
+
+	get selectionGestureActive(): boolean {
+		return this.selectionGesturePending();
+	}
+
+	private effectiveSelectionMask(): Uint8Array | null {
+		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const twin = this.floatingTwin?.coverageMask()
+			?? (this.mirrorX && mask ? mirrorMaskX(mask, this.doc.meta.width, this.doc.meta.height) : null);
+		if (twin) mask = combineMasks(mask, twin, 'add');
+		return mask;
+	}
+
+	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
+	private startGesture(additive: boolean): void {
+		const base = this.canonicalSelectionMask(this.effectiveSelectionMask());
+		this.commitFloating();
+		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
+		this.selectionMask = base?.some(Boolean) ? base : null;
+		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
+	}
+
+	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
-		if (!add.some((v) => v !== 0)) return;
-		if (!this.selectionMask) {
-			this.selectionMask = add;
-		} else {
-			const merged = this.selectionMask.slice();
-			for (let i = 0; i < merged.length; i++) if (add[i]) merged[i] = 1;
-			this.selectionMask = merged;
-		}
+		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
+		const next = this.canonicalSelectionMask(combineMasks(this.effectiveSelectionMask(), add, this.gestureSelectionMode));
+		const changed = !!next !== !!this.gestureBaseMask
+			|| !!next?.some((value, index) => value !== this.gestureBaseMask![index]);
+		this.selectionMask = next;
+		if (changed) this.previousSelectionMask = this.gestureBaseMask;
+		this.gestureBaseMask = null;
 		tips.fire('T16'); // shift-add + rotate handle
 		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
+	}
+
+	selectAll(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		const before = this.effectiveSelectionMask();
+		this.commitFloating();
+		this.clearGestures();
+		if (before?.every(Boolean)) {
+			this.selectionMask = this.canonicalSelectionMask(before);
+			this.overlayVersion++;
+			return;
+		}
+		this.previousSelectionMask = this.canonicalSelectionMask(before?.some(Boolean) ? before : null);
+		this.selectionMask = this.canonicalSelectionMask(new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1));
+		this.overlayVersion++;
+	}
+
+	deselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		if (!this.selectionMask && !this.floating && !pending) return;
+		const before = this.effectiveSelectionMask();
+		this.commitFloating();
+		if (before?.some(Boolean)) this.previousSelectionMask = this.canonicalSelectionMask(before);
+		this.selectionMask = null;
+		this.clearGestures();
+		this.overlayVersion++;
+	}
+
+	invertSelection(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		const before = this.effectiveSelectionMask();
+		this.commitFloating();
+		this.clearGestures();
+		const length = this.doc.meta.width * this.doc.meta.height;
+		const inverted = new Uint8Array(length);
+		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
+		this.selectionMask = this.canonicalSelectionMask(inverted.some(Boolean) ? inverted : null);
+		this.previousSelectionMask = this.canonicalSelectionMask(before?.some(Boolean) ? before : null);
+		this.overlayVersion++;
+	}
+
+	reselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		if (!this.previousSelectionMask) return;
+		const current = this.canonicalSelectionMask(this.effectiveSelectionMask());
+		this.commitFloating();
+		this.clearGestures();
+		this.selectionMask = this.previousSelectionMask;
+		this.previousSelectionMask = current?.some(Boolean) ? current : null;
+		this.overlayVersion++;
 	}
 
 	beginMarquee(x: number, y: number, additive = false): void {
@@ -403,6 +498,7 @@ export class EditorSession {
 		this.pendingRect = null;
 		this.lassoPath = null;
 		this.polygonVerts = null;
+		this.gestureBaseMask = null;
 	}
 
 	selectionContains(x: number, y: number): boolean {
@@ -411,6 +507,7 @@ export class EditorSession {
 
 	// mask extents, for the rotate handle before the selection lifts
 	selectionBounds(): Rect | null {
+		if (this.selectionGesturePending()) return null;
 		const mask = this.selectionMask;
 		if (!mask) return null;
 		const { width, height } = this.doc.meta;
@@ -433,7 +530,7 @@ export class EditorSession {
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
 	liftSelection(): void {
-		if (this.floating || !this.selectionMask) return;
+		if (this.floating || !this.selectionMask || this.selectionGesturePending()) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
 		const mirrored = this.mirrorX ? mirrorMaskX(mask, width, height) : null;
@@ -497,7 +594,11 @@ export class EditorSession {
 	}
 
 	get hasSelection(): boolean {
-		return this.floating !== null || this.selectionMask !== null;
+		return !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
+	}
+
+	get canReselect(): boolean {
+		return this.previousSelectionMask !== null;
 	}
 
 	commitFloating(): void {
@@ -522,6 +623,8 @@ export class EditorSession {
 	}
 
 	cancelFloating(): void {
+		const restoreGesture = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		const gestureBase = this.gestureBaseMask?.slice() ?? null;
 		if (this.floating) {
 			const sel = this.floating;
 			this.floating = null;
@@ -534,7 +637,7 @@ export class EditorSession {
 			}
 			this.floatingPeers = [];
 		}
-		this.selectionMask = null;
+		this.selectionMask = restoreGesture ? gestureBase : null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
@@ -957,6 +1060,7 @@ export class EditorSession {
 			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
 		);
 		this.selectionMask = null;
+		this.previousSelectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}

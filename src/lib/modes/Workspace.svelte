@@ -24,6 +24,7 @@
 			session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
 				? (session.comparisonSession ?? session)
 				: session;
+		const selectionView = session.mode === 'focus' || (session.mode === 'compare' && !!target.closest('#fork-editors'));
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 'z') {
 			e.preventDefault();
@@ -37,8 +38,28 @@
 			return;
 		}
 		if (mod && e.key.toLowerCase() === 'j') {
+			if (!selectionView) return;
 			e.preventDefault();
 			editingSession.extractSelectionToLayer();
+			return;
+		}
+		if (mod && e.key.toLowerCase() === 'a') {
+			if (!selectionView) return;
+			e.preventDefault();
+			editingSession.selectAll();
+			return;
+		}
+		if (mod && e.key.toLowerCase() === 'd') {
+			if (!selectionView) return;
+			e.preventDefault();
+			if (e.shiftKey) editingSession.reselect();
+			else editingSession.deselect();
+			return;
+		}
+		if (mod && e.shiftKey && e.key.toLowerCase() === 'i') {
+			if (!selectionView) return;
+			e.preventDefault();
+			editingSession.invertSelection();
 			return;
 		}
 		if (mod) return;

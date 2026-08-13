@@ -136,6 +136,22 @@ test('keyboard shapes preview until the second activation', async ({ page }) => 
 	expect(await locatorHasInk(editor)).toBe(false);
 });
 
+test('selection shortcuts stay in editable selection views and target the fork pane', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	await page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first().focus();
+	await page.keyboard.press('Control+a');
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await expect(page.getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const panes = page.locator('.editor-pane');
+	await panes.nth(1).getByRole('button', { name: 'Select', exact: true }).click();
+	await page.keyboard.press('Control+a');
+	await expect(panes.nth(1).getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeEnabled();
+	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+});
+
 test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();

@@ -16,6 +16,24 @@
 import type { Doc } from '../core/document';
 import { PixelDiffCommand, type Rect } from '../core/commands';
 
+export type SelectionMode = 'replace' | 'add' | 'subtract' | 'intersect';
+
+export function combineMasks(
+	current: Uint8Array | null,
+	next: Uint8Array,
+	mode: SelectionMode
+): Uint8Array | null {
+	const result = new Uint8Array(next.length);
+	for (let i = 0; i < result.length; i++) {
+		const a = current?.[i] === 1;
+		const b = next[i] === 1;
+		result[i] = Number(
+			mode === 'replace' ? b : mode === 'add' ? a || b : mode === 'subtract' ? a && !b : a && b
+		);
+	}
+	return result.some(Boolean) ? result : null;
+}
+
 export function clampRect(rect: Rect, width: number, height: number): Rect | null {
 	const x = Math.max(0, rect.x);
 	const y = Math.max(0, rect.y);
@@ -95,6 +113,7 @@ export class FloatingSelection {
 	renderRect: Rect;
 	buffer: Uint8Array; // what the overlay draws and commit stamps
 	private readonly pristine: Uint8Array; // bbox-sized union lift, never resampled
+	private readonly coverage: Uint8Array;
 	private readonly snapshot: Uint8Array;
 	private contentVersion = 0; // bumped on every re-rasterize, for render caching
 
@@ -128,10 +147,12 @@ export class FloatingSelection {
 		// transparent, so they neither move pixels nor punch holes on stamp
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
 		this.pristine = new Uint8Array(bw * bh);
+		this.coverage = new Uint8Array(bw * bh);
 		for (let y = 0; y < bh; y++) {
 			for (let x = 0; x < bw; x++) {
 				const src = (by + y) * width + (bx + x);
 				if (!mask[src]) continue;
+				this.coverage[y * bw + x] = 1;
 				this.pristine[y * bw + x] = pixels[src];
 				pixels[src] = 0;
 			}
@@ -190,7 +211,19 @@ export class FloatingSelection {
 		const uy = py + 0.5 - this.dy - cy;
 		const sx = cos * ux + sin * uy + cx;
 		const sy = -sin * ux + cos * uy + cy;
-		return sx >= bx && sx < bx + bw && sy >= by && sy < by + bh;
+		return sx >= bx && sx < bx + bw && sy >= by && sy < by + bh && !!this.coverage[(Math.floor(sy) - by) * bw + Math.floor(sx) - bx];
+	}
+
+	coverageMask(): Uint8Array {
+		const { width, height } = this.doc.meta;
+		const mask = new Uint8Array(width * height);
+		const { x, y, w, h } = this.renderRect;
+		for (let py = Math.max(0, y); py < Math.min(height, y + h); py++) {
+			for (let px = Math.max(0, x); px < Math.min(width, x + w); px++) {
+				if (this.contains(px, py)) mask[py * width + px] = 1;
+			}
+		}
+		return mask;
 	}
 
 	// Flipping the pristine pixels and negating the angle reads as a flip
@@ -198,24 +231,20 @@ export class FloatingSelection {
 	// it is byte-identical to a plain buffer flip.
 	flip(axis: 'horizontal' | 'vertical'): void {
 		const { w, h } = this.bbox;
-		const p = this.pristine;
+		const buffers = [this.pristine, this.coverage];
 		if (axis === 'horizontal') {
-			for (let y = 0; y < h; y++) {
+			for (const p of buffers) for (let y = 0; y < h; y++) {
 				const row = y * w;
 				for (let x = 0; x < w >> 1; x++) {
-					const t = p[row + x];
-					p[row + x] = p[row + w - 1 - x];
-					p[row + w - 1 - x] = t;
+					const t = p[row + x]; p[row + x] = p[row + w - 1 - x]; p[row + w - 1 - x] = t;
 				}
 			}
 		} else {
-			for (let y = 0; y < h >> 1; y++) {
+			for (const p of buffers) for (let y = 0; y < h >> 1; y++) {
 				for (let x = 0; x < w; x++) {
 					const a = y * w + x;
 					const b = (h - 1 - y) * w + x;
-					const t = p[a];
-					p[a] = p[b];
-					p[b] = t;
+					const t = p[a]; p[a] = p[b]; p[b] = t;
 				}
 			}
 		}

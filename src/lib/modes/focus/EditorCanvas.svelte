@@ -16,7 +16,6 @@
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
 	let keyboardFocused = $state(false);
-	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 	let linePointer: number | null = null;
@@ -381,7 +380,7 @@
 				const insideTwin = session.floating
 					? (session.floatingTwin?.contains(x, y) ?? false)
 					: session.mirrorX && session.selectionContains(mx, y);
-				if ((insideMain || insideTwin) && !e.shiftKey) {
+				if ((insideMain || insideTwin) && !e.shiftKey && session.selectionMode === 'replace') {
 					session.liftSelection(); // no-op when already floating
 					// dragging the twin: mirror the deltas so it follows the pointer
 					dragMirrored = insideTwin && !insideMain;
@@ -390,7 +389,7 @@
 				}
 				// 4) otherwise start this tool's gesture; without shift it
 				// replaces the selection (committing any pending float, B5)
-				const additive = e.shiftKey && !session.floating;
+				const additive = e.shiftKey;
 				switch (session.tool) {
 					case 'select':
 						session.beginMarquee(x, y, additive);
@@ -537,7 +536,7 @@
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
-				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
+				if (session.pendingRect) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 				if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
@@ -548,7 +547,6 @@
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			e.stopPropagation();
-			keyboardMarquee = false;
 			session.cancelLine();
 			session.cancelFloating();
 			return;
@@ -591,9 +589,8 @@
 				session.wandSelect(keyboardX, keyboardY, e.shiftKey);
 				break;
 			case 'select':
-				if (keyboardMarquee) session.endMarquee();
+				if (session.pendingRect) session.endMarquee();
 				else session.beginMarquee(keyboardX, keyboardY, e.shiftKey);
-				keyboardMarquee = !keyboardMarquee;
 				break;
 			case 'polygon':
 				if (e.key === 'Enter' && session.polygonVerts) session.closePolygon();

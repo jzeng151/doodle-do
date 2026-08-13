@@ -44,6 +44,23 @@
 			</button>
 		{/each}
 	</div>
+	{#if SELECT_TOOLS.includes(session.tool)}
+		<div class="group" role="group" aria-label="Selection mode">
+			{#each ['replace', 'add', 'subtract', 'intersect'] as mode}
+				<button
+					class:active={session.selectionMode === mode}
+					aria-pressed={session.selectionMode === mode}
+					onclick={() => (session.selectionMode = mode as typeof session.selectionMode)}
+				>
+					{mode[0].toUpperCase() + mode.slice(1)}
+				</button>
+			{/each}
+			<button onclick={() => session.selectAll()}>All</button>
+			<button onclick={() => session.deselect()}>Deselect</button>
+			<button onclick={() => session.invertSelection()}>Invert</button>
+			<button disabled={!session.canReselect} onclick={() => session.reselect()}>Reselect</button>
+		</div>
+	{/if}
 
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
