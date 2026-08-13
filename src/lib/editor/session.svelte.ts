@@ -18,9 +18,9 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
-	PaletteSortCommand,
 	ResizeCanvasCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
@@ -132,7 +132,7 @@ export class EditorSession {
 	private manualPaletteAdds = 0;
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
-	private documentReplaceColors = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
+	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -147,16 +147,13 @@ export class EditorSession {
 				this.currentLayer,
 				doc.frames[this.currentFrame].layers.length - 1
 			);
-			this.colorValue = Math.min(this.colorValue, doc.palette.length);
-			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			if (!region.palette) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
-			if (command instanceof PaletteSortCommand) {
-				const map = action === 'undo' ? command.reverseColors : command.forwardColors;
-				this.colorValue = map.get(this.colorValue) ?? this.colorValue;
-				this.backgroundColorValue = map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
-			}
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
@@ -169,10 +166,10 @@ export class EditorSession {
 				this.colorValue = command.mapActiveColor(this.colorValue, action);
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
-			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
-			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
+			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
+			if (remappedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? remappedColors.before : remappedColors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -318,6 +315,8 @@ export class EditorSession {
 	}
 
 	toggleMirror(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.mirrorX = !this.mirrorX;
 		if (this.mirrorX) tips.fire('T13');
 	}
@@ -329,15 +328,23 @@ export class EditorSession {
 
 	selectLayer(index: number): void {
 		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
 
 	// --- selection (B5) ---
+	private effectiveSelectionMask(): Uint8Array | null {
+		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const twin = this.floatingTwin?.coverageMask()
+			?? (this.mirrorX && mask ? mirrorMaskX(mask, this.doc.meta.width, this.doc.meta.height) : null);
+		if (twin) mask = combineMasks(mask, twin, 'add');
+		return mask;
+	}
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
-		const base = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const base = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
 		this.selectionMask = base?.some(Boolean) ? base : null;
@@ -346,6 +353,7 @@ export class EditorSession {
 
 	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
+		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
 		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
 		this.previousSelectionMask = this.gestureBaseMask;
 		this.gestureBaseMask = null;
@@ -356,7 +364,7 @@ export class EditorSession {
 	selectAll(): void {
 		this.lineEnd();
 		this.shapeEnd();
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		this.previousSelectionMask = before?.some(Boolean) ? before : null;
@@ -369,9 +377,9 @@ export class EditorSession {
 		this.shapeEnd();
 		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (!this.selectionMask && !this.floating && !pending) return;
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
-		this.previousSelectionMask = before?.some(Boolean) ? before : null;
+		if (before?.some(Boolean)) this.previousSelectionMask = before;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -380,7 +388,7 @@ export class EditorSession {
 	invertSelection(): void {
 		this.lineEnd();
 		this.shapeEnd();
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		const length = this.doc.meta.width * this.doc.meta.height;
@@ -395,7 +403,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
-		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const current = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		this.selectionMask = this.previousSelectionMask;
@@ -624,7 +632,10 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else {
+			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, rect: null });
+		}
 	}
 
 	cancelFloating(): void {
@@ -743,7 +754,7 @@ export class EditorSession {
 				frame,
 				this.currentLayer,
 				colorValue,
-				this.brushSize,
+				this.shapeFilled ? 1 : this.brushSize,
 				this.mirrorX,
 				this.tool,
 				false,
@@ -756,7 +767,7 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = { ...this.doc.meta, padding: this.brushSize >> 1 };
+		const bounds = { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
@@ -1091,14 +1102,16 @@ export class EditorSession {
 
 	createPaletteFromArtwork(): void {
 		if (this.paletteLocked) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
-		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length)];
-		const command = new DocumentReplaceCommand(this.doc, compacted.doc);
-		this.documentReplaceColors.set(command, { before: [foreground, background], after });
+		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.palette.length)];
+		const command = new PaletteRemapCommand(this.doc.palette, compacted.palette, compacted.map);
+		this.paletteRemapColors.set(command, { before: [foreground, background], after });
 		this.bus.dispatch(command);
 		[this.colorValue, this.backgroundColorValue] = after;
 	}
@@ -1128,7 +1141,11 @@ export class EditorSession {
 		this.commitFloating();
 		const sorted = sortPaletteRange(this.doc, start, end, sort);
 		if (!sorted.moved) return;
-		this.bus.dispatch(new PaletteSortCommand(this.doc, sorted.doc, sorted.map));
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const after: [number, number] = [sorted.map.get(before[0]) ?? before[0], sorted.map.get(before[1]) ?? before[1]];
+		const command = new PaletteRemapCommand(this.doc.palette, sorted.palette, sorted.map);
+		this.paletteRemapColors.set(command, { before, after });
+		this.bus.dispatch(command);
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {

@@ -38,7 +38,7 @@ export function colorRamp(from: string, to: string, steps: number): string[] {
 
 export type PaletteSort = 'hue' | 'saturation' | 'luminance' | 'red' | 'green' | 'blue';
 
-export function sortPaletteRange(doc: Doc, start: number, end: number, sort: PaletteSort): { doc: Doc; map: Map<number, number>; moved: boolean } {
+export function sortPaletteRange(doc: Doc, start: number, end: number, sort: PaletteSort): { palette: string[]; map: Map<number, number>; moved: boolean } {
 	const lo = Math.min(start, end);
 	const hi = Math.max(start, end);
 	const hsv = ([r, g, b]: readonly number[]) => {
@@ -59,15 +59,12 @@ export function sortPaletteRange(doc: Doc, start: number, end: number, sort: Pal
 	const moved = entries.some((entry, offset) => entry.old !== lo + offset + 1);
 	const remap = new Map<number, number>();
 	for (let offset = 0; offset < entries.length; offset++) remap.set(entries[offset].old, lo + offset + 1);
-	if (!moved) return { doc, map: remap, moved };
-	const next = structuredClone(doc);
+	if (!moved) return { palette: doc.palette, map: remap, moved };
+	const palette = [...doc.palette];
 	for (let offset = 0; offset < entries.length; offset++) {
-		next.palette[lo + offset] = entries[offset].color;
+		palette[lo + offset] = entries[offset].color;
 	}
-	for (const frame of next.frames) for (const layer of frame.layers) {
-		for (let i = 0; i < layer.pixels.length; i++) if (remap.has(layer.pixels[i])) layer.pixels[i] = remap.get(layer.pixels[i])!;
-	}
-	return { doc: next, map: remap, moved };
+	return { palette, map: remap, moved };
 }
 
 // Phase 0 placeholder palette: DawnBringer 16 (free to use). The curated,

@@ -71,28 +71,14 @@
 		}
 		if (session.bulkFrames.length > 1) {
 			// bulk edit: the other set frames stacked under the active one
-			ctx.globalAlpha = 0.35;
 			for (const bf of session.bulkFrames) {
 				if (bf === f) continue;
-				ctx.drawImage(session.compositor.frameCanvas(bf), 0, 0, canvasEl.width, canvasEl.height);
-				for (const selection of session.floatingSelections(bf)) {
-					const r = selection.renderRect;
-					ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
-				}
+				drawMovedFrame(ctx, bf, 0.35);
 			}
-			ctx.globalAlpha = 1;
 		}
 		const moved = session.tool === 'move' ? session.floatingSelections(f) : [];
 		if (!moved.length) ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
-		else for (const [layerIndex, layer] of session.frame.layers.entries()) {
-			if (!layer.visible) continue;
-			ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, canvasEl.width, canvasEl.height);
-			if (layerIndex !== session.currentLayer) continue;
-			for (const selection of moved) {
-				const r = selection.renderRect;
-				ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
-			}
-		}
+		else drawMovedFrame(ctx, f, 1);
 
 		if (session.showGrid && session.zoom >= 4) {
 			const z = renderZoom;
@@ -112,6 +98,26 @@
 
 		drawSelectionOverlay(ctx, !moved.length);
 		if (keyboardFocused) drawKeyboardCursor(ctx);
+	}
+
+	function drawMovedFrame(ctx: CanvasRenderingContext2D, frame: number, alpha: number) {
+		const floating = session.floatingSelections(frame);
+		if (!floating.length) {
+			ctx.globalAlpha = alpha;
+			ctx.drawImage(session.compositor.frameCanvas(frame), 0, 0, canvasEl.width, canvasEl.height);
+			ctx.globalAlpha = 1;
+			return;
+		}
+		for (const [layerIndex, layer] of session.doc.frames[frame].layers.entries()) {
+			if (!layer.visible) continue;
+			ctx.globalAlpha = alpha;
+			ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, canvasEl.width, canvasEl.height);
+			for (const selection of floating) if (selection.layerIndex === layerIndex) {
+				const r = selection.renderRect;
+				ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
+			}
+		}
+		ctx.globalAlpha = 1;
 	}
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
