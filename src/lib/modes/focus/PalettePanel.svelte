@@ -25,6 +25,8 @@
 			removePending = null;
 			return;
 		}
+		session.lineEnd();
+		session.shapeEnd();
 		session.colorValue = i + 1;
 	}
 
@@ -65,7 +67,7 @@
 			title="Transparent (eraser)"
 			aria-label="Transparent"
 			aria-pressed={session.colorValue === 0}
-			onclick={() => (session.colorValue = 0)}
+			onclick={() => { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; }}
 		></button>
 		{#each palette as hex, i (i)}
 			<button
