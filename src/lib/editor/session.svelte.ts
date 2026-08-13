@@ -962,7 +962,10 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const end = this.tiledDrawing ? {
+		// Keep tiled ellipses on their true bounding box: shortening each axis
+		// independently changes their aspect ratio. Wrapped point collection
+		// still deduplicates the resulting tile pixels.
+		const end = this.tiledDrawing && this.tool === 'rectangle' ? {
 			x: boundedTileEndpoint(this.shapeOrigin.x, x, this.doc.meta.width),
 			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
 		} : { x, y };

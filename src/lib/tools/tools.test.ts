@@ -233,6 +233,12 @@ describe('tiled drawing', () => {
 		expect(rectanglePoints({ x: 0, y: 0 }, { x: 5, y: 5 }, true, undefined, { width: 4, height: 4 })).toHaveLength(16);
 	});
 
+	it('preserves the aspect ratio of wrapped ellipses', () => {
+		const exact = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 8 }, false, undefined, { width: 4, height: 4 });
+		const shortened = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 4 }, false, undefined, { width: 4, height: 4 });
+		expect(new Set(exact.map(({ x, y }) => `${x},${y}`))).not.toEqual(new Set(shortened.map(({ x, y }) => `${x},${y}`)));
+	});
+
 	it('keeps a local dirty rect until a tiled brush crosses an edge', () => {
 		const doc = testDoc(8, 8);
 		const local = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 3.5, false, 3.5, true);
