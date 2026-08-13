@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDoc, resizePixels } from './document';
-import { buildLut, packColor, DEFAULT_PALETTE } from './palette';
+import { buildLut, colorRamp, packColor, DEFAULT_PALETTE, sortPaletteRange } from './palette';
 import { CommandBus, CompositeCommand, PixelDiffCommand, UNDO_MAX_COMMANDS } from './commands';
 import { LayerAddCommand, ResizeCanvasCommand } from './structural';
 import { StrokeBuilder } from '../tools/pencil';
@@ -72,6 +72,23 @@ describe('palette LUT', () => {
 
 	it('packColor is opaque LE RGBA', () => {
 		expect(packColor('#102030') >>> 0).toBe(0xff302010);
+	});
+});
+
+describe('palette ranges', () => {
+	it('generates an inclusive RGB ramp', () => {
+		expect(colorRamp('#000000', '#ffffff', 3)).toEqual(['#000000', '#808080', '#ffffff']);
+	});
+
+	it('sorts entries while remapping indices to preserve artwork colors', () => {
+		const doc = createDoc({ width: 3, height: 1, palette: ['#ffffff', '#000000', '#ff0000'] });
+		doc.frames[0].layers[0].pixels.set([1, 2, 3]);
+		const { palette, map, moved } = sortPaletteRange(doc, 0, 2, 'luminance');
+		expect(palette).toEqual(['#000000', '#ff0000', '#ffffff']);
+		expect([...doc.frames[0].layers[0].pixels]).toEqual([1, 2, 3]);
+		expect(map.get(1)).toBe(3);
+		expect(moved).toBe(true);
+		expect(sortPaletteRange({ ...doc, palette }, 0, 2, 'luminance').moved).toBe(false);
 	});
 });
 
@@ -183,12 +200,12 @@ describe('CommandBus (B4 budget)', () => {
 	it('fires commit listeners on dispatch, undo, and redo', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
-		let commits = 0;
-		bus.onCommit(() => commits++);
+		const actions: string[] = [];
+		bus.onCommit((_command, action) => actions.push(action));
 		bus.dispatch(strokeCmd(doc, 0, 1));
 		bus.undo();
 		bus.redo();
-		expect(commits).toBe(3);
+		expect(actions).toEqual(['dispatch', 'undo', 'redo']);
 	});
 });
 

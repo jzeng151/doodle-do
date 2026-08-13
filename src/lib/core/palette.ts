@@ -22,6 +22,51 @@ export function isValidPixelValue(doc: Doc, value: number): boolean {
 	return value >= 0 && value <= doc.palette.length;
 }
 
+const channels = (color: string) => {
+	const value = parseInt(color.slice(1), 16);
+	return [(value >> 16) & 255, (value >> 8) & 255, value & 255] as const;
+};
+
+export function colorRamp(from: string, to: string, steps: number): string[] {
+	const a = channels(from);
+	const b = channels(to);
+	return Array.from({ length: steps }, (_, index) => {
+		const t = steps === 1 ? 0 : index / (steps - 1);
+		return `#${a.map((value, channel) => Math.round(value + (b[channel] - value) * t).toString(16).padStart(2, '0')).join('')}`;
+	});
+}
+
+export type PaletteSort = 'hue' | 'saturation' | 'luminance' | 'red' | 'green' | 'blue';
+
+export function sortPaletteRange(doc: Doc, start: number, end: number, sort: PaletteSort): { palette: string[]; map: Map<number, number>; moved: boolean } {
+	const lo = Math.min(start, end);
+	const hi = Math.max(start, end);
+	const hsv = ([r, g, b]: readonly number[]) => {
+		const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+		const hue = delta === 0 ? 0 : max === r ? ((g - b) / delta + 6) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+		return [hue * 60, max === 0 ? 0 : delta / max] as const;
+	};
+	const score = (color: string) => {
+		const rgb = channels(color);
+		if (sort === 'red') return rgb[0];
+		if (sort === 'green') return rgb[1];
+		if (sort === 'blue') return rgb[2];
+		if (sort === 'luminance') return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+		return hsv(rgb)[sort === 'hue' ? 0 : 1];
+	};
+	const entries = doc.palette.slice(lo, hi + 1).map((color, offset) => ({ color, old: lo + offset + 1 }));
+	entries.sort((a, b) => score(a.color) - score(b.color) || a.old - b.old);
+	const moved = entries.some((entry, offset) => entry.old !== lo + offset + 1);
+	const remap = new Map<number, number>();
+	for (let offset = 0; offset < entries.length; offset++) remap.set(entries[offset].old, lo + offset + 1);
+	if (!moved) return { palette: doc.palette, map: remap, moved };
+	const palette = [...doc.palette];
+	for (let offset = 0; offset < entries.length; offset++) {
+		palette[lo + offset] = entries[offset].color;
+	}
+	return { palette, map: remap, moved };
+}
+
 // Phase 0 placeholder palette: DawnBringer 16 (free to use). The curated,
 // license-verified Lospec starter set is a Phase 2 item (§4.2).
 export const DEFAULT_PALETTE: string[] = [

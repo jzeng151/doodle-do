@@ -32,7 +32,7 @@ import { ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
-import { DEFAULT_PALETTE } from '../core/palette';
+import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
 
@@ -1180,6 +1180,38 @@ export class EditorSession {
 		this.paletteRemapColors.set(command, { before: [foreground, background], after });
 		this.bus.dispatch(command);
 		[this.colorValue, this.backgroundColorValue] = after;
+	}
+
+	generatePaletteRamp(start: number, end: number): void {
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const lo = Math.min(start, end);
+		const hi = Math.max(start, end);
+		const colors = colorRamp(this.doc.palette[lo], this.doc.palette[hi], hi - lo + 1);
+		const cmds = colors
+			.map((color, offset) => ({ index: lo + offset, color }))
+			.filter(({ index, color }) => this.doc.palette[index] !== color)
+			.map(({ index, color }) => new PaletteSwapCommand(index, this.doc.palette[index], color));
+		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
+		else if (cmds.length) this.bus.dispatch(new CompositeCommand('palette-ramp', cmds));
+	}
+
+	sortPalette(start: number, end: number, sort: PaletteSort): void {
+		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
+		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const sorted = sortPaletteRange(this.doc, start, end, sort);
+		if (!sorted.moved) return;
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const after: [number, number] = [sorted.map.get(before[0]) ?? before[0], sorted.map.get(before[1]) ?? before[1]];
+		const command = new PaletteRemapCommand(this.doc.palette, sorted.palette, sorted.map);
+		this.paletteRemapColors.set(command, { before, after });
+		this.bus.dispatch(command);
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {

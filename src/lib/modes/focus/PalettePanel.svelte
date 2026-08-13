@@ -3,6 +3,7 @@
 	import type { EditorSession, ReplaceScope } from '$lib/editor/session.svelte';
 	import { downloadBlob } from '$lib/io/files';
 	import { gplPalette, hexPalette, readPalette } from '$lib/io/palette';
+	import type { PaletteSort } from '$lib/core/palette';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -18,7 +19,12 @@
 	let replaceScope = $state<ReplaceScope>('layer');
 	let ioStatus = $state('');
 	let replaceStatus = $state('');
+	let rangeOpen = $state(false);
+	let rangeStart = $state(0);
+	let rangeEnd = $state(1);
+	let rangeSort = $state<PaletteSort>('luminance');
 	const replaceControlsId = $props.id();
+	const rangeControlsId = `${replaceControlsId}-range`;
 	let paletteSignature = '';
 	function resetReplaceEndpoints() {
 		replaceFrom = Math.min(Math.max(1, session.colorValue), palette.length);
@@ -212,7 +218,22 @@
 		<button onclick={() => exportPalette('gpl')}>Export GPL</button>
 		<button onclick={() => exportPalette('hex')}>Export HEX</button>
 		<button disabled={session.paletteLocked} onclick={() => session.createPaletteFromArtwork()}>From artwork</button>
+		<button aria-expanded={rangeOpen} aria-controls={rangeControlsId} onclick={() => (rangeOpen = !rangeOpen)}>Ramp / Sort</button>
 	</div>
+	{#if rangeOpen}
+		<div id={rangeControlsId} class="replace-options">
+			<label>Start<select bind:value={rangeStart}>{#each palette as hex, i}<option value={i}>{i + 1}: {hex}</option>{/each}</select></label>
+			<label>End<select bind:value={rangeEnd}>{#each palette as hex, i}<option value={i}>{i + 1}: {hex}</option>{/each}</select></label>
+			<label>Sort<select bind:value={rangeSort}>
+				<option value="hue">Hue</option><option value="saturation">Saturation</option><option value="luminance">Luminance</option>
+				<option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option>
+			</select></label>
+			<div class="actions">
+				<button disabled={session.paletteLocked || palette.length < 2 || rangeStart === rangeEnd} onclick={() => session.generatePaletteRamp(rangeStart, rangeEnd)}>Generate ramp</button>
+				<button disabled={session.paletteLocked || palette.length < 2 || rangeStart === rangeEnd} onclick={() => session.sortPalette(rangeStart, rangeEnd, rangeSort)}>Sort range</button>
+			</div>
+		</div>
+	{/if}
 	{#if ioStatus}<p class="hint" aria-live="polite">{ioStatus}</p>{/if}
 
 	<!-- hidden native color input drives palette swap (§4.2: every pixel updates instantly) -->
