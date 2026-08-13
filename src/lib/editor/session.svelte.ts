@@ -152,8 +152,15 @@ export class EditorSession {
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
-			const pixels = doc.frames.flatMap((frame) => frame.layers.map((layer) => layer.pixels));
-			this.compositor.invalidate(new Set(pixels).size < pixels.length ? { ...region, frame: null, rect: null } : region);
+			this.compositor.invalidate(region);
+			if (region.frame !== null && region.layer !== undefined) {
+				const pixels = doc.frames[region.frame]?.layers[region.layer]?.pixels;
+				if (pixels) for (let frame = 0; frame < doc.frames.length; frame++) {
+					if (frame !== region.frame && doc.frames[frame].layers.some((layer) => layer.pixels === pixels)) {
+						this.compositor.invalidate({ ...region, frame });
+					}
+				}
+			}
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
@@ -570,10 +577,11 @@ export class EditorSession {
 		this.overlayVersion++;
 		this.bus.emitChange({
 			frame: this.currentFrame,
+			layer: this.currentLayer,
 			rect: this.floatingTwin ? null : this.floating.rect // twin: whole frame
 		});
 		for (const p of this.floatingPeers) {
-			this.bus.emitChange({ frame: p.main.frameIndex, rect: null }); // lifted holes
+			this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null }); // lifted holes
 		}
 		tips.fire('T20'); // arrow-key nudge
 	}
@@ -685,7 +693,7 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 	}
 
 	cancelFloating(): void {
@@ -696,10 +704,10 @@ export class EditorSession {
 			this.floating = null;
 			this.floatingTwin = null; // main's snapshot predates the twin's lift
 			sel.cancel();
-			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 			for (const p of this.floatingPeers) {
 				p.main.cancel();
-				this.bus.emitChange({ frame: p.main.frameIndex, rect: null });
+				this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null });
 			}
 			this.floatingPeers = [];
 		}
@@ -731,14 +739,14 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
 	strokeMove(x: number, y: number): void {
 		for (const s of this.strokes) {
 			const rect = s.builder.moveTo(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -773,7 +781,7 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -784,7 +792,7 @@ export class EditorSession {
 			: { x, y };
 		for (const s of this.strokes) {
 			const rect = s.builder.previewLineTo(end.x, end.y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -823,7 +831,7 @@ export class EditorSession {
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -835,7 +843,7 @@ export class EditorSession {
 	cancelLine(): void {
 		for (const stroke of this.strokes) {
 			const rect = stroke.builder.cancel();
-			if (rect) this.bus.emitChange({ frame: stroke.frame, rect });
+			if (rect) this.bus.emitChange({ frame: stroke.frame, layer: this.currentLayer, rect });
 		}
 		this.strokes = [];
 		this.lineOrigin = null;
