@@ -635,7 +635,7 @@ export class EditorSession {
 	}
 
 	get hasSelection(): boolean {
-		return !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
+		return !this.wholeLayerMove && !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
 	}
 
 	get canReselect(): boolean {
@@ -990,6 +990,10 @@ export class EditorSession {
 	// lifts first, so any pending move/rotate lands on the new layer.
 	extractSelectionToLayer(): void {
 		if (this.bulkFrames.length) return; // layer-structure edits stay single-frame
+		if (this.wholeLayerMove) {
+			this.commitFloating();
+			return;
+		}
 		if (this.frame.layers.length >= MAX_LAYERS) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		const sel = this.floating;
