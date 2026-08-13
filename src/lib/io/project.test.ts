@@ -54,6 +54,12 @@ describe('project file round-trip', () => {
 		expect(() => parseProject(JSON.stringify(raw))).toThrow(/inconsistent/);
 	});
 
+	it('rejects a linked cel repeated within one frame', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, layerCount: 2 })));
+		raw.frames[0].layers[0].linkId = raw.frames[0].layers[1].linkId = 'shared';
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/repeats linked cel/);
+	});
+
 	it('rejects empty and duplicate animation tag names', () => {
 		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
 		raw.meta.tags = [{ name: ' walk ', from: 0, to: 0, direction: 'forward', repeats: 0 }, { name: 'walk', from: 0, to: 0, direction: 'forward', repeats: 0 }];
