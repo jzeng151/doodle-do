@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createDoc } from '../core/document';
-import { gplPalette, hexPalette, paletteFromArtwork, parseTextPalette } from './palette';
+import { gplPalette, hexPalette, paletteFromArtwork, parseTextPalette, readPalette } from './palette';
 
 describe('palette files', () => {
 	it('parses GPL, PAL-style RGB rows, and hex lines', () => {
@@ -15,6 +15,19 @@ describe('palette files', () => {
 		expect(gplPalette(['#ff0010'], 'Test')).toContain('255 0 16');
 		expect(gplPalette(['#ff0010'], 'Walk\nCycle').split('\n')[1]).toBe('Name: Walk Cycle');
 		expect(hexPalette(['#112233', '#aabbcc'])).toBe('#112233\n#aabbcc\n');
+	});
+
+	it('rejects oversized PNG headers before bitmap decoding', async () => {
+		const bytes = new Uint8Array(24);
+		bytes.set([137, 80, 78, 71, 13, 10, 26, 10]);
+		bytes.set([73, 72, 68, 82], 12);
+		new DataView(bytes.buffer).setUint32(16, 2048);
+		new DataView(bytes.buffer).setUint32(20, 2048);
+		const decode = vi.fn();
+		vi.stubGlobal('createImageBitmap', decode);
+		await expect(readPalette(new File([bytes], 'large.png', { type: 'image/png' }))).rejects.toThrow(/1 megapixel/);
+		expect(decode).not.toHaveBeenCalled();
+		vi.unstubAllGlobals();
 	});
 
 	it('builds and remaps a compact palette from used artwork colors', () => {

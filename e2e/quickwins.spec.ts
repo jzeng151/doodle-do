@@ -53,6 +53,22 @@ test('Ctrl+J extracts the selection to a new layer as one undo step', async ({ p
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
 });
 
+test('Ctrl+J does not extract a pending whole-layer move', async ({ page }) => {
+	await page.goto('/canvas');
+	const editor = page.locator('canvas.editor');
+	await editor.waitFor();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Control+j');
+	await expect(page.locator('.layers .name')).toHaveCount(1);
+	expect(await page.evaluate(pixelOpaque, [9, 8] as [number, number])).toBe(true);
+});
+
 test('arrow keys nudge the selection by one pixel', async ({ page }) => {
 	await drawDotAndSelect(page);
 

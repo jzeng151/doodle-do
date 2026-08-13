@@ -51,7 +51,9 @@
 			currentEl,
 			(frame) => (currentFrame = frame),
 			undefined,
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount
 		);
 		forkPlayer = new LoopPlayer(
 			fork.doc,
@@ -59,7 +61,9 @@
 			forkEl,
 			(frame) => (forkFrame = frame),
 			undefined,
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount
 		);
 		playing = !media.matches;
 		if (playing) start();
