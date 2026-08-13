@@ -30,6 +30,11 @@ describe('palette files', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('rejects oversized text palettes before reading them', async () => {
+		const file = new File([new Uint8Array(1_048_577)], 'large.txt', { type: 'text/plain' });
+		await expect(readPalette(file)).rejects.toThrow(/1 MB/);
+	});
+
 	it('builds and remaps a compact palette from used artwork colors', () => {
 		const doc = createDoc({ width: 3, height: 1, palette: ['#111111', '#222222', '#333333'] });
 		doc.frames[0].layers[0].pixels.set([3, 0, 1]);
