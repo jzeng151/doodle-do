@@ -137,8 +137,8 @@
 			title="Transparent (eraser)"
 			aria-label="Transparent"
 			aria-pressed={session.colorValue === 0}
-			onclick={() => { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; }}
-			oncontextmenu={(e) => { e.preventDefault(); session.lineEnd(); session.shapeEnd(); session.backgroundColorValue = 0; }}
+			onclick={(e) => { if (!e.ctrlKey) { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; } }}
+			oncontextmenu={(e) => { e.preventDefault(); removePending = null; session.lineEnd(); session.shapeEnd(); session.backgroundColorValue = 0; }}
 		></button>
 		{#each palette as hex, i (i)}
 			<button
