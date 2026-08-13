@@ -83,6 +83,7 @@ export function parseProject(text: string): Doc {
 	const rawFrames = p.frames as Record<string, unknown>[];
 	if (!Array.isArray(rawFrames) || rawFrames.length < 1) fail('no frames');
 	let tags: Doc['meta']['tags'];
+	if (Object.prototype.hasOwnProperty.call(meta, 'tags') && !Array.isArray(meta.tags)) fail('bad animation tags');
 	if (Array.isArray(meta.tags)) {
 		const names = new Set<string>();
 		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {

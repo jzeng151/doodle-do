@@ -190,6 +190,19 @@ test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
 
+test('swapping active colors finalizes a keyboard line preview', async ({ page }) => {
+	await gotoApp(page);
+	const editor = page.locator('canvas.editor');
+	await page.getByRole('button', { name: 'Line' }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('x');
+	await page.keyboard.press('Control+z');
+	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
+});
+
 test('keyboard pencil indicator matches the brush size', async ({ page }) => {
 	await gotoApp(page);
 	await page.getByRole('group', { name: 'Brush settings' }).getByRole('combobox').selectOption('4');

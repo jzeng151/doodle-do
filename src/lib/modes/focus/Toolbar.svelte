@@ -23,6 +23,8 @@
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
+	const canvasWidth = $derived((session.version, session.doc.meta.width));
+	const canvasHeight = $derived((session.version, session.doc.meta.height));
 	const zoomLabel = $derived(`${Number(session.zoom.toFixed(2))}×`);
 	const mirrorDrawingTools: Tool[] = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'];
 	const supportsDrawingMirror = $derived(mirrorDrawingTools.includes(session.tool));
@@ -68,7 +70,7 @@
 			<button disabled={!session.canReselect} onclick={() => session.reselect()}>Reselect</button>
 		</div>
 	{/if}
-	{#if session.selectionMask}
+	{#if session.selectionMask && !session.selectionGestureActive}
 		<div class="group"><button onclick={() => session.captureSelectionStamp()}>Make stamp</button></div>
 	{/if}
 	{#if session.tool === 'stamp'}
@@ -100,8 +102,8 @@
 		{/if}
 		{#if supportsDrawingMirror}
 			<button class:active={session.mirrorY} aria-pressed={session.mirrorY} aria-label="Mirror Y" title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
-			{#if session.mirrorX}<label>X axis<input type="number" min="0" max={session.doc.meta.width - 1} step="0.5" value={session.mirrorAxisX} onchange={(e) => session.setMirrorAxis('x', e.currentTarget.valueAsNumber)} /></label>{/if}
-			{#if session.mirrorY}<label>Y axis<input type="number" min="0" max={session.doc.meta.height - 1} step="0.5" value={session.mirrorAxisY} onchange={(e) => session.setMirrorAxis('y', e.currentTarget.valueAsNumber)} /></label>{/if}
+			{#if session.mirrorX}<label>X axis<input type="number" min="0" max={canvasWidth - 1} step="0.5" value={session.mirrorAxisX} onchange={(e) => session.setMirrorAxis('x', e.currentTarget.valueAsNumber)} /></label>{/if}
+			{#if session.mirrorY}<label>Y axis<input type="number" min="0" max={canvasHeight - 1} step="0.5" value={session.mirrorAxisY} onchange={(e) => session.setMirrorAxis('y', e.currentTarget.valueAsNumber)} /></label>{/if}
 		{/if}
 		{#if session.tool === 'pencil'}
 			<button
