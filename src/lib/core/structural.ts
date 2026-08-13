@@ -51,18 +51,19 @@ export class PaletteSortCommand implements Command {
 	readonly kind = 'palette-sort';
 	private readonly replacement: DocumentReplaceCommand;
 	readonly byteSize: number;
+	readonly reverseColors: ReadonlyMap<number, number>;
 	constructor(
 		doc: Doc,
 		after: Doc,
-		readonly beforeColors: [number, number],
-		readonly afterColors: [number, number]
+		readonly forwardColors: ReadonlyMap<number, number>
 	) {
 		this.replacement = new DocumentReplaceCommand(doc, after);
 		this.byteSize = this.replacement.byteSize;
+		this.reverseColors = new Map([...forwardColors].map(([before, after]) => [after, before]));
 	}
 	do(doc: Doc): void { this.replacement.do(doc); }
 	undo(doc: Doc): void { this.replacement.undo(doc); }
-	serialize(): unknown { return { kind: this.kind }; }
+	serialize(): unknown { return { kind: this.kind, colors: [...this.forwardColors] }; }
 	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 
