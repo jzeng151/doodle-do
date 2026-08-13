@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { LoopPlayer } from '$lib/render/loop';
+	import { floatingFrameCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -16,8 +17,19 @@
 
 	onMount(() => {
 		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		player = new LoopPlayer(session.doc, session.compositor, loopEl, undefined, () =>
-			session.effectiveLoopRange()
+		player = new LoopPlayer(
+			session.doc,
+			session.compositor,
+			loopEl,
+			undefined,
+			() => session.effectiveLoopRange(),
+			undefined,
+			(ctx, frame) => {
+				const canvas = floatingFrameCanvas(session, frame);
+				if (!canvas) return false;
+				ctx.drawImage(canvas, 0, 0, loopEl.width, loopEl.height);
+				return true;
+			}
 		);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
 		paused = media.matches;
@@ -44,6 +56,7 @@
 	$effect(() => {
 		// while paused, still reflect edits in the preview
 		void session.version;
+		void session.overlayVersion;
 		if (paused && player) player.blit();
 	});
 </script>

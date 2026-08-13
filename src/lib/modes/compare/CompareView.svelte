@@ -12,6 +12,12 @@
 			session.resetComparisonFork();
 		}
 	}
+
+	function showPlayback() {
+		session.commitFloating();
+		fork.commitFloating();
+		screen = 'playback';
+	}
 </script>
 
 <section class="compare-view" aria-label="Compare view">
@@ -27,7 +33,7 @@
 			<button
 				class:active={screen === 'playback'}
 				aria-pressed={screen === 'playback'}
-				onclick={() => (screen = 'playback')}
+				onclick={showPlayback}
 			>
 				Compare animations
 			</button>

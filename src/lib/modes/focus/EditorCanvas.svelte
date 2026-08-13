@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import { buildLut } from '$lib/core/palette';
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
-	import { brushBounds, canvasPoint } from '../canvas';
+	import { brushBounds, canvasPoint, floatingCanvas, floatingFrameCanvas } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
 
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
-	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | null = null;
+	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | 'layer' | null = null;
 	let rotateStart: { angle0: number; grab: number } | null = null;
 	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
@@ -20,6 +19,7 @@
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
 	let linePointer: number | null = null;
 	let shapePointer: number | null = null;
+	let layerPointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -64,22 +64,22 @@
 			const prev = (f - 1 + frames.length) % frames.length;
 			const next = (f + 1) % frames.length;
 			if (session.onionPreviousEnabled) {
-				drawOnionGhost(ctx, session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity * 0.55);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, prev) ?? session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity * 0.55);
 			}
 			if (session.onionNextEnabled && (next !== prev || !session.onionPreviousEnabled)) {
-				drawOnionGhost(ctx, session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, next) ?? session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
 			}
 		}
 		if (session.bulkFrames.length > 1) {
 			// bulk edit: the other set frames stacked under the active one
-			ctx.globalAlpha = 0.35;
 			for (const bf of session.bulkFrames) {
 				if (bf === f) continue;
-				ctx.drawImage(session.compositor.frameCanvas(bf), 0, 0, canvasEl.width, canvasEl.height);
+				drawMovedFrame(ctx, bf, 0.35);
 			}
-			ctx.globalAlpha = 1;
 		}
-		ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
+		const moved = session.tool === 'move' ? session.floatingSelections(f) : [];
+		if (!moved.length) ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
+		else drawMovedFrame(ctx, f, 1);
 
 		if (session.showGrid && session.zoom >= 4) {
 			const z = renderZoom;
@@ -97,8 +97,15 @@
 			ctx.stroke();
 		}
 
-		drawSelectionOverlay(ctx);
+		drawSelectionOverlay(ctx, !moved.length);
 		if (keyboardFocused) drawKeyboardCursor(ctx);
+	}
+
+	function drawMovedFrame(ctx: CanvasRenderingContext2D, frame: number, alpha: number) {
+		const source = floatingFrameCanvas(session, frame) ?? session.compositor.frameCanvas(frame);
+		ctx.globalAlpha = alpha;
+		ctx.drawImage(source, 0, 0, canvasEl.width, canvasEl.height);
+		ctx.globalAlpha = 1;
 	}
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
@@ -121,7 +128,7 @@
 		ctx.restore();
 	}
 
-	function drawSelectionOverlay(ctx: CanvasRenderingContext2D) {
+	function drawSelectionOverlay(ctx: CanvasRenderingContext2D, drawPixels = true) {
 		const z = renderZoom;
 		const sel = session.floating;
 		if (sel) {
@@ -129,7 +136,7 @@
 			for (const s of [session.floatingTwin, sel]) {
 				if (!s) continue;
 				const r = s.renderRect;
-				ctx.drawImage(floatingCanvas(s), r.x * z, r.y * z, r.w * z, r.h * z);
+				if (drawPixels) ctx.drawImage(floatingCanvas(s, session.doc.palette, session.version), r.x * z, r.y * z, r.w * z, r.h * z);
 				// rotated group outline
 				dashedStroke(ctx, () => {
 					ctx.beginPath();
@@ -263,26 +270,6 @@
 		};
 	}
 
-	// floating buffers rendered as RGBA, rebuilt when the content re-rasterizes
-	// (keyed per selection: a mirror twin renders alongside the main)
-	const floatCache = new WeakMap<object, { version: number; canvas: HTMLCanvasElement }>();
-	function floatingCanvas(sel: NonNullable<typeof session.floating>): HTMLCanvasElement {
-		const cached = floatCache.get(sel);
-		if (cached && cached.version === sel.version) return cached.canvas;
-		const canvas = document.createElement('canvas');
-		const { w, h } = sel.renderRect;
-		canvas.width = w;
-		canvas.height = h;
-		const ctx = canvas.getContext('2d')!;
-		const img = ctx.createImageData(w, h);
-		const u32 = new Uint32Array(img.data.buffer);
-		const lut = buildLut(session.doc.palette);
-		for (let i = 0; i < sel.buffer.length; i++) u32[i] = lut[sel.buffer[i]];
-		ctx.putImageData(img, 0, 0);
-		floatCache.set(sel, { version: sel.version, canvas });
-		return canvas;
-	}
-
 	$effect(() => {
 		// repaint on any document change or relevant view-state change
 		void session.version;
@@ -313,6 +300,7 @@
 
 	function onPointerDown(e: PointerEvent) {
 		if (e.button !== 0) return;
+		if (session.tool === 'move' && layerPointer !== null) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		keyboardX = x;
@@ -333,6 +321,13 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				shapePointer = e.pointerId;
 				session.shapeBegin(x, y);
+				break;
+			case 'move':
+				canvasEl.setPointerCapture(e.pointerId);
+				layerPointer = e.pointerId;
+				lastPixel = { x, y };
+				session.beginLayerMove();
+				selectDrag = 'layer';
 				break;
 			case 'fill':
 				session.fill(x, y);
@@ -427,9 +422,9 @@
 			session.updateLasso(f.x, f.y);
 			return;
 		}
-		if (selectDrag === 'float') {
+		if (selectDrag === 'float' || (selectDrag === 'layer' && e.pointerId === layerPointer)) {
 			const dx = x - lastPixel.x;
-			session.moveFloatingBy(dragMirrored ? -dx : dx, y - lastPixel.y);
+			session.moveFloatingBy(selectDrag === 'float' && dragMirrored ? -dx : dx, y - lastPixel.y);
 			lastPixel = { x, y };
 			return;
 		}
@@ -454,6 +449,12 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (selectDrag === 'layer' && e.pointerId !== layerPointer) return;
+		if (selectDrag === 'layer') {
+			session.endLayerMove();
+			layerPointer = null;
+			selectDrag = null;
+		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
@@ -532,7 +533,8 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
+			if (session.tool === 'move' && session.floating) session.moveFloatingBy(...move);
+			else if (e.altKey && session.hasSelection) session.nudgeSelection(...move);
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
@@ -578,6 +580,10 @@
 					session.shapeEnd();
 				}
 				else session.shapeBegin(keyboardX, keyboardY);
+				break;
+			case 'move':
+				if (session.floating) session.endLayerMove();
+				else session.beginLayerMove();
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);
@@ -672,6 +678,7 @@
 	.editor[data-tool='select'] {
 		cursor: default;
 	}
+	.editor[data-tool='move'] { cursor: move; }
 	.sr-only {
 		position: absolute;
 		width: 1px;

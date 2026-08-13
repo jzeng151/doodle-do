@@ -37,6 +37,7 @@ export type Tool =
 	| 'line'
 	| 'rectangle'
 	| 'ellipse'
+	| 'move'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -110,6 +111,7 @@ export class EditorSession {
 	// bulk edit: the same selection lifted on every other set frame; driven
 	// in lockstep with the active frame's floats, committed in one composite
 	private floatingPeers: { main: FloatingSelection; twin: FloatingSelection | null }[] = [];
+	private wholeLayerMove = false;
 	overlayVersion = $state(0); // bumps on selection/floating changes only
 
 	// for the T15 save-to-disk reminder
@@ -243,6 +245,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
+		this.currentLayer = Math.min(this.currentLayer, this.frame.layers.length - 1);
 		if (index === 1) tips.fire('T02');
 		if (this.doc.frames.length >= 3) tips.fire('T25'); // bulk-edit discovery
 	}
@@ -529,16 +532,16 @@ export class EditorSession {
 
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
-	liftSelection(): void {
+	liftSelection(mirrored = this.mirrorX): void {
 		if (this.floating || !this.selectionMask || this.selectionGesturePending()) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
-		const mirrored = this.mirrorX ? mirrorMaskX(mask, width, height) : null;
+		const mirroredMask = mirrored ? mirrorMaskX(mask, width, height) : null;
 		// per frame, the main lifts FIRST: its snapshot is the pristine layer
 		// that pair commit/cancel run against
 		const liftOn = (frame: number) => ({
 			main: new FloatingSelection(this.doc, frame, this.currentLayer, mask),
-			twin: mirrored ? new FloatingSelection(this.doc, frame, this.currentLayer, mirrored) : null
+			twin: mirroredMask ? new FloatingSelection(this.doc, frame, this.currentLayer, mirroredMask) : null
 		});
 		const active = liftOn(this.currentFrame);
 		this.floating = active.main;
@@ -546,7 +549,7 @@ export class EditorSession {
 		this.floatingPeers = this.editTargets()
 			.filter((f) => f !== this.currentFrame)
 			.map(liftOn);
-		if (mirrored) tips.fire('T24');
+		if (mirroredMask) tips.fire('T24');
 		this.selectionMask = null;
 		this.overlayVersion++;
 		this.bus.emitChange({
@@ -557,6 +560,42 @@ export class EditorSession {
 			this.bus.emitChange({ frame: p.main.frameIndex, rect: null }); // lifted holes
 		}
 		tips.fire('T20'); // arrow-key nudge
+	}
+
+	beginLayerMove(): void {
+		if (this.floating || !this.frame.layers[this.currentLayer]) return;
+		const mask = new Uint8Array(this.doc.meta.width * this.doc.meta.height);
+		for (const frame of this.editTargets()) {
+			const pixels = this.doc.frames[frame].layers[this.currentLayer]?.pixels;
+			if (pixels) pixels.forEach((color, index) => {
+				if (color) mask[index] = 1;
+			});
+		}
+		if (!mask.some(Boolean)) return;
+		this.selectionMask = mask;
+		this.liftSelection(false);
+		this.wholeLayerMove = this.floating !== null;
+	}
+
+	floatingSelections(frame: number): FloatingSelection[] {
+		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
+		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
+		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+	}
+
+	autosaveSnapshot(): Doc {
+		const snapshot = structuredClone(this.doc);
+		if (this.floating) {
+			this.floating.restoreSnapshotInto(snapshot.frames[this.floating.frameIndex].layers[this.floating.layerIndex].pixels);
+			for (const peer of this.floatingPeers) {
+				peer.main.restoreSnapshotInto(snapshot.frames[peer.main.frameIndex].layers[peer.main.layerIndex].pixels);
+			}
+		}
+		return snapshot;
+	}
+
+	endLayerMove(): void {
+		this.commitFloating();
 	}
 
 	moveFloatingBy(dx: number, dy: number): void {
@@ -594,7 +633,7 @@ export class EditorSession {
 	}
 
 	get hasSelection(): boolean {
-		return !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
+		return !this.wholeLayerMove && !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
 	}
 
 	get canReselect(): boolean {
@@ -602,13 +641,17 @@ export class EditorSession {
 	}
 
 	commitFloating(): void {
-		if (!this.floating) return;
+		if (!this.floating) {
+			this.wholeLayerMove = false;
+			return;
+		}
 		const sel = this.floating;
 		const twin = this.floatingTwin;
 		const peers = this.floatingPeers;
 		this.floating = null;
 		this.floatingTwin = null;
 		this.floatingPeers = [];
+		this.wholeLayerMove = false;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -619,7 +662,10 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else {
+			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, rect: null });
+		}
 	}
 
 	cancelFloating(): void {
@@ -638,6 +684,7 @@ export class EditorSession {
 			this.floatingPeers = [];
 		}
 		this.selectionMask = restoreGesture ? gestureBase : null;
+		this.wholeLayerMove = false;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
@@ -818,6 +865,7 @@ export class EditorSession {
 	flip(axis: 'horizontal' | 'vertical'): void {
 		this.lineEnd();
 		this.shapeEnd();
+		if (this.wholeLayerMove) this.commitFloating();
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -940,6 +988,10 @@ export class EditorSession {
 	// lifts first, so any pending move/rotate lands on the new layer.
 	extractSelectionToLayer(): void {
 		if (this.bulkFrames.length) return; // layer-structure edits stay single-frame
+		if (this.wholeLayerMove) {
+			this.commitFloating();
+			return;
+		}
 		if (this.frame.layers.length >= MAX_LAYERS) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		const sel = this.floating;
@@ -1034,6 +1086,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		this.commitFloating();
 		const value = index + 1;
 		const inUse = this.doc.frames.some((frame) =>
 			frame.layers.some((layer) => layer.pixels.includes(value))

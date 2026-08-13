@@ -5,14 +5,17 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import SidePanel from '../SidePanel.svelte';
 	import FrameStrip from '../focus/FrameStrip.svelte';
-	import { brushBounds, canvasPoint } from '../canvas';
+	import { brushBounds, canvasPoint, floatingFrameCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
+	let moveTile = -1;
+	let movePixel = { x: 0, y: 0 };
 	let linePointer: number | null = null;
 	let shapePointer: number | null = null;
+	let movePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -21,12 +24,12 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
 	const tileH = $derived((session.version, session.doc.meta.height * session.gridZoom));
-
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
 		void session.brushSize;
 		void session.tool;
+		void session.overlayVersion;
 		void focusedTile;
 		void keyboardX;
 		void keyboardY;
@@ -36,7 +39,8 @@
 			const ctx = el.getContext('2d')!;
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
-			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
+			const source = floatingFrameCanvas(session, i) ?? session.compositor.frameCanvas(i);
+			ctx.drawImage(source, 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
 				const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
@@ -67,6 +71,7 @@
 
 	function onPointerDown(e: PointerEvent, i: number) {
 		if (e.button !== 0) return;
+		if (session.tool === 'move' && movePointer !== null) return;
 		const el = tiles[i]!;
 		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
@@ -93,6 +98,13 @@
 				shapePointer = e.pointerId;
 				session.shapeBegin(x, y);
 				break;
+			case 'move':
+				el.setPointerCapture(e.pointerId);
+				movePointer = e.pointerId;
+				moveTile = i;
+				movePixel = { x, y };
+				session.beginLayerMove();
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -111,9 +123,21 @@
 			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
+		if (moveTile === i && e.pointerId === movePointer) {
+			session.moveFloatingBy(x - movePixel.x, y - movePixel.y);
+			movePixel = { x, y };
+		}
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (moveTile !== -1) {
+			if (e.pointerId !== movePointer) return;
+			session.endLayerMove();
+			moveTile = -1;
+			movePointer = null;
+			strokeTile = -1;
+			return;
+		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
@@ -150,16 +174,29 @@
 		if (move) {
 			e.preventDefault();
 			e.stopPropagation();
-			keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
-			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+			if (session.tool === 'move' && session.floating) session.moveFloatingBy(...move);
+			else {
+				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
+				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
+			}
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 			if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
 			return;
 		}
+		if (e.key === 'Escape' && session.tool === 'move' && session.floating) {
+			e.preventDefault();
+			e.stopPropagation();
+			session.cancelFloating();
+			return;
+		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
 		e.preventDefault();
 		e.stopPropagation();
+		if (session.tool === 'move' && session.floating) {
+			session.endLayerMove();
+			return;
+		}
 		session.selectFrame(i);
 		switch (session.tool) {
 			case 'pencil':
@@ -181,6 +218,9 @@
 					session.shapeEnd();
 				}
 				else session.shapeBegin(keyboardX, keyboardY);
+				break;
+			case 'move':
+				session.beginLayerMove();
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
@@ -217,7 +257,7 @@
 						width={tileW}
 						height={tileH}
 						style={`--checker-size:${session.gridZoom * 2}px`}
-						onfocus={() => ((focusedTile = i), session.selectFrame(i))}
+						onfocus={() => { focusedTile = i; if (session.currentFrame !== i) session.selectFrame(i); }}
 						onblur={() => focusedTile === i && (focusedTile = -1)}
 						onkeydown={(e) => onKeyDown(e, i)}
 						onpointerdown={(e) => onPointerDown(e, i)}

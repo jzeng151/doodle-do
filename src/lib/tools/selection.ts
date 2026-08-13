@@ -312,6 +312,10 @@ export class FloatingSelection {
 		}
 	}
 
+	restoreSnapshotInto(pixels: Uint8Array): void {
+		pixels.set(this.snapshot);
+	}
+
 	private diffVsSnapshot(kind: string, pixels: Uint8Array): PixelDiffCommand | null {
 		const indices: number[] = [];
 		const before: number[] = [];

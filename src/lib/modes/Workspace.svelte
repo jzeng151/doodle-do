@@ -92,6 +92,9 @@
 			case 'c':
 				editingSession.setTool('ellipse');
 				break;
+			case 'v':
+				editingSession.setTool('move');
+				break;
 			case 'e':
 				editingSession.setTool('eraser');
 				break;

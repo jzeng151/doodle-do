@@ -152,6 +152,38 @@ test('selection shortcuts stay in editable selection views and target the fork p
 	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
 });
 
+test('comparison playback commits a pending layer move', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const current = page.locator('.editor-pane').first();
+	const editor = current.locator('canvas.editor');
+	await drawOn(page, editor);
+	await current.getByRole('button', { name: 'Move', exact: true }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect.poll(() => locatorHasInk(page.locator('canvas.compare-canvas').first())).toBe(true);
+});
+
+test('Grid previews and keyboard-moves a floating layer', async ({ page }) => {
+	await gotoApp(page);
+	await drawOn(page, page.locator('canvas.editor'));
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await switcher(page).getByRole('button', { name: 'Grid' }).click();
+	const tile = page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first();
+	await tile.focus();
+	await page.keyboard.press('Space');
+	await page.getByRole('button', { name: 'Loop' }).focus();
+	expect(await locatorHasInk(tile)).toBe(true);
+	await tile.focus();
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	await page.getByRole('button', { name: 'Loop' }).focus();
+	expect(await locatorHasInk(tile)).toBe(true);
+});
+
 test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
