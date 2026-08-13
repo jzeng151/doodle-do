@@ -312,8 +312,8 @@ export class FloatingSelection {
 		}
 	}
 
-	stampPreviewInto(pixels: Uint8Array): void {
-		this.stampInto(pixels);
+	restoreSnapshotInto(pixels: Uint8Array): void {
+		pixels.set(this.snapshot);
 	}
 
 	private diffVsSnapshot(kind: string, pixels: Uint8Array): PixelDiffCommand | null {
