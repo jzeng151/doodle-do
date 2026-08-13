@@ -339,6 +339,14 @@ describe('tiled drawing', () => {
 		stroke.moveTo(1_000_000_000, 1_000_000_000);
 		expect(stroke.end()!.pixelCount).toBeLessThanOrEqual(4);
 	});
+
+	it('preserves the slope of bounded tiled pixel-perfect moves', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-4, -2);
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
+	});
 });
 
 describe('line tool', () => {
