@@ -109,7 +109,11 @@
 		}
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
+		if (strokeTile >= 0 && session.tool === 'line') {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.lineMove(x, y, e.shiftKey);
+		}
 		strokeTile = -1;
 		if (session.tool === 'line') session.lineEnd();
 		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
@@ -117,7 +121,7 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
-		if (e.key === 'Escape' && session.lineActive) {
+		if (e.key === 'Escape' && (session.lineActive || session.shapeActive)) {
 			e.preventDefault();
 			e.stopPropagation();
 			session.cancelLine();
