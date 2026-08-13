@@ -138,7 +138,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command) => {
-			if (command instanceof ResizeCanvasCommand) {
+			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
 				this.clearGestures();
@@ -302,8 +302,10 @@ export class EditorSession {
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
+		const base = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
+		this.selectionMask = base?.some(Boolean) ? base : null;
 		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
 	}
 
@@ -317,6 +319,8 @@ export class EditorSession {
 	}
 
 	selectAll(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
@@ -325,9 +329,11 @@ export class EditorSession {
 	}
 
 	deselect(): void {
-		if (!this.selectionMask && !this.floating) return;
+		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		if (!this.selectionMask && !this.floating && !pending) return;
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -341,7 +347,7 @@ export class EditorSession {
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
 		this.selectionMask = inverted.some(Boolean) ? inverted : null;
-		this.previousSelectionMask = before;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.overlayVersion++;
 	}
 
