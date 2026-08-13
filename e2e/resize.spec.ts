@@ -106,6 +106,14 @@ test('mirror axis edits survive lossy scaled resize history', async ({ page }) =
 	await page.getByRole('button', { name: 'Redo' }).click();
 	await expect(axis).toHaveValue('10');
 	await page.getByRole('button', { name: 'Undo' }).click();
+	await axis.fill('4');
+	await axis.dispatchEvent('change');
+	await axis.fill('5');
+	await axis.dispatchEvent('change');
+	await page.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('10.5');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('5');
 	await axis.fill('10');
 	await page.getByRole('button', { name: 'Redo' }).click();
 	await expect(axis).toHaveValue('20.5');
