@@ -13,6 +13,7 @@ export class StrokeBuilder {
 	private origin: { x: number; y: number } | null = null;
 	private centers: { x: number; y: number }[] = [];
 	private readonly centerCounts = new Map<number, number>();
+	private readonly occupied = new Set<number>();
 
 	constructor(
 		private readonly doc: Doc,
@@ -48,6 +49,7 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return unionRect(previous, this.line(this.origin.x, this.origin.y, x, y));
 	}
 
@@ -87,6 +89,7 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return rect;
 	}
 
@@ -110,13 +113,13 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return previous;
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		const occupied = new Set<number>();
-		let rect = this.stampOne(cx, cy, false, occupied);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true, occupied));
+		let rect = this.stampOne(cx, cy, false, this.occupied);
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true, this.occupied));
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
@@ -157,6 +160,7 @@ export class StrokeBuilder {
 		const before = this.dirty.get(index);
 		if (before === undefined) return false;
 		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		this.occupied.delete(index);
 		return true;
 	}
 
