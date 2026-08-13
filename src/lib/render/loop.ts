@@ -23,7 +23,8 @@ export class LoopPlayer {
 		private readonly target: HTMLCanvasElement,
 		private readonly onFrame?: (frame: number) => void,
 		private readonly range?: () => { start: number; end: number }, // live playback range, inclusive
-		private readonly playbackSpeed?: () => number
+		private readonly playbackSpeed?: () => number,
+		private readonly drawOverlay?: (ctx: CanvasRenderingContext2D, frame: number) => void
 	) {}
 
 	get playing(): boolean {
@@ -80,5 +81,6 @@ export class LoopPlayer {
 			this.target.width,
 			this.target.height
 		);
+		this.drawOverlay?.(ctx, this.frame);
 	}
 }
