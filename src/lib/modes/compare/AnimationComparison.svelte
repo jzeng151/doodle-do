@@ -29,6 +29,16 @@
 		return Math.max(1, Math.floor(512 / Math.max(doc.meta.width, doc.meta.height)));
 	}
 
+	function playbackRange(target: EditorSession) {
+		const last = target.doc.frames.length - 1;
+		const activeTag = target.doc.meta.tags?.find(
+			(tag) => tag.name === session.activeAnimationTagName
+		);
+		const range = activeTag ? { start: activeTag.from, end: activeTag.to } : session.effectiveLoopRange();
+		const start = Math.min(range.start, last);
+		return { start, end: Math.max(start, Math.min(range.end, last)) };
+	}
+
 	function start() {
 		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
 		if (!currentComplete) currentPlayer.start();
@@ -62,7 +72,7 @@
 			session.compositor,
 			currentEl,
 			(frame) => (currentFrame = frame),
-			() => session.effectiveLoopRange(),
+			() => playbackRange(session),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
@@ -73,12 +83,7 @@
 			fork.compositor,
 			forkEl,
 			(frame) => (forkFrame = frame),
-			() => {
-				const range = session.effectiveLoopRange();
-				const last = fork.doc.frames.length - 1;
-				const start = Math.min(range.start, last);
-				return { start, end: Math.max(start, Math.min(range.end, last)) };
-			},
+			() => playbackRange(fork),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
 			() => session.loopRepeatCount,
