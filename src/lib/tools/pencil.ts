@@ -84,6 +84,14 @@ export class StrokeBuilder {
 		);
 	}
 
+	cancel(): Rect | null {
+		const rect = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return rect;
+	}
+
 	private dirtyRect(): Rect | null {
 		if (!this.dirty.size) return null;
 		const { width } = this.doc.meta;
@@ -127,10 +135,15 @@ export class StrokeBuilder {
 		const protect = (x: number, y: number) => {
 			if (x >= 0 && y >= 0 && x < width && y < height) endpoints.add(y * width + x);
 		};
-		protect(c.x, c.y);
-		if (this.mirrorX) protect(mx, c.y);
-		if (this.mirrorY) protect(c.x, my);
-		if (this.mirrorX && this.mirrorY) protect(mx, my);
+		for (const [index, point] of this.centers.entries()) {
+			if (index === this.centers.length - 2) continue;
+			const pmx = Math.round(2 * this.mirrorAxisX - point.x);
+			const pmy = Math.round(2 * this.mirrorAxisY - point.y);
+			protect(point.x, point.y);
+			if (this.mirrorX) protect(pmx, point.y);
+			if (this.mirrorY) protect(point.x, pmy);
+			if (this.mirrorX && this.mirrorY) protect(pmx, pmy);
+		}
 		const bmx = Math.round(2 * this.mirrorAxisX - b.x);
 		const bmy = Math.round(2 * this.mirrorAxisY - b.y);
 		const corners = [{ x: b.x, y: b.y }];
@@ -138,20 +151,21 @@ export class StrokeBuilder {
 		if (this.mirrorY) corners.push({ x: b.x, y: bmy });
 		if (this.mirrorX && this.mirrorY) corners.push({ x: bmx, y: bmy });
 		for (const point of corners) {
-			this.restorePixel(point.x, point.y, endpoints);
-			rect = unionRect(rect, { ...point, w: 1, h: 1 });
+			if (this.restorePixel(point.x, point.y, endpoints)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
 	}
 
-	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): void {
+	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): boolean {
 		const { width, height } = this.doc.meta;
-		if (x < 0 || y < 0 || x >= width || y >= height) return;
+		if (x < 0 || y < 0 || x >= width || y >= height) return false;
 		const index = y * width + x;
-		if (protectedIndices.has(index)) return;
+		if (protectedIndices.has(index)) return false;
 		const before = this.dirty.get(index);
-		if (before !== undefined) this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		if (before === undefined) return false;
+		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		return true;
 	}
 
 	private stampOne(cx: number, cy: number): Rect | null {
