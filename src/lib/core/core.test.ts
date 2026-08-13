@@ -101,12 +101,12 @@ describe('palette ranges', () => {
 	it('sorts entries while remapping indices to preserve artwork colors', () => {
 		const doc = createDoc({ width: 3, height: 1, palette: ['#ffffff', '#000000', '#ff0000'] });
 		doc.frames[0].layers[0].pixels.set([1, 2, 3]);
-		const { doc: next, map, moved } = sortPaletteRange(doc, 0, 2, 'luminance');
-		expect(next.palette).toEqual(['#000000', '#ff0000', '#ffffff']);
-		expect([...next.frames[0].layers[0].pixels]).toEqual([3, 1, 2]);
+		const { palette, map, moved } = sortPaletteRange(doc, 0, 2, 'luminance');
+		expect(palette).toEqual(['#000000', '#ff0000', '#ffffff']);
+		expect([...doc.frames[0].layers[0].pixels]).toEqual([1, 2, 3]);
 		expect(map.get(1)).toBe(3);
 		expect(moved).toBe(true);
-		expect(sortPaletteRange(next, 0, 2, 'luminance').moved).toBe(false);
+		expect(sortPaletteRange({ ...doc, palette }, 0, 2, 'luminance').moved).toBe(false);
 	});
 });
 

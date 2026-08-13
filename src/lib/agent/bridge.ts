@@ -128,6 +128,7 @@ export function executeAgentOperation(
 		if (typeof mirrorY !== 'boolean') throw new Error('mirrorY must be boolean');
 		const mirrorAxisX = number(args, 'mirrorAxisX', 0, doc.meta.width - 1, (doc.meta.width - 1) / 2);
 		const mirrorAxisY = number(args, 'mirrorAxisY', 0, doc.meta.height - 1, (doc.meta.height - 1) / 2);
+		if (!Number.isInteger(mirrorAxisX * 2) || !Number.isInteger(mirrorAxisY * 2)) throw new Error('mirror axes must use half-pixel steps');
 		if (!Array.isArray(args.points) || args.points.length < 1 || args.points.length > 2048) {
 			throw new Error('points must contain 1 to 2048 coordinates');
 		}
