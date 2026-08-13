@@ -24,6 +24,7 @@
 	let rangeSort = $state<PaletteSort>('luminance');
 	let importGeneration = 0;
 	const replaceControlsId = $props.id();
+	const rangeControlsId = `${replaceControlsId}-range`;
 	let paletteSignature = '';
 	$effect(() => {
 		const signature = palette.join('\n');
@@ -196,10 +197,10 @@
 		<button onclick={() => exportPalette('gpl')}>Export GPL</button>
 		<button onclick={() => exportPalette('hex')}>Export HEX</button>
 		<button disabled={session.paletteLocked} onclick={() => session.createPaletteFromArtwork()}>From artwork</button>
-		<button aria-expanded={rangeOpen} aria-controls="palette-range-options" onclick={() => (rangeOpen = !rangeOpen)}>Ramp / Sort</button>
+		<button aria-expanded={rangeOpen} aria-controls={rangeControlsId} onclick={() => (rangeOpen = !rangeOpen)}>Ramp / Sort</button>
 	</div>
 	{#if rangeOpen}
-		<div id="palette-range-options" class="replace-options">
+		<div id={rangeControlsId} class="replace-options">
 			<label>Start<select bind:value={rangeStart}>{#each palette as hex, i}<option value={i}>{i + 1}: {hex}</option>{/each}</select></label>
 			<label>End<select bind:value={rangeEnd}>{#each palette as hex, i}<option value={i}>{i + 1}: {hex}</option>{/each}</select></label>
 			<label>Sort<select bind:value={rangeSort}>
