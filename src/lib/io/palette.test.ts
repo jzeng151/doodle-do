@@ -43,4 +43,10 @@ describe('palette files', () => {
 		expect([...doc.frames[0].layers[0].pixels]).toEqual([3, 0, 1]);
 		expect(map.get(3)).toBe(2);
 	});
+
+	it('maps unused duplicate colors to their surviving slot', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#111111', '#222222', '#111111'] });
+		doc.frames[0].layers[0].pixels[0] = 3;
+		expect(paletteFromArtwork(doc)?.map.get(1)).toBe(1);
+	});
 });
