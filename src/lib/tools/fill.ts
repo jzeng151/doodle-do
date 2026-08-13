@@ -59,7 +59,9 @@ export function floodFill(
 	const pixels = doc.frames[frameIndex].layers[layerIndex].pixels;
 	const target = pixels[y * width + x];
 
-	const matches = (candidate: number) => tolerance <= 0 ? candidate === target : colorDistance(doc, target, candidate) <= tolerance;
+	const match = new Uint8Array(doc.palette.length + 1);
+	for (let candidate = 0; candidate < match.length; candidate++) match[candidate] = Number(tolerance <= 0 ? candidate === target : colorDistance(doc, target, candidate) <= tolerance);
+	const matches = (candidate: number) => !!match[candidate];
 	const hits = (contiguous
 		? connectedRegion(pixels, width, height, x, y, matches)
 		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])))
