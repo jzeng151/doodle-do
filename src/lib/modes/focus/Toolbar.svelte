@@ -3,7 +3,7 @@
 
 	let { session }: { session: EditorSession } = $props();
 
-	const tools: { id: Tool; label: string; key: string; description: string }[] = [
+	const baseTools: { id: Tool; label: string; key: string; description: string }[] = [
 		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
 		{ id: 'line', label: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
 		{ id: 'rectangle', label: 'Rect', key: 'R', description: 'Draw a rectangle' },
@@ -17,6 +17,9 @@
 		{ id: 'wand', label: 'Wand', key: 'W', description: 'Select connected pixels of the same color' },
 		{ id: 'polygon', label: 'Polygon', key: 'P', description: 'Select an area by placing points' }
 	];
+	const tools = $derived(session.stamp
+		? [...baseTools, { id: 'stamp' as Tool, label: 'Stamp', key: 'S', description: 'Place the captured selection stamp' }]
+		: baseTools);
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
@@ -62,6 +65,15 @@
 			<button disabled={!session.canReselect} onclick={() => session.reselect()}>Reselect</button>
 		</div>
 	{/if}
+	{#if session.selectionMask && !session.selectionGestureActive}
+		<div class="group"><button onclick={() => session.captureSelectionStamp()}>Make stamp</button></div>
+	{/if}
+	{#if session.tool === 'stamp'}
+		<div class="group" role="group" aria-label="Stamp transform">
+			<button onclick={() => session.flipStamp()}>Flip stamp</button>
+			<button onclick={() => session.rotateStamp()}>Turn stamp</button>
+		</div>
+	{/if}
 
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
@@ -72,14 +84,16 @@
 				{/each}
 			</select>
 		</label>
-		<button
-			class:active={session.mirrorX}
-			aria-pressed={session.mirrorX}
-			title="Mirror-draw: paint both halves at once"
-			onclick={() => session.toggleMirror()}
-		>
-			Mirror
-		</button>
+		{#if session.tool !== 'stamp'}
+			<button
+				class:active={session.mirrorX}
+				aria-pressed={session.mirrorX}
+				title="Mirror-draw: paint both halves at once"
+				onclick={() => session.toggleMirror()}
+			>
+				Mirror
+			</button>
+		{/if}
 		{#if session.tool === 'pencil'}
 			<button
 				class:active={session.pixelPerfect}

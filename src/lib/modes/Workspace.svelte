@@ -95,6 +95,9 @@
 			case 'v':
 				editingSession.setTool('move');
 				break;
+			case 's':
+				if (editingSession.stamp) editingSession.setTool('stamp');
+				break;
 			case 'e':
 				editingSession.setTool('eraser');
 				break;

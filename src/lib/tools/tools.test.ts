@@ -8,6 +8,7 @@ import { constrainLineEndpoint, StrokeBuilder } from './pencil';
 import { ellipsePoints, rectanglePoints } from './shapes';
 import { replaceColorCommand } from './replace';
 import { ditherValue } from './dither';
+import { flipStamp, rotateStamp, stampCommand } from './stamp';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -377,5 +378,16 @@ describe('dithering', () => {
 		cmd.do(doc);
 		expect([...doc.frames[0].layers[0].pixels]).toEqual([1, 2, 2, 1]);
 		expect(floodFill(doc, 0, 0, 0, 0, 1, 1, true, 2, 2)).toBeNull();
+	});
+});
+
+describe('selection stamps', () => {
+	it('places opaque stamp pixels and supports transforms', () => {
+		const doc = testDoc(5, 5);
+		const stamp = { width: 2, height: 2, pixels: new Uint8Array([1, 0, 2, 3]) };
+		stampCommand(doc, 0, 0, stamp, 2, 2)!.do(doc);
+		expect(doc.frames[0].layers[0].pixels[1 * 5 + 1]).toBe(1);
+		expect([...flipStamp(stamp).pixels]).toEqual([0, 1, 3, 2]);
+		expect([...rotateStamp(stamp).pixels]).toEqual([2, 1, 3, 0]);
 	});
 });

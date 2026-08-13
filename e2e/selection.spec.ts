@@ -391,3 +391,31 @@ test('reselect availability updates and resets after canvas resize', async ({ pa
 	await page.keyboard.press('Control+z');
 	await expect(reselect).toBeDisabled();
 });
+
+test('Make stamp is hidden after a selection becomes floating', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 6, 6);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 10);
+	await page.mouse.up();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toBeVisible();
+	await page.keyboard.press('Alt+ArrowRight');
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
+});
+
+test('Make stamp is hidden during a pending polygon gesture', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await page.getByRole('button', { name: 'Polygon', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toBeVisible();
+	await mouseOnPixel(page, 4, 4);
+	await page.mouse.down();
+	await page.mouse.up();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
+});

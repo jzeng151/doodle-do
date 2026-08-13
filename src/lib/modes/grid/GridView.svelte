@@ -69,6 +69,10 @@
 		};
 	}
 
+	function selectTile(i: number) {
+		if (session.tool !== 'stamp' || !session.bulkFrames.includes(i)) session.selectFrame(i);
+	}
+
 	function onPointerDown(e: PointerEvent, i: number) {
 		if (e.button !== 0 && e.button !== 2) return;
 		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
@@ -81,7 +85,7 @@
 		const secondaryColorValue = backgroundAction ? session.colorValue : session.backgroundColorValue;
 		keyboardX = x;
 		keyboardY = y;
-		session.selectFrame(i);
+		selectTile(i);
 		switch (session.tool) {
 			case 'pencil':
 			case 'eraser':
@@ -115,6 +119,7 @@
 			case 'eyedropper':
 				session.eyedrop(x, y, backgroundAction);
 				break;
+			case 'stamp': session.placeStamp(x, y); break;
 		}
 	}
 
@@ -201,7 +206,7 @@
 			session.endLayerMove();
 			return;
 		}
-		session.selectFrame(i);
+		selectTile(i);
 		switch (session.tool) {
 			case 'pencil':
 			case 'eraser':
@@ -228,6 +233,7 @@
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;
+			case 'stamp': session.placeStamp(keyboardX, keyboardY); break;
 		}
 	}
 </script>
@@ -261,7 +267,7 @@
 						width={tileW}
 						height={tileH}
 						style={`--checker-size:${session.gridZoom * 2}px`}
-						onfocus={() => { focusedTile = i; if (session.currentFrame !== i) session.selectFrame(i); }}
+						onfocus={() => { focusedTile = i; if (session.currentFrame !== i) selectTile(i); }}
 						onblur={() => focusedTile === i && (focusedTile = -1)}
 						onkeydown={(e) => onKeyDown(e, i)}
 						onpointerdown={(e) => onPointerDown(e, i)}

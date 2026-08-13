@@ -30,6 +30,7 @@ import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
+import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
@@ -42,6 +43,7 @@ export type Tool =
 	| 'rectangle'
 	| 'ellipse'
 	| 'move'
+	| 'stamp'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -78,6 +80,7 @@ export class EditorSession {
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
 	selectionMode = $state<SelectionMode>('replace');
+	stamp = $state<Stamp | null>(null);
 	mirrorX = $state(false);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
@@ -173,6 +176,8 @@ export class EditorSession {
 				this.colorValue = command.mapActiveColor(this.colorValue, action);
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
+			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand || command instanceof PaletteReplaceCommand) this.invalidateStamp();
+			else if (this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
@@ -183,6 +188,11 @@ export class EditorSession {
 			}
 			this.unsavedCommits++;
 		});
+	}
+
+	private invalidateStamp(): void {
+		this.stamp = null;
+		if (this.tool === 'stamp') this.tool = 'pencil';
 	}
 
 	get frame() {
@@ -215,7 +225,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
-		this.bulkFrames = [];
+		if (mode !== 'grid' || this.tool !== 'stamp') this.bulkFrames = [];
 		this.overlayVersion++;
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
 		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
@@ -242,6 +252,7 @@ export class EditorSession {
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
 		this.previousSelectionMask = null;
+		this.invalidateStamp();
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
@@ -261,6 +272,8 @@ export class EditorSession {
 		const forkDoc = structuredClone(fork.doc);
 		this.selectionMask = fork.selectionMask = null;
 		this.previousSelectionMask = fork.previousSelectionMask = null;
+		this.invalidateStamp();
+		fork.invalidateStamp();
 		this.clearGestures();
 		fork.clearGestures();
 		this.bulkFrames = fork.bulkFrames = [];
@@ -632,6 +645,41 @@ export class EditorSession {
 	endLayerMove(): void {
 		this.commitFloating();
 	}
+
+	captureSelectionStamp(): void {
+		if (!this.selectionMask) return;
+		const { width, height } = this.doc.meta;
+		const mask = this.mirrorX ? combineMasks(this.selectionMask, mirrorMaskX(this.selectionMask, width, height), 'add')! : this.selectionMask;
+		let minX = width, minY = height, maxX = -1, maxY = -1;
+		for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (mask[y * width + x]) {
+			minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+		}
+		if (maxX < 0) return;
+		const bounds = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+		const source = this.frame.layers[this.currentLayer].pixels;
+		const pixels = new Uint8Array(bounds.w * bounds.h);
+		for (let y = 0; y < bounds.h; y++) for (let x = 0; x < bounds.w; x++) {
+			const index = (bounds.y + y) * this.doc.meta.width + bounds.x + x;
+			if (mask[index]) pixels[y * bounds.w + x] = source[index];
+		}
+		if (!pixels.some(Boolean)) return;
+		this.stamp = { width: bounds.w, height: bounds.h, pixels };
+		if (this.tool === 'stamp') {
+			this.selectionMask = null;
+			this.clearGestures();
+			this.overlayVersion++;
+		} else this.setTool('stamp');
+	}
+
+	placeStamp(x: number, y: number): void {
+		if (!this.stamp || this.floating) return;
+		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
+		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
+	}
+
+	flipStamp(): void { if (this.stamp) this.stamp = flipStamp(this.stamp); }
+	rotateStamp(): void { if (this.stamp) this.stamp = rotateStamp(this.stamp); }
 
 	moveFloatingBy(dx: number, dy: number): void {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
@@ -1168,6 +1216,7 @@ export class EditorSession {
 			0
 		);
 		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
+		this.invalidateStamp();
 		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
 		const after: [number, number] = [Math.min(this.colorValue, colors.length), Math.min(this.backgroundColorValue, colors.length)];
 		const command = new PaletteReplaceCommand(this.doc.palette, colors);
@@ -1185,6 +1234,7 @@ export class EditorSession {
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
 		if (compacted.palette.length === this.doc.palette.length && compacted.palette.every((color, index) => color === this.doc.palette[index])) return;
+		this.invalidateStamp();
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
 		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.palette.length)];
