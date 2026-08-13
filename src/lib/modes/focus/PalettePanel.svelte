@@ -22,6 +22,7 @@
 	let rangeStart = $state(0);
 	let rangeEnd = $state(1);
 	let rangeSort = $state<PaletteSort>('luminance');
+	let importGeneration = 0;
 	const replaceControlsId = $props.id();
 	let paletteSignature = '';
 	$effect(() => {
@@ -31,18 +32,23 @@
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
 
-	function onSwatchClick(i: number) {
+	function onSwatchClick(e: MouseEvent, i: number) {
+		if (e.ctrlKey) return;
 		if (removePending !== null) {
 			if (removePending !== i) session.removePaletteColor(removePending, i);
 			removePending = null;
 			return;
 		}
+		session.lineEnd();
+		session.shapeEnd();
 		session.colorValue = i + 1;
 	}
 
 	function onSwatchSecondary(e: MouseEvent, i: number) {
 		e.preventDefault();
 		removePending = null;
+		session.lineEnd();
+		session.shapeEnd();
 		session.backgroundColorValue = i + 1;
 	}
 
@@ -60,6 +66,7 @@
 	}
 
 	function importPalette() {
+		const generation = ++importGeneration;
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.accept = '.gpl,.pal,.hex,.txt,image/png';
@@ -68,6 +75,7 @@
 			if (!file) return;
 			try {
 				const colors = await readPalette(file);
+				if (generation !== importGeneration) return;
 				session.importPalette(colors);
 				ioStatus = `Imported ${colors.length} colors.`;
 			} catch (error) {
@@ -112,7 +120,7 @@
 			title="Transparent (eraser)"
 			aria-label="Transparent"
 			aria-pressed={session.colorValue === 0}
-			onclick={() => (session.colorValue = 0)}
+			onclick={() => { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; }}
 		></button>
 		{#each palette as hex, i (i)}
 			<button
@@ -124,7 +132,7 @@
 				title="{hex}. Click for foreground; secondary click for background; double-click to edit"
 				aria-label="Color {hex}{session.backgroundColorValue === i + 1 ? ', background' : ''}"
 				aria-pressed={session.colorValue === i + 1}
-				onclick={() => onSwatchClick(i)}
+				onclick={(e) => onSwatchClick(e, i)}
 				oncontextmenu={(e) => onSwatchSecondary(e, i)}
 				ondblclick={() => startSwap(i)}
 			></button>
