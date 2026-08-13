@@ -19,9 +19,9 @@ describe('palette files', () => {
 	it('builds and remaps a compact palette from used artwork colors', () => {
 		const doc = createDoc({ width: 3, height: 1, palette: ['#111111', '#222222', '#333333'] });
 		doc.frames[0].layers[0].pixels.set([3, 0, 1]);
-		const { doc: next, map } = paletteFromArtwork(doc)!;
-		expect(next.palette).toEqual(['#111111', '#333333']);
-		expect([...next.frames[0].layers[0].pixels]).toEqual([2, 0, 1]);
+		const { palette, map } = paletteFromArtwork(doc)!;
+		expect(palette).toEqual(['#111111', '#333333']);
+		expect([...doc.frames[0].layers[0].pixels]).toEqual([3, 0, 1]);
 		expect(map.get(3)).toBe(2);
 	});
 });
