@@ -609,7 +609,7 @@ export class EditorSession {
 	}
 
 	beginLayerMove(): void {
-		if (this.floating || !this.frame.layers[this.currentLayer]) return;
+		if (this.floating || !this.frame.layers[this.currentLayer] || this.currentLayerLocked) return;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.liftSelection(false);
 	}
@@ -1132,6 +1132,8 @@ export class EditorSession {
 
 	duplicateLayer(): void {
 		if (this.frame.layers.length >= MAX_LAYERS) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const source = this.frame.layers[this.currentLayer];
 		const copy = { ...source, name: `${source.name} copy`, pixels: source.pixels.slice() };
@@ -1156,6 +1158,7 @@ export class EditorSession {
 	}
 
 	get currentLayerLocked(): boolean { return this.layerLocked(this.currentFrame, this.currentLayer); }
+	isLayerLocked(index: number): boolean { return this.layerLocked(this.currentFrame, index); }
 
 	// Extract the selection onto a new layer above the current one: clear the
 	// source pixels + add the layer, as ONE composite command. A bare mask

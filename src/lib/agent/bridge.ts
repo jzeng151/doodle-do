@@ -80,6 +80,8 @@ export function executeAgentOperation(
 					index: layerIndex,
 					name: layer.name,
 					visible: layer.visible,
+					locked: layer.locked ?? false,
+					opacity: layer.opacity ?? 1,
 					linkId: layer.linkId ?? null
 				}))
 			})),
