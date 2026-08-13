@@ -150,6 +150,7 @@ export class EditorSession {
 	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number] }>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
+	private documentReplaceColors = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -177,7 +178,7 @@ export class EditorSession {
 				this.colorValue = map.get(this.colorValue) ?? this.colorValue;
 				this.backgroundColorValue = map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
 			}
-			if (command instanceof ResizeCanvasCommand) {
+			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
 				this.clearGestures();
@@ -190,6 +191,8 @@ export class EditorSession {
 			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
 			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteSortCommand) this.invalidateStamp();
+			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
+			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -297,10 +300,8 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
-		if (index !== this.currentFrame) {
-			this.lineEnd();
-			this.shapeEnd();
-		}
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -334,6 +335,8 @@ export class EditorSession {
 
 	toggleBulkFrame(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const set = new Set(this.bulkFrames.length ? this.bulkFrames : [this.currentFrame]);
 		if (index !== this.currentFrame) {
@@ -348,6 +351,8 @@ export class EditorSession {
 
 	selectBulkRange(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const lo = Math.min(this.currentFrame, index);
 		const hi = Math.max(this.currentFrame, index);
@@ -391,8 +396,10 @@ export class EditorSession {
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
+		const base = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
+		this.selectionMask = base?.some(Boolean) ? base : null;
 		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
 	}
 
@@ -406,6 +413,8 @@ export class EditorSession {
 	}
 
 	selectAll(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
@@ -414,9 +423,11 @@ export class EditorSession {
 	}
 
 	deselect(): void {
-		if (!this.selectionMask && !this.floating) return;
+		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		if (!this.selectionMask && !this.floating && !pending) return;
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -430,7 +441,7 @@ export class EditorSession {
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
 		this.selectionMask = inverted.some(Boolean) ? inverted : null;
-		this.previousSelectionMask = before;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.overlayVersion++;
 	}
 
@@ -607,13 +618,19 @@ export class EditorSession {
 
 	captureSelectionStamp(): void {
 		if (!this.selectionMask) return;
-		const bounds = this.selectionBounds();
-		if (!bounds) return;
+		const { width, height } = this.doc.meta;
+		const mask = this.mirrorX ? combineMasks(this.selectionMask, mirrorMaskX(this.selectionMask, width, height), 'add')! : this.selectionMask;
+		let minX = width, minY = height, maxX = -1, maxY = -1;
+		for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (mask[y * width + x]) {
+			minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+		}
+		if (maxX < 0) return;
+		const bounds = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 		const source = this.frame.layers[this.currentLayer].pixels;
 		const pixels = new Uint8Array(bounds.w * bounds.h);
 		for (let y = 0; y < bounds.h; y++) for (let x = 0; x < bounds.w; x++) {
 			const index = (bounds.y + y) * this.doc.meta.width + bounds.x + x;
-			if (this.selectionMask[index]) pixels[y * bounds.w + x] = source[index];
+			if (mask[index]) pixels[y * bounds.w + x] = source[index];
 		}
 		if (!pixels.some(Boolean)) return;
 		this.stamp = { width: bounds.w, height: bounds.h, pixels };
@@ -972,6 +989,8 @@ export class EditorSession {
 	}
 
 	addLinkedFrame(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.bulkFrames = [];
 		const index = this.currentFrame + 1;
@@ -1270,9 +1289,11 @@ export class EditorSession {
 		this.invalidateStamp();
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
-		this.colorValue = compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length);
-		this.backgroundColorValue = compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length);
+		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length)];
+		const command = new DocumentReplaceCommand(this.doc, compacted.doc);
+		this.documentReplaceColors.set(command, { before: [foreground, background], after });
+		this.bus.dispatch(command);
+		[this.colorValue, this.backgroundColorValue] = after;
 	}
 
 	generatePaletteRamp(start: number, end: number): void {
@@ -1308,7 +1329,9 @@ export class EditorSession {
 		if (scope === 'selection' && !this.hasSelection) return;
 		this.lineEnd();
 		this.shapeEnd();
-		const selection = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const mainCoverage = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const twinCoverage = this.floatingTwin?.coverageMask() ?? null;
+		const selection = twinCoverage ? combineMasks(mainCoverage, twinCoverage, 'add') : mainCoverage;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {

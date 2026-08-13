@@ -173,7 +173,9 @@ export class UnlinkFrameCommand implements Command {
 	constructor(doc: Doc, private readonly frameIndex: number) {
 		this.before = doc.frames[frameIndex].layers.map((layer) => ({ pixels: layer.pixels, ...(layer.linkId && { linkId: layer.linkId }) }));
 		this.after = this.before.map(({ pixels }) => pixels.slice());
-		this.byteSize = this.after.reduce((sum, pixels) => sum + pixels.byteLength, 128);
+		const peerBuffers = new Set(doc.frames.flatMap((frame, index) => index === frameIndex ? [] : frame.layers.map((layer) => layer.pixels)));
+		const retained = new Set(this.before.map(({ pixels }) => pixels).filter((pixels) => !peerBuffers.has(pixels)));
+		this.byteSize = [...this.after, ...retained].reduce((sum, pixels) => sum + pixels.byteLength, 128);
 	}
 	do(doc: Doc): void {
 		doc.frames[this.frameIndex].layers.forEach((layer, i) => { layer.pixels = this.after[i]; delete layer.linkId; });
@@ -214,6 +216,10 @@ export class FrameDeleteCommand implements Command {
 		doc.meta.tags = deleteFrameTags(this.beforeTags, this.index, doc.frames.length - 1);
 	}
 	undo(doc: Doc): void {
+		for (const layer of this.frame.layers) {
+			const peer = layer.linkId ? doc.frames.flatMap((frame) => frame.layers).find((candidate) => candidate.linkId === layer.linkId) : undefined;
+			if (peer) layer.pixels = peer.pixels;
+		}
 		doc.frames.splice(this.index, 0, this.frame);
 		doc.meta.tags = copyTags(this.beforeTags);
 	}

@@ -59,7 +59,7 @@ describe('export metadata schemas', () => {
 		expect(parsed.meta.image).toBe('strut.png');
 		expect(parsed.meta.size).toEqual({ w: 128, h: 32 });
 		expect(parsed.meta.scale).toBe('1');
-		expect(parsed.meta.frameTags).toEqual(doc.meta.tags);
+		expect(parsed.meta.frameTags).toEqual(doc.meta.tags?.map((tag) => ({ ...tag, direction: tag.direction === 'ping-pong' ? 'pingpong' : tag.direction })));
 	});
 
 	it('doodledo.json carries fps and per-frame durations', () => {

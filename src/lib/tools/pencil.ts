@@ -132,7 +132,8 @@ export class StrokeBuilder {
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
 		this.trackCenter(b, -1);
 		for (const point of this.symmetryPoints(b.x, b.y)) {
-			if (this.restorePixel(point.x, point.y)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
+			const restored = this.restorePixel(point.x, point.y);
+			if (restored) rect = unionRect(rect, { ...restored, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
@@ -164,19 +165,19 @@ export class StrokeBuilder {
 		for (const mirrored of this.symmetryPoints(point.x, point.y)) track(mirrored.x, mirrored.y);
 	}
 
-	private restorePixel(x: number, y: number): boolean {
+	private restorePixel(x: number, y: number): { x: number; y: number } | null {
 		const { width, height } = this.doc.meta;
 		if (this.tiled) {
 			x = (x % width + width) % width;
 			y = (y % height + height) % height;
 		}
-		if (x < 0 || y < 0 || x >= width || y >= height) return false;
+		if (x < 0 || y < 0 || x >= width || y >= height) return null;
 		const index = y * width + x;
-		if (this.centerCounts.has(index)) return false;
+		if (this.centerCounts.has(index)) return null;
 		const before = this.dirty.get(index);
-		if (before === undefined) return false;
+		if (before === undefined) return null;
 		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
-		return true;
+		return { x, y };
 	}
 
 	private stampOne(cx: number, cy: number): Rect | null {
