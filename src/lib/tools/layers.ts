@@ -3,7 +3,7 @@
 
 import { MAX_LAYERS, type Doc } from '../core/document';
 import { CompositeCommand, PixelDiffCommand, type Command } from '../core/commands';
-import { LayerAddCommand, LayerDeleteCommand } from '../core/structural';
+import { LayerAddCommand, LayerDeleteCommand, UnlinkFrameCommand } from '../core/structural';
 
 // Composite the layer's nonzero pixels onto the layer below (matching how
 // the compositor flattens), then delete it. Null when nothing is below.
@@ -30,7 +30,10 @@ export function mergeDownCommand(
 			after.push(upper[i]);
 		}
 	}
-	const cmds: Command[] = [];
+	const sharedLower = doc.frames.some((frame, f) =>
+		frame.layers.some((layer, l) => (f !== frameIndex || l !== layerIndex - 1) && layer.pixels === lower)
+	);
+	const cmds: Command[] = sharedLower ? [new UnlinkFrameCommand(doc, frameIndex)] : [];
 	if (indices.length) {
 		cmds.push(
 			new PixelDiffCommand(

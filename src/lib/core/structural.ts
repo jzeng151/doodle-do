@@ -380,7 +380,10 @@ export class LayerDeleteCommand implements Command {
 			throw new Error('cannot delete the last layer');
 		}
 		this.layer = doc.frames[frameIndex].layers[layerIndex];
-		this.byteSize = this.layer.pixels.byteLength + 64;
+		const retainedByPeer = doc.frames.some((frame) =>
+			frame.layers.some((layer) => layer !== this.layer && layer.pixels === this.layer.pixels)
+		);
+		this.byteSize = (retainedByPeer ? 0 : this.layer.pixels.byteLength) + 64;
 	}
 
 	do(doc: Doc): void {

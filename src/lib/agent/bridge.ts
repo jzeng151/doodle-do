@@ -44,7 +44,7 @@ function editable(session: EditorSession, args: Args): void {
 	if (expected !== session.version) {
 		throw new Error(`version conflict: expected ${expected}, current ${session.version}; read the document again`);
 	}
-	if (session.strokeActive || session.hasSelection) {
+	if (session.strokeActive || session.hasSelection || session.selectionGestureActive) {
 		throw new Error('finish the active user stroke or selection before applying an agent edit');
 	}
 }
@@ -71,7 +71,7 @@ export function executeAgentOperation(
 			meta: { name: doc.meta.name, width: doc.meta.width, height: doc.meta.height, fps: doc.meta.fps, tags: doc.meta.tags ?? [] },
 			palette: [{ value: 0, hex: null, name: 'transparent' }, ...doc.palette.map((hex, i) => ({ value: i + 1, hex }))],
 			current: { frame: session.currentFrame, layer: session.currentLayer, mode: session.mode },
-			editing: { strokeActive: session.strokeActive, hasSelection: session.hasSelection },
+			editing: { strokeActive: session.strokeActive, hasSelection: session.hasSelection || session.selectionGestureActive },
 			frames: doc.frames.map((frame, index) => ({
 				index,
 				durationMs: frameDurationMs(doc, index),
