@@ -213,6 +213,17 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await expect(page.getByLabel('Playback speed')).toHaveValue('0.25');
 });
 
+test('saving a renamed clip replaces the selected clip', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	const name = page.getByLabel('Name', { exact: true });
+	await name.fill('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await name.fill('run');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'run (1–2)']);
+});
+
 test('preview background setting is shared with Loop mode', async ({ page }) => {
 	await gotoApp(page);
 	const sidePanel = page.locator('.loop-panel');

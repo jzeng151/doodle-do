@@ -65,7 +65,7 @@
 			<button disabled={!session.canReselect} onclick={() => session.reselect()}>Reselect</button>
 		</div>
 	{/if}
-	{#if session.selectionMask}
+	{#if session.selectionMask && !session.selectionGestureActive}
 		<div class="group"><button onclick={() => session.captureSelectionStamp()}>Make stamp</button></div>
 	{/if}
 	{#if session.tool === 'stamp'}
