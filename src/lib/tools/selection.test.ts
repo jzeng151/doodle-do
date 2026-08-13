@@ -383,6 +383,15 @@ describe('pixel-safe quarter turns', () => {
 		expect(sel.bbox.x + sel.bbox.w / 2 + sel.dx).toBe(center.x);
 		expect(sel.bbox.y + sel.bbox.h / 2 + sel.dy).toBe(center.y);
 	});
+
+	it('does not turn edge clamps into translation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 0, w: 2, h: 1 }], 8, 8));
+		for (let turn = 1; turn <= 4; turn++) sel.rotateTo(turn * Math.PI / 2);
+		expect(sel.renderRect).toEqual({ x: 0, y: 0, w: 2, h: 1 });
+		expect(sel.dx).toBe(0);
+		expect(sel.dy).toBe(0);
+	});
 });
 
 describe('mirrored twin selection', () => {

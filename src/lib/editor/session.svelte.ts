@@ -786,14 +786,14 @@ export class EditorSession {
 		if (this.floatingTwin) {
 			this.floatingTwin.rotateTo(-angleRad);
 			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
-			this.floatingTwin.moveBy(desiredX - this.floatingTwin.renderRect.x, 0);
+			this.floatingTwin.alignRenderX(desiredX);
 		}
 		for (const p of this.floatingPeers) {
 			p.main.rotateTo(angleRad);
 			if (p.twin) {
 				p.twin.rotateTo(-angleRad);
 				const desiredX = this.doc.meta.width - p.main.renderRect.x - p.twin.renderRect.w;
-				p.twin.moveBy(desiredX - p.twin.renderRect.x, 0);
+				p.twin.alignRenderX(desiredX);
 			}
 		}
 		this.overlayVersion++;

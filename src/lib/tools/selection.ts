@@ -117,6 +117,8 @@ export class FloatingSelection {
 	private readonly coverage: Uint8Array;
 	private readonly snapshot: Uint8Array;
 	private contentVersion = 0; // bumped on every re-rasterize, for render caching
+	private snapDx = 0;
+	private snapDy = 0;
 
 	constructor(
 		private readonly doc: Doc,
@@ -199,13 +201,19 @@ export class FloatingSelection {
 	}
 
 	moveBy(dx: number, dy: number): void {
-		this.dx += dx;
-		this.dy += dy;
+		this.dx += dx + this.snapDx;
+		this.dy += dy + this.snapDy;
 		this.rerasterize();
 	}
 
+	alignRenderX(x: number): void {
+		this.snapDx += x - this.renderRect.x;
+		this.renderRect.x = x;
+		this.contentVersion++;
+	}
+
 	rotateTo(angleRad: number): void {
-		if (this.quarterTurn() !== null && !this.isQuarterTurn(angleRad)) {
+		if (this.quarterTurn() !== null && this.isQuarterTurn(angleRad) === null) {
 			this.dx += this.renderRect.x + this.renderRect.w / 2 - (this.bbox.x + this.bbox.w / 2 + this.dx);
 			this.dy += this.renderRect.y + this.renderRect.h / 2 - (this.bbox.y + this.bbox.h / 2 + this.dy);
 		}
@@ -261,6 +269,7 @@ export class FloatingSelection {
 	// At angle 0 this degenerates to an exact integer copy (lossless moves).
 	private rerasterize(): void {
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
+		this.snapDx = this.snapDy = 0;
 		const quarter = this.quarterTurn();
 		if (quarter !== null) {
 			const rw = quarter % 2 ? bh : bw;
@@ -269,12 +278,12 @@ export class FloatingSelection {
 			let y = Math.floor(by + bh / 2 - rh / 2 + this.dy);
 			if (this.dx === 0) {
 				const clamped = Math.max(0, Math.min(this.doc.meta.width - rw, x));
-				this.dx += clamped - x;
+				this.snapDx = clamped - x;
 				x = clamped;
 			}
 			if (this.dy === 0) {
 				const clamped = Math.max(0, Math.min(this.doc.meta.height - rh, y));
-				this.dy += clamped - y;
+				this.snapDy = clamped - y;
 				y = clamped;
 			}
 			this.renderRect = {
