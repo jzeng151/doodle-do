@@ -248,7 +248,13 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating();
-		this.comparisonSession = new EditorSession(structuredClone(this.doc));
+		const fork = new EditorSession(structuredClone(this.doc));
+		fork.loopRange = this.loopRange ? { ...this.loopRange } : null;
+		fork.loopPlaybackSpeed = this.loopPlaybackSpeed;
+		fork.loopPlaybackMode = this.loopPlaybackMode;
+		fork.loopRepeatCount = this.loopRepeatCount;
+		if (this.activeAnimationTagName) fork.selectAnimationTag(this.activeAnimationTagName);
+		this.comparisonSession = fork;
 		this.comparisonVersion++;
 	}
 
