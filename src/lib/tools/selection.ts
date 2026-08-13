@@ -343,6 +343,10 @@ export class FloatingSelection {
 		}
 	}
 
+	stampPreviewInto(pixels: Uint8Array): void {
+		this.stampInto(pixels);
+	}
+
 	private diffVsSnapshot(kind: string, pixels: Uint8Array): PixelDiffCommand | null {
 		const indices: number[] = [];
 		const before: number[] = [];
