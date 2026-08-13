@@ -154,6 +154,17 @@ describe('layer commands', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: [], layerCount: 1 });
 		expect(() => new LayerDeleteCommand(doc, 0, 0)).toThrow();
 	});
+
+	it('reconnects a deleted linked layer to its live peer on undo', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const command = new LayerDeleteCommand(doc, 0, 0);
+		command.do(doc);
+		doc.frames[1].layers[0].pixels = doc.frames[1].layers[0].pixels.slice();
+		command.undo(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
 });
 
 describe('palette commands', () => {
