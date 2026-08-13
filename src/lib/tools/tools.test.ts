@@ -44,6 +44,45 @@ describe('floodFill (B3)', () => {
 		expect(floodFill(doc, 0, 0, -1, 0, 5)).toBeNull();
 		expect(floodFill(doc, 0, 0, 8, 0, 5)).toBeNull();
 	});
+
+	it('keeps duplicate palette indices distinct at zero tolerance', () => {
+		const doc = createDoc({ width: 2, height: 1, palette: ['#112233', '#112233'] });
+		doc.frames[0].layers[0].pixels.set([1, 2]);
+		expect(floodFill(doc, 0, 0, 0, 0, 2)!.pixelCount).toBe(1);
+	});
+
+	it('fills similar palette colors within tolerance', () => {
+		const doc = testDoc(3, 1);
+		doc.palette[0] = '#101010';
+		doc.palette[1] = '#181818';
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 3]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 4, 10)!;
+		expect(cmd.pixelCount).toBe(2);
+		cmd.do(doc);
+		expect([...pixels]).toEqual([4, 4, 3]);
+	});
+
+	it('fills all matching regions when contiguous is off', () => {
+		const doc = testDoc(4, 1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 1, 2]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 3, 0, false)!;
+		cmd.do(doc);
+		expect([...pixels]).toEqual([3, 2, 3, 2]);
+	});
+
+	it('normalizes nearby colors to the clicked replacement without recording unchanged pixels', () => {
+		const doc = testDoc(3, 1);
+		doc.palette[0] = '#101010';
+		doc.palette[1] = '#181818';
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 1]);
+		const cmd = floodFill(doc, 0, 0, 0, 0, 1, 10)!;
+		expect(cmd.pixelCount).toBe(1);
+		cmd.do(doc);
+		expect([...pixels]).toEqual([1, 1, 1]);
+	});
 });
 
 describe('floodRegion (wand)', () => {
