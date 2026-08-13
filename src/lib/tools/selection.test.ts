@@ -370,6 +370,19 @@ describe('pixel-safe quarter turns', () => {
 		sel.moveBy(1, 0);
 		expect(sel.renderRect.x).toBe(1);
 	});
+
+	it('keeps the snapped center when returning to free rotation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		const center = {
+			x: sel.renderRect.x + sel.renderRect.w / 2,
+			y: sel.renderRect.y + sel.renderRect.h / 2
+		};
+		sel.rotateTo(Math.PI / 2 + Math.PI / 12);
+		expect(sel.bbox.x + sel.bbox.w / 2 + sel.dx).toBe(center.x);
+		expect(sel.bbox.y + sel.bbox.h / 2 + sel.dy).toBe(center.y);
+	});
 });
 
 describe('mirrored twin selection', () => {

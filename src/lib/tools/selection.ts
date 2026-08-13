@@ -106,7 +106,7 @@ export function mirrorMaskX(mask: Uint8Array, width: number, height: number): Ui
 
 export class FloatingSelection {
 	readonly bbox: Rect; // mask extents, source space
-	dx = 0; // integer translation, applied after rotation
+	dx = 0; // translation applied after rotation; quarter-turn parity may add .5
 	dy = 0;
 	angle = 0; // radians, about the bbox center
 	// render output may go out of bounds while dragging; stamp clips
@@ -205,6 +205,10 @@ export class FloatingSelection {
 	}
 
 	rotateTo(angleRad: number): void {
+		if (this.quarterTurn() !== null && !this.isQuarterTurn(angleRad)) {
+			this.dx += this.renderRect.x + this.renderRect.w / 2 - (this.bbox.x + this.bbox.w / 2 + this.dx);
+			this.dy += this.renderRect.y + this.renderRect.h / 2 - (this.bbox.y + this.bbox.h / 2 + this.dy);
+		}
 		this.angle = angleRad;
 		this.rerasterize();
 	}
@@ -261,8 +265,8 @@ export class FloatingSelection {
 		if (quarter !== null) {
 			const rw = quarter % 2 ? bh : bw;
 			const rh = quarter % 2 ? bw : bh;
-			let x = Math.floor(bx + bw / 2 - rw / 2) + this.dx;
-			let y = Math.floor(by + bh / 2 - rh / 2) + this.dy;
+			let x = Math.floor(bx + bw / 2 - rw / 2 + this.dx);
+			let y = Math.floor(by + bh / 2 - rh / 2 + this.dy);
 			if (this.dx === 0) {
 				const clamped = Math.max(0, Math.min(this.doc.meta.width - rw, x));
 				this.dx += clamped - x;
@@ -330,8 +334,12 @@ export class FloatingSelection {
 	}
 
 	private quarterTurn(): 0 | 1 | 2 | 3 | null {
-		const turns = Math.round(this.angle / (Math.PI / 2));
-		return Math.abs(this.angle - turns * Math.PI / 2) < 1e-10 ? (((turns % 4) + 4) % 4) as 0 | 1 | 2 | 3 : null;
+		return this.isQuarterTurn(this.angle);
+	}
+
+	private isQuarterTurn(angle: number): 0 | 1 | 2 | 3 | null {
+		const turns = Math.round(angle / (Math.PI / 2));
+		return Math.abs(angle - turns * Math.PI / 2) < 1e-10 ? (((turns % 4) + 4) % 4) as 0 | 1 | 2 | 3 : null;
 	}
 
 	// stamp the render buffer into a canvas-sized pixel array, clipped;
