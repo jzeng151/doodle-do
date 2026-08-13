@@ -14,7 +14,6 @@ import {
 	LayerReorderCommand,
 	LayerVisibilityCommand,
 	LinkedFrameAddCommand,
-	DocumentReplaceCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
 	PaletteRemapCommand,
