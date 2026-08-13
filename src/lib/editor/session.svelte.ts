@@ -325,9 +325,10 @@ export class EditorSession {
 	selectAll(): void {
 		this.lineEnd();
 		this.shapeEnd();
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.overlayVersion++;
 	}
@@ -357,11 +358,11 @@ export class EditorSession {
 
 	reselect(): void {
 		if (!this.previousSelectionMask) return;
+		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		const current = this.selectionMask?.slice() ?? null;
 		this.selectionMask = this.previousSelectionMask;
-		this.previousSelectionMask = current;
+		this.previousSelectionMask = current?.some(Boolean) ? current : null;
 		this.overlayVersion++;
 	}
 
