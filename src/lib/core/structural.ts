@@ -19,6 +19,7 @@ function replaceDocument(doc: Doc, snapshot: Doc): void {
 }
 
 const copyTags = (tags?: AnimationTag[]) => tags?.map((tag) => ({ ...tag }));
+const tagsBytes = (tags?: AnimationTag[]) => tags ? JSON.stringify(tags).length : 0;
 
 export class AnimationTagsCommand implements Command {
 	readonly kind = 'animation-tags';
@@ -84,16 +85,14 @@ export class DocumentReplaceCommand implements Command {
 
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
-	readonly byteSize: number;
 	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return frameBytes(this.frame) + tagsBytes(this.beforeTags); }
 
 	// covers blank add and duplicate — the caller builds the frame payload
 	constructor(
 		private readonly index: number,
 		private readonly frame: Frame
-	) {
-		this.byteSize = frameBytes(frame);
-	}
+	) {}
 
 	do(doc: Doc): void {
 		this.beforeTags = copyTags(doc.meta.tags);
@@ -125,7 +124,7 @@ export class FrameDeleteCommand implements Command {
 		if (doc.frames.length <= 1) throw new Error('cannot delete the last frame');
 		this.frame = doc.frames[index];
 		this.beforeTags = copyTags(doc.meta.tags);
-		this.byteSize = frameBytes(this.frame);
+		this.byteSize = frameBytes(this.frame) + tagsBytes(this.beforeTags);
 	}
 
 	do(doc: Doc): void {
@@ -146,8 +145,8 @@ export class FrameDeleteCommand implements Command {
 
 export class FrameReorderCommand implements Command {
 	readonly kind = 'frame-reorder';
-	readonly byteSize = 64;
 	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return 64 + tagsBytes(this.beforeTags); }
 
 	constructor(
 		private readonly from: number,

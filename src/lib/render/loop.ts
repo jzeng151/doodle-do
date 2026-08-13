@@ -51,6 +51,11 @@ export class LoopPlayer {
 		const tick = (now: number) => {
 			const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
 			this.syncConfig();
+			if (this.frame < start || this.frame > end || this.frame >= this.doc.frames.length) {
+				this.frame = (this.playbackMode?.() ?? 'forward') === 'reverse'
+					? Math.min(end, this.doc.frames.length - 1)
+					: Math.min(start, this.doc.frames.length - 1);
+			}
 			const before = this.frame;
 			this.acc += (now - this.lastTime) * (this.playbackSpeed?.() ?? 1);
 			this.lastTime = now;
