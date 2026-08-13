@@ -60,21 +60,24 @@ test('resize supports 512×512 and fits it to the viewport', async ({ page }) =>
 test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	await gotoApp(page);
 	await page.getByRole('button', { name: 'Mirror X' }).click();
+	await page.getByRole('button', { name: 'Mirror Y' }).click();
 	const axis = page.getByLabel('X axis');
+	const yAxis = page.getByLabel('Y axis');
 	await axis.fill('20');
+	await yAxis.fill('20');
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: '16×16' }).click();
 	await dialog.getByRole('button', { name: 'Resize' }).click();
 	await expect(axis).toHaveValue('15');
-	await page.getByRole('button', { name: 'Undo' }).click();
-	await expect(axis).toHaveValue('20');
-	await page.getByRole('button', { name: 'Redo' }).click();
-	await expect(axis).toHaveValue('15');
+	await expect(yAxis).toHaveValue('15');
 	await axis.fill('2');
 	await page.getByRole('button', { name: 'Undo' }).click();
 	await expect(axis).toHaveValue('2');
+	await expect(yAxis).toHaveValue('20');
 	await page.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('2');
+	await expect(yAxis).toHaveValue('15');
 
 	await axis.fill('');
 	const box = await page.locator('canvas.editor').boundingBox();

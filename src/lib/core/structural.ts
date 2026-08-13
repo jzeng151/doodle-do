@@ -14,7 +14,7 @@ function frameBytes(frame: Frame): number {
 function documentBytes(doc: Doc): number {
 	const buffers = new Set<Uint8Array>();
 	for (const frame of doc.frames) for (const layer of frame.layers) buffers.add(layer.pixels);
-	return doc.frames.length * 64 + [...buffers].reduce((sum, pixels) => sum + pixels.byteLength, 0);
+	return doc.frames.length * 64 + [...buffers].reduce((sum, pixels) => sum + pixels.byteLength, 0) + tagsBytes(doc.meta.tags);
 }
 
 function replaceDocument(doc: Doc, snapshot: Doc): void {

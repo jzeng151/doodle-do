@@ -270,6 +270,14 @@ describe('tiled drawing', () => {
 		expect(rectanglePoints({ x: 0, y: 0 }, { x: 5, y: 5 }, true, undefined, { width: 4, height: 4 })).toHaveLength(16);
 	});
 
+	it('keeps outlined rectangle points in row-major order', () => {
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 3, y: 3 }, false)).toEqual([
+			{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 },
+			{ x: 1, y: 2 }, { x: 3, y: 2 },
+			{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }
+		]);
+	});
+
 	it('preserves the aspect ratio of wrapped ellipses', () => {
 		const exact = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 8 }, false, undefined, { width: 4, height: 4 });
 		const shortened = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 4 }, false, undefined, { width: 4, height: 4 });
@@ -318,6 +326,14 @@ describe('tiled drawing', () => {
 		stroke.moveTo(-3, -1);
 		stroke.moveTo(-3, -3);
 		expect(doc.frames[0].layers[0].pixels[3]).toBe(3);
+	});
+
+	it('bounds distant tiled pixel-perfect pointer moves', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(1_000_000_000, 1_000_000_000);
+		expect(stroke.end()!.pixelCount).toBeLessThanOrEqual(4);
 	});
 });
 
@@ -538,5 +554,14 @@ describe('selection stamps', () => {
 		expect(doc.frames[0].layers[0].pixels[1 * 5 + 1]).toBe(1);
 		expect([...flipStamp(stamp).pixels]).toEqual([0, 1, 3, 2]);
 		expect([...rotateStamp(stamp).pixels]).toEqual([2, 1, 3, 0]);
+	});
+
+	it('wraps stamp pixels across tile edges', () => {
+		const doc = testDoc(4, 4);
+		const command = stampCommand(doc, 0, 0, { width: 2, height: 1, pixels: new Uint8Array([1, 2]) }, 0, 0, true)!;
+		command.do(doc);
+		expect(doc.frames[0].layers[0].pixels.slice(0, 4)).toEqual(new Uint8Array([2, 0, 0, 1]));
+		command.undo(doc);
+		expect(doc.frames[0].layers[0].pixels.slice(0, 4)).toEqual(new Uint8Array(4));
 	});
 });
