@@ -17,7 +17,7 @@
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
 	let ioStatus = $state('');
-	let importGeneration = 0;
+	let replaceStatus = $state('');
 	const replaceControlsId = $props.id();
 	let paletteSignature = '';
 	function resetReplaceEndpoints() {
@@ -29,7 +29,7 @@
 		if (signature !== paletteSignature) {
 			if (paletteSignature) {
 				removePending = null;
-				importGeneration++;
+				session.paletteImportGeneration++;
 			}
 			paletteSignature = signature;
 			resetReplaceEndpoints();
@@ -71,7 +71,7 @@
 	}
 
 	function importPalette() {
-		const generation = ++importGeneration;
+		const generation = ++session.paletteImportGeneration;
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.accept = '.gpl,.pal,.hex,.txt,image/png';
@@ -80,12 +80,12 @@
 			if (!file) return;
 			try {
 				const colors = await readPalette(file);
-				if (generation !== importGeneration) return;
+				if (generation !== session.paletteImportGeneration) return;
 				ioStatus = session.importPalette(colors)
 					? `Imported ${colors.length} colors.`
 					: 'Unlock the palette before importing.';
 			} catch (error) {
-				if (generation !== importGeneration) return;
+				if (generation !== session.paletteImportGeneration) return;
 				ioStatus = error instanceof Error ? error.message : 'Palette import failed.';
 			}
 		};
@@ -96,6 +96,15 @@
 		const name = session.doc.meta.name || 'doodle-do';
 		const text = format === 'gpl' ? gplPalette(palette, name) : hexPalette(palette);
 		downloadBlob(new Blob([text], { type: 'text/plain' }), `${name}.${format}`);
+	}
+
+	function applyReplacement() {
+		replaceStatus = '';
+		try {
+			session.replaceColor(replaceFrom, replaceTo, replaceScope);
+		} catch (error) {
+			replaceStatus = error instanceof Error ? error.message : 'Replacement failed.';
+		}
 	}
 </script>
 
@@ -115,8 +124,8 @@
 		</button>
 	</header>
 	<div class="active-colors" aria-label="Active colors">
-		<span class="active-color foreground" style={`background:${palette[session.colorValue - 1]}`} title="Foreground color"></span>
-		<span class="active-color background" style={`background:${palette[session.backgroundColorValue - 1]}`} title="Background color"></span>
+		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
+		<span class="active-color background" class:transparent={session.backgroundColorValue === 0} style={session.backgroundColorValue ? `background:${palette[session.backgroundColorValue - 1]}` : ''} title="Background color"></span>
 		<button title="Swap foreground and background colors (X)" onclick={() => session.swapActiveColors()}>Swap</button>
 	</div>
 
@@ -124,6 +133,7 @@
 		<button
 			class="swatch eraser"
 			class:selected={session.colorValue === 0}
+			class:background-selected={session.backgroundColorValue === 0}
 			title="Transparent (eraser)"
 			aria-label="Transparent"
 			aria-pressed={session.colorValue === 0}
@@ -193,7 +203,8 @@
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={applyReplacement}>Apply replacement</button>
+			{#if replaceStatus}<p class="hint" aria-live="polite">{replaceStatus}</p>{/if}
 		</div>
 	{/if}
 	<div class="palette-io" role="group" aria-label="Palette files">
@@ -237,6 +248,7 @@
 	}
 	.active-colors { display: flex; align-items: center; gap: .35rem; margin-top: .4rem; }
 	.active-color { width: 28px; height: 28px; border: 2px solid var(--ink); }
+	.active-color.transparent { background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px; }
 	.active-color.background { margin-left: -14px; margin-top: 12px; }
 	.active-colors button { margin-left: auto; }
 	.swatch {
