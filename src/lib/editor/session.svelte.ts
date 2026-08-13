@@ -885,6 +885,8 @@ export class EditorSession {
 	}
 
 	swapActiveColors(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		[this.colorValue, this.backgroundColorValue] = [this.backgroundColorValue, this.colorValue];
 	}
 
