@@ -23,6 +23,7 @@
 		busy = true;
 		error = '';
 		fork.lineEnd();
+		fork.shapeEnd();
 		fork.commitFloating();
 		try {
 			await action();

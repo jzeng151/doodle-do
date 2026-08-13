@@ -3,19 +3,20 @@ export interface Point {
 	y: number;
 }
 
-function shapeBounds(a: Point, b: Point, bounds?: { width: number; height: number }) {
+function shapeBounds(a: Point, b: Point, bounds?: { width: number; height: number; padding?: number }) {
 	const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
 	const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+	const padding = bounds?.padding ?? 0;
 	return {
 		x0, y0, x1, y1,
-		ix0: bounds ? Math.max(0, x0) : x0,
-		iy0: bounds ? Math.max(0, y0) : y0,
-		ix1: bounds ? Math.min(bounds.width - 1, x1) : x1,
-		iy1: bounds ? Math.min(bounds.height - 1, y1) : y1
+		ix0: bounds ? Math.max(-padding, x0) : x0,
+		iy0: bounds ? Math.max(-padding, y0) : y0,
+		ix1: bounds ? Math.min(bounds.width - 1 + padding, x1) : x1,
+		iy1: bounds ? Math.min(bounds.height - 1 + padding, y1) : y1
 	};
 }
 
-export function rectanglePoints(a: Point, b: Point, filled: boolean, bounds?: { width: number; height: number }): Point[] {
+export function rectanglePoints(a: Point, b: Point, filled: boolean, bounds?: { width: number; height: number; padding?: number }): Point[] {
 	const { x0, y0, x1, y1, ix0, iy0, ix1, iy1 } = shapeBounds(a, b, bounds);
 	const points: Point[] = [];
 	for (let y = iy0; y <= iy1; y++) {
@@ -26,7 +27,7 @@ export function rectanglePoints(a: Point, b: Point, filled: boolean, bounds?: { 
 	return points;
 }
 
-export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { width: number; height: number }): Point[] {
+export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { width: number; height: number; padding?: number }): Point[] {
 	const { x0, y0, x1, y1, ix0, iy0, ix1, iy1 } = shapeBounds(a, b, bounds);
 	if (x0 === x1 || y0 === y1) return rectanglePoints(a, b, true, bounds);
 	const cx = (x0 + x1) / 2;

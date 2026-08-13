@@ -19,6 +19,8 @@
 	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
+	let linePointer: number | null = null;
+	let shapePointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -324,11 +326,13 @@
 				break;
 			case 'line':
 				canvasEl.setPointerCapture(e.pointerId);
+				linePointer = e.pointerId;
 				session.lineBegin(x, y);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				canvasEl.setPointerCapture(e.pointerId);
+				shapePointer = e.pointerId;
 				session.shapeBegin(x, y);
 				break;
 			case 'fill':
@@ -451,6 +455,8 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
+		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
@@ -462,8 +468,16 @@
 				session.lineMove(x, y, e.shiftKey);
 			}
 			session.lineEnd();
+			linePointer = null;
 		}
-		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') {
+			if (session.shapeActive) {
+				const { x, y } = pixelFromEvent(e);
+				session.shapeMove(x, y);
+			}
+			session.shapeEnd();
+			shapePointer = null;
+		}
 		else session.strokeEnd();
 	}
 
@@ -553,12 +567,18 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (session.lineActive) session.lineEnd();
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
 				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'rectangle':
 			case 'ellipse':
-				if (session.shapeActive) session.shapeEnd();
+				if (session.shapeActive) {
+					session.shapeMove(keyboardX, keyboardY);
+					session.shapeEnd();
+				}
 				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'fill':

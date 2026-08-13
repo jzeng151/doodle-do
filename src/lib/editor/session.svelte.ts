@@ -215,6 +215,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index === this.currentFrame) {
+			this.bulkFrames = [];
+			return;
+		}
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating(); // B5: frame change commits
@@ -277,6 +281,7 @@ export class EditorSession {
 	}
 
 	selectLayer(index: number): void {
+		this.lineEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
@@ -618,7 +623,7 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = this.doc.meta;
+		const bounds = { ...this.doc.meta, padding: this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
