@@ -24,7 +24,8 @@
 			() => session.effectiveLoopRange(),
 			() => session.loopPlaybackSpeed,
 			() => session.loopPlaybackMode,
-			() => session.loopRepeatCount
+			() => session.loopRepeatCount,
+			() => (paused = true)
 		);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
 		paused = media.matches;

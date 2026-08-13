@@ -229,24 +229,20 @@ export class FloatingSelection {
 	// it is byte-identical to a plain buffer flip.
 	flip(axis: 'horizontal' | 'vertical'): void {
 		const { w, h } = this.bbox;
-		const p = this.pristine;
+		const buffers = [this.pristine, this.coverage];
 		if (axis === 'horizontal') {
-			for (let y = 0; y < h; y++) {
+			for (const p of buffers) for (let y = 0; y < h; y++) {
 				const row = y * w;
 				for (let x = 0; x < w >> 1; x++) {
-					const t = p[row + x];
-					p[row + x] = p[row + w - 1 - x];
-					p[row + w - 1 - x] = t;
+					const t = p[row + x]; p[row + x] = p[row + w - 1 - x]; p[row + w - 1 - x] = t;
 				}
 			}
 		} else {
-			for (let y = 0; y < h >> 1; y++) {
+			for (const p of buffers) for (let y = 0; y < h >> 1; y++) {
 				for (let x = 0; x < w; x++) {
 					const a = y * w + x;
 					const b = (h - 1 - y) * w + x;
-					const t = p[a];
-					p[a] = p[b];
-					p[b] = t;
+					const t = p[a]; p[a] = p[b]; p[b] = t;
 				}
 			}
 		}

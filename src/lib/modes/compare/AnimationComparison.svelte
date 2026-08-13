@@ -30,8 +30,9 @@
 	}
 
 	function playbackRange(target: EditorSession) {
-		const range = session.effectiveLoopRange();
 		const last = target.doc.frames.length - 1;
+		if (!session.loopRange) return { start: 0, end: last };
+		const range = session.effectiveLoopRange();
 		const start = Math.min(range.start, last);
 		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
