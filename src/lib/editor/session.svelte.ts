@@ -176,7 +176,7 @@ export class EditorSession {
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand) this.invalidateStamp();
-			if (command instanceof PaletteAddCommand && action === 'undo' && this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
+			else if (this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
