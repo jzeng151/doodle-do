@@ -105,6 +105,7 @@ export class EditorSession {
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
 	private previousSelectionMask = $state<Uint8Array | null>(null);
+	private gestureBaseMask: Uint8Array | null = null;
 	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
@@ -127,6 +128,7 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
+	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -147,8 +149,18 @@ export class EditorSession {
 		});
 		this.bus.onCommit((command, action) => {
 			if (command instanceof PaletteSortCommand) {
-				[this.colorValue, this.backgroundColorValue] = action === 'undo' ? command.beforeColors : command.afterColors;
+				const map = action === 'undo' ? command.reverseColors : command.forwardColors;
+				this.colorValue = map.get(this.colorValue) ?? this.colorValue;
+				this.backgroundColorValue = map.get(this.backgroundColorValue) ?? this.backgroundColorValue;
 			}
+			if (command instanceof ResizeCanvasCommand) {
+				this.selectionMask = null;
+				this.previousSelectionMask = null;
+				this.clearGestures();
+				this.overlayVersion++;
+			}
+			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
+			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -191,6 +203,8 @@ export class EditorSession {
 	}
 
 	resetComparisonFork(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
@@ -198,6 +212,10 @@ export class EditorSession {
 
 	applyComparisonFork(): void {
 		if (!this.comparisonSession) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.comparisonSession.lineEnd();
+		this.comparisonSession.shapeEnd();
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
@@ -211,6 +229,10 @@ export class EditorSession {
 	swapComparisonFork(): void {
 		const fork = this.comparisonSession;
 		if (!fork) return;
+		this.lineEnd();
+		this.shapeEnd();
+		fork.lineEnd();
+		fork.shapeEnd();
 		this.commitFloating();
 		fork.commitFloating();
 		const currentDoc = structuredClone(this.doc);
@@ -234,6 +256,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
+		this.currentLayer = Math.min(this.currentLayer, this.frame.layers.length - 1);
 		if (index === 1) tips.fire('T02');
 		if (this.doc.frames.length >= 3) tips.fire('T25'); // bulk-edit discovery
 	}
@@ -297,12 +320,14 @@ export class EditorSession {
 	private startGesture(additive: boolean): void {
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
 	}
 
 	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
 		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
+		this.previousSelectionMask = this.gestureBaseMask;
+		this.gestureBaseMask = null;
 		tips.fire('T16'); // shift-add + rotate handle
 		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
 	}
@@ -325,9 +350,9 @@ export class EditorSession {
 	}
 
 	invertSelection(): void {
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
@@ -431,6 +456,7 @@ export class EditorSession {
 		this.pendingRect = null;
 		this.lassoPath = null;
 		this.polygonVerts = null;
+		this.gestureBaseMask = null;
 	}
 
 	selectionContains(x: number, y: number): boolean {
@@ -491,7 +517,7 @@ export class EditorSession {
 	}
 
 	beginLayerMove(): void {
-		if (this.floating) return;
+		if (this.floating || !this.frame.layers[this.currentLayer]) return;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.liftSelection(false);
 	}
@@ -571,6 +597,7 @@ export class EditorSession {
 
 	cancelFloating(): void {
 		const restoreGesture = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		const gestureBase = this.gestureBaseMask?.slice() ?? null;
 		if (this.floating) {
 			const sel = this.floating;
 			this.floating = null;
@@ -583,7 +610,7 @@ export class EditorSession {
 			}
 			this.floatingPeers = [];
 		}
-		this.selectionMask = restoreGesture ? this.previousSelectionMask?.slice() ?? null : null;
+		this.selectionMask = restoreGesture ? gestureBase : null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
@@ -987,18 +1014,20 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		this.commitFloating();
 		const value = index + 1;
 		const inUse = this.doc.frames.some((frame) =>
 			frame.layers.some((layer) => layer.pixels.includes(value))
 		);
 		if (inUse && remapTo === undefined) return false;
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
-		const background = this.backgroundColorValue;
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
 		const removedValue = index + 1;
-		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
-		this.colorValue = target < index ? target + 1 : target;
-		if (background === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;
-		else if (background > removedValue) this.backgroundColorValue = background - 1;
+		const remapped = target < index ? target + 1 : target;
+		const after: [number, number] = [remapped, before[1] === removedValue ? remapped : before[1] > removedValue ? before[1] - 1 : before[1]];
+		const command = new PaletteRemoveCommand(this.doc, index, target);
+		this.paletteRemovalColors.set(command, { before, after });
+		this.bus.dispatch(command);
 		return true;
 	}
 
@@ -1030,6 +1059,9 @@ export class EditorSession {
 	generatePaletteRamp(start: number, end: number): void {
 		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
 		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
 		const lo = Math.min(start, end);
 		const hi = Math.max(start, end);
 		const colors = colorRamp(this.doc.palette[lo], this.doc.palette[hi], hi - lo + 1);
@@ -1044,18 +1076,20 @@ export class EditorSession {
 	sortPalette(start: number, end: number, sort: PaletteSort): void {
 		if (this.paletteLocked || start === end || !Number.isInteger(start) || !Number.isInteger(end)) return;
 		if (start < 0 || end < 0 || start >= this.doc.palette.length || end >= this.doc.palette.length) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const sorted = sortPaletteRange(this.doc, start, end, sort);
 		if (!sorted.moved) return;
-		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
-		const after: [number, number] = [sorted.map.get(before[0]) ?? before[0], sorted.map.get(before[1]) ?? before[1]];
-		this.bus.dispatch(new PaletteSortCommand(this.doc, sorted.doc, before, after));
+		this.bus.dispatch(new PaletteSortCommand(this.doc, sorted.doc, sorted.map));
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
 		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
-		if (scope === 'selection' && !this.selectionMask) return;
-		const selection = this.selectionMask?.slice() ?? null;
+		if (scope === 'selection' && !this.hasSelection) return;
+		this.lineEnd();
+		this.shapeEnd();
+		const selection = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {

@@ -40,19 +40,6 @@
 		return canvas;
 	}
 
-	function layerCanvas(pixels: Uint8Array) {
-		const canvas = document.createElement('canvas');
-		canvas.width = session.doc.meta.width;
-		canvas.height = session.doc.meta.height;
-		const ctx = canvas.getContext('2d')!;
-		const image = ctx.createImageData(canvas.width, canvas.height);
-		const rgba = new Uint32Array(image.data.buffer);
-		const lut = buildLut(session.doc.palette);
-		for (let i = 0; i < pixels.length; i++) rgba[i] = lut[pixels[i]];
-		ctx.putImageData(image, 0, 0);
-		return canvas;
-	}
-
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
@@ -72,7 +59,7 @@
 			if (!floating.length) ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			else for (const [layerIndex, layer] of session.doc.frames[i].layers.entries()) {
 				if (!layer.visible) continue;
-				ctx.drawImage(layerCanvas(layer.pixels), 0, 0, el.width, el.height);
+				ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, el.width, el.height);
 				if (layerIndex !== session.currentLayer) continue;
 				for (const selection of floating) {
 					const rect = selection.renderRect;
