@@ -191,3 +191,78 @@ describe('shape tools', () => {
 		expect(points).toContainEqual({ x: -1, y: 2 });
 	});
 });
+
+describe('pixel-perfect pencil', () => {
+	it('removes the redundant middle pixel from an L-shaped corner', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[1 * 8 + 1]).toBe(3);
+		expect(pixels[1 * 8 + 2]).toBe(0);
+		expect(pixels[2 * 8 + 2]).toBe(3);
+		expect(stroke.end()!.pixelCount).toBe(2);
+	});
+
+	it('does not alter strokes wider than one pixel', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 2, false, 'pencil-stroke', true);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		expect(doc.frames[0].layers[0].pixels[1 * 8 + 2]).toBe(3);
+	});
+
+	it('keeps alternating corners connected', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		stroke.moveTo(3, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[1 * 8 + 1], pixels[2 * 8 + 2], pixels[2 * 8 + 3]]).toEqual([3, 3, 3]);
+	});
+
+	it('does not erase mirrored endpoints at the center axis', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true);
+		stroke.begin(3, 1);
+		stroke.moveTo(3, 2);
+		stroke.moveTo(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3]);
+	});
+
+	it('keeps both mirrored arms when a corner crosses the axis', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true);
+		stroke.begin(3, 1);
+		stroke.moveTo(4, 1);
+		stroke.moveTo(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([pixels[1 * 8 + 3], pixels[1 * 8 + 4], pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3, 3, 3]);
+	});
+
+	it('keeps pixels reused earlier in the same stroke', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		for (const [i, point] of [[2, 2], [3, 2], [2, 2], [2, 3]].entries()) {
+			if (i === 0) stroke.begin(...point as [number, number]);
+			else stroke.moveTo(...point as [number, number]);
+		}
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(3);
+	});
+
+	it('does not let off-canvas centers protect aliased pixels', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		for (const [i, point] of [[0, 1], [-1, 1], [6, 0], [7, 0], [7, 1]].entries()) {
+			if (i === 0) stroke.begin(...point as [number, number]);
+			else stroke.moveTo(...point as [number, number]);
+		}
+		expect(doc.frames[0].layers[0].pixels[7]).toBe(0);
+	});
+});

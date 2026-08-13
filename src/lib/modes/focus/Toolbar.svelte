@@ -62,6 +62,16 @@
 		>
 			Mirror
 		</button>
+		{#if session.tool === 'pencil'}
+			<button
+				class:active={session.pixelPerfect}
+				aria-pressed={session.pixelPerfect}
+				title="Remove doubled pixels from freehand corners"
+				onclick={() => (session.pixelPerfect = !session.pixelPerfect)}
+			>
+				Pixel perfect
+			</button>
+		{/if}
 		{#if session.tool === 'rectangle' || session.tool === 'ellipse'}
 			<button
 				class:active={session.shapeFilled}

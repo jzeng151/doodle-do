@@ -65,6 +65,7 @@ export class EditorSession {
 	mode = $state<Mode>('focus'); // workspace mode is view state (B7), never document state
 	tool = $state<Tool>('pencil');
 	brushSize = $state(1);
+	pixelPerfect = $state(false);
 	shapeFilled = $state(false);
 	mirrorX = $state(false);
 	colorValue = $state(1);
@@ -544,7 +545,16 @@ export class EditorSession {
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
-			builder: new StrokeBuilder(this.doc, frame, this.currentLayer, value, this.brushSize, this.mirrorX)
+			builder: new StrokeBuilder(
+				this.doc,
+				frame,
+				this.currentLayer,
+				value,
+				this.brushSize,
+				this.mirrorX,
+				undefined,
+				this.tool === 'pencil' && this.pixelPerfect
+			)
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);

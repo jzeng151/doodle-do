@@ -10,6 +10,8 @@ export class StrokeBuilder {
 	private readonly dirty = new Map<number, number>(); // index → value before stroke
 	private last: { x: number; y: number } | null = null;
 	private origin: { x: number; y: number } | null = null;
+	private centers: { x: number; y: number }[] = [];
+	private readonly centerCounts = new Map<number, number>();
 
 	constructor(
 		private readonly doc: Doc,
@@ -18,7 +20,8 @@ export class StrokeBuilder {
 		private readonly value: number, // pixel value to place; 0 = eraser
 		private readonly size = 1,
 		private readonly mirrorX = false, // mirror-draw toggle (§4.1)
-		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke'
+		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
+		private readonly pixelPerfect = false
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -108,9 +111,49 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		const rect = this.stampOne(cx, cy);
-		if (!this.mirrorX) return rect;
-		return unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		let rect = this.stampOne(cx, cy);
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		if (!this.pixelPerfect || this.size !== 1) return rect;
+		const last = this.centers.at(-1);
+		if (last?.x === cx && last.y === cy) return rect;
+		const center = { x: cx, y: cy };
+		this.centers.push(center);
+		this.trackCenter(center, 1);
+		if (this.centers.length < 3) return rect;
+		const [a, b, c] = this.centers.slice(-3);
+		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
+		this.trackCenter(b, -1);
+		if (this.restorePixel(b.x, b.y)) rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
+		if (this.mirrorX) {
+			const mirrorX = this.doc.meta.width - 1 - b.x;
+			if (this.restorePixel(mirrorX, b.y)) rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
+		}
+		this.centers.splice(-2, 1);
+		return rect;
+	}
+
+	private trackCenter(point: { x: number; y: number }, delta: 1 | -1): void {
+		const { width, height } = this.doc.meta;
+		const track = (x: number) => {
+			if (x < 0 || point.y < 0 || x >= width || point.y >= height) return;
+			const index = point.y * width + x;
+			const count = (this.centerCounts.get(index) ?? 0) + delta;
+			if (count) this.centerCounts.set(index, count);
+			else this.centerCounts.delete(index);
+		};
+		track(point.x);
+		if (this.mirrorX) track(width - 1 - point.x);
+	}
+
+	private restorePixel(x: number, y: number): boolean {
+		const { width, height } = this.doc.meta;
+		if (x < 0 || y < 0 || x >= width || y >= height) return false;
+		const index = y * width + x;
+		if (this.centerCounts.has(index)) return false;
+		const before = this.dirty.get(index);
+		if (before === undefined) return false;
+		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		return true;
 	}
 
 	private stampOne(cx: number, cy: number): Rect | null {
