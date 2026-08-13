@@ -53,6 +53,19 @@ describe('mergeDownCommand', () => {
 	it('refuses when there is no layer below', () => {
 		expect(mergeDownCommand(testDoc(), 0, 0)).toBeNull();
 	});
+
+	it('unlinks a shared destination before merging', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const peerBefore = doc.frames[1].layers[0].pixels.slice();
+		const bus = new CommandBus(doc);
+		bus.dispatch(mergeDownCommand(doc, 0, 1)!);
+		expect(doc.frames[1].layers[0].pixels).toEqual(peerBefore);
+		expect(doc.frames[0].layers[0].pixels).not.toBe(doc.frames[1].layers[0].pixels);
+		bus.undo();
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
 });
 
 describe('sendLayerCommand', () => {

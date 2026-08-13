@@ -170,6 +170,12 @@ describe('layer commands', () => {
 		command.undo(doc);
 		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
 	});
+
+	it('does not charge deleted linked buffers retained by a peer', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		expect(new LayerDeleteCommand(doc, 0, 0).byteSize).toBe(64);
+	});
 });
 
 describe('palette commands', () => {
