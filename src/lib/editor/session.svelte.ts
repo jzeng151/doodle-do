@@ -171,6 +171,8 @@ export class EditorSession {
 	}
 
 	resetComparisonFork(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
@@ -178,6 +180,10 @@ export class EditorSession {
 
 	applyComparisonFork(): void {
 		if (!this.comparisonSession) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.comparisonSession.lineEnd();
+		this.comparisonSession.shapeEnd();
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
@@ -190,6 +196,10 @@ export class EditorSession {
 	swapComparisonFork(): void {
 		const fork = this.comparisonSession;
 		if (!fork) return;
+		this.lineEnd();
+		this.shapeEnd();
+		fork.lineEnd();
+		fork.shapeEnd();
 		this.commitFloating();
 		fork.commitFloating();
 		const currentDoc = structuredClone(this.doc);
