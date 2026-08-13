@@ -921,6 +921,8 @@ export class EditorSession {
 	}
 
 	addLinkedFrame(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.bulkFrames = [];
 		const index = this.currentFrame + 1;
