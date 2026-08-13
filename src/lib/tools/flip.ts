@@ -53,6 +53,6 @@ export class FlipLayerCommand implements Command {
 	}
 
 	dirty(): DirtyRegion {
-		return { frame: this.frameIndex, rect: null };
+		return { frame: this.frameIndex, layer: this.layerIndex, rect: null };
 	}
 }

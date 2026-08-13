@@ -204,7 +204,7 @@ describe('CommandBus (B4 budget)', () => {
 		let region: unknown = null;
 		bus.onChange((r) => (region = r));
 		bus.dispatch(strokeCmd(doc, 2 * 8 + 3, 1));
-		expect(region).toEqual({ frame: 0, rect: { x: 3, y: 2, w: 1, h: 1 } });
+		expect(region).toEqual({ frame: 0, layer: 0, rect: { x: 3, y: 2, w: 1, h: 1 } });
 	});
 
 	it('fires commit listeners on dispatch, undo, and redo', () => {
@@ -264,6 +264,7 @@ describe('CompositeCommand', () => {
 		]);
 		expect(sameFrame.byteSize).toBeGreaterThanOrEqual(diff(0).byteSize);
 		expect(sameFrame.dirty()).toEqual({ frame: 0, rect: null });
+		expect(new CompositeCommand('k', [diff(0), diff(0)]).dirty()).toEqual({ frame: 0, layer: 0, rect: null });
 		const crossFrame = new CompositeCommand('k', [diff(0), diff(1)]);
 		expect(crossFrame.dirty()).toEqual({ frame: null, rect: null });
 		void doc;
