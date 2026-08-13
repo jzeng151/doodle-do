@@ -235,6 +235,38 @@ test('saving a renamed clip replaces the selected clip', async ({ page }) => {
 	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'run (1–2)']);
 });
 
+test('active clips follow frame structure changes', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.locator('.film-frame').first().click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await expect(page.getByLabel('Clip')).toHaveValue('idle');
+	await expect(page.getByLabel('Loop range start')).toHaveValue('3');
+	await expect(page.getByLabel('Loop range end')).toHaveValue('3');
+});
+
+test('comparison fork keeps its saved clip playback settings', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('walk');
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('forward');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 1 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 2 of 2/);
+});
+
 test('preview background setting is shared with Loop mode', async ({ page }) => {
 	await gotoApp(page);
 	const sidePanel = page.locator('.loop-panel');

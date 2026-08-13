@@ -82,6 +82,27 @@ describe('LoopPlayer playback speed', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('restarts ping-pong forward after seeking', () => {
+		let tick: FrameRequestCallback = () => {};
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => ((tick = callback), 1));
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
+		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'], frameCount: 3 });
+		const complete = vi.fn();
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, undefined, undefined, () => 'ping-pong', () => 1, complete);
+		player.start();
+		tick(100); tick(200); tick(300);
+		player.stop();
+		player.seek(0);
+		player.start();
+		tick(100);
+		expect(player.currentFrame).toBe(1);
+		expect(complete).not.toHaveBeenCalled();
+		now.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
 	it('clamps a deleted sought frame before reading its duration', () => {
 		let tick: FrameRequestCallback = () => {};
 		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => ((tick = callback), 1));
