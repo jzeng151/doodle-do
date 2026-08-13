@@ -138,6 +138,7 @@ export class LoopPlayer {
 		this.frame = Math.max(0, Math.min(this.doc.frames.length - 1, frame));
 		this.acc = 0;
 		this.cycles = 0;
+		this.direction = (this.playbackMode?.() ?? 'forward') === 'reverse' ? -1 : 1;
 		this.config = this.configValue();
 		this.started = true;
 		this.onFrame?.(this.frame);

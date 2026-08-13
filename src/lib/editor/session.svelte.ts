@@ -165,7 +165,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
-			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand) && this.activeAnimationTagName) {
+			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand || command instanceof FrameAddCommand || command instanceof FrameDeleteCommand || command instanceof FrameReorderCommand) && this.activeAnimationTagName) {
 				const active = this.doc.meta.tags?.find((tag) => tag.name === this.activeAnimationTagName);
 				this.selectAnimationTag(active ? active.name : '');
 			}
