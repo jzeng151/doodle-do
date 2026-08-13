@@ -655,7 +655,12 @@ export class EditorSession {
 	floatingSelections(frame: number): FloatingSelection[] {
 		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
 		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
-		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+		const linked = frame !== this.currentFrame
+			&& this.floating
+			&& this.doc.frames[frame].layers[this.currentLayer]?.pixels === this.frame.layers[this.currentLayer]?.pixels
+			? [this.floatingTwin, this.floating]
+			: [];
+		return [...active, ...linked, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
 	}
 
 	autosaveSnapshot(): Doc {
