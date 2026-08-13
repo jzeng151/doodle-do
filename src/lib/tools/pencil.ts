@@ -242,9 +242,10 @@ export class StrokeBuilder {
 		let rect: Rect | null = null;
 		const seen = this.tiled && (!this.pixelPerfect || this.size !== 1) ? new Set<number>() : null;
 		const { width, height } = this.doc.meta;
-		// ponytail: cap distant pointer jumps to a few tile traversals; derive the torus period if exact off-screen paths matter.
+		const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+		// ponytail: rasterize realistic jumps exactly; derive the torus period if synthetic jumps beyond 65k cells need exact paths.
 		let remaining = this.tiled && this.pixelPerfect && this.size === 1
-			? 2 * (width + height) + 1
+			? Math.min(steps + 1, Math.max(2 * width * height + 1, 65_536))
 			: Infinity;
 		const dx = Math.abs(x1 - x0);
 		const dy = -Math.abs(y1 - y0);
