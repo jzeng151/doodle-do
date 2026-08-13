@@ -83,7 +83,22 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 			if (hi - lo + 1 >= wrap.width) hi = lo + wrap.width - 1;
 			for (let x = lo; x <= hi; x++) add(x, y);
 		};
-		for (let y = iy0; y <= iy1; y++) {
+		const rows: number[] = [];
+		if (iy1 - iy0 + 1 <= wrap.height * 4) {
+			for (let y = iy0; y <= iy1; y++) rows.push(y);
+		} else {
+			// ponytail: sample edge/middle tile bands; use analytic torus rasterization if billion-row ellipses need exact intermediate rows.
+			const middle = Math.floor((iy0 + iy1) / 2);
+			const sampled = new Set<number>();
+			for (let offset = 0; offset < wrap.height; offset++) {
+				sampled.add(iy0 + offset);
+				sampled.add(iy1 - offset);
+				sampled.add(middle - offset);
+				sampled.add(middle + offset);
+			}
+			rows.push(...[...sampled].filter((y) => y >= iy0 && y <= iy1).sort((a, b) => a - b));
+		}
+		for (const y of rows) {
 			const span = rowSpan(y);
 			if (!span) continue;
 			const [lo, hi] = span;
@@ -115,5 +130,6 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		{ x: x0, y: Math.floor(cy) }, { x: x0, y: Math.ceil(cy) },
 		{ x: x1, y: Math.floor(cy) }, { x: x1, y: Math.ceil(cy) }
 	]) if (point.x >= ix0 && point.x <= ix1 && point.y >= iy0 && point.y <= iy1) add(point.x, point.y);
+	if (wrap) points.sort((a, b) => a.y - b.y || a.x - b.x);
 	return points;
 }
