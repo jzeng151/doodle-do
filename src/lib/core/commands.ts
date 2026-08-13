@@ -17,6 +17,7 @@ export interface Rect {
 // palette means the color LUT itself changed.
 export interface DirtyRegion {
 	frame: number | null;
+	layer?: number;
 	rect: Rect | null;
 	palette?: boolean;
 	metadata?: boolean;
