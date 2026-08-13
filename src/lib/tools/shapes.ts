@@ -45,5 +45,11 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 			}
 		}
 	}
+	for (const point of [
+		{ x: Math.floor(cx), y: y0 }, { x: Math.ceil(cx), y: y0 },
+		{ x: Math.floor(cx), y: y1 }, { x: Math.ceil(cx), y: y1 },
+		{ x: x0, y: Math.floor(cy) }, { x: x0, y: Math.ceil(cy) },
+		{ x: x1, y: Math.floor(cy) }, { x: x1, y: Math.ceil(cy) }
+	]) if (point.x >= ix0 && point.x <= ix1 && point.y >= iy0 && point.y <= iy1 && !points.some((p) => p.x === point.x && p.y === point.y)) points.push(point);
 	return points;
 }
