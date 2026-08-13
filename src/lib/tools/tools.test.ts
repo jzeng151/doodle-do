@@ -174,6 +174,13 @@ describe('mirror-draw', () => {
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
 	});
+
+	it('does not repaint an overlapping mirrored dither stamp', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(3, 2);
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 4]).toBe(ditherValue(4, 2, 3, 4, 2));
+	});
 });
 
 describe('line tool', () => {
@@ -218,6 +225,12 @@ describe('shape tools', () => {
 		expect(new Set(points.map(({ x, y }) => `${7 - x},${5 - y}`))).toEqual(
 			new Set(points.map(({ x, y }) => `${x},${y}`))
 		);
+	});
+
+	it('retains the endpoints of narrow ellipses', () => {
+		const points = ellipsePoints({ x: 0, y: 0 }, { x: 1, y: 7 }, false);
+		expect(points.some((point) => point.y === 0)).toBe(true);
+		expect(points.some((point) => point.y === 7)).toBe(true);
 	});
 
 	it('clamps an off-canvas shape preview before enumerating points', () => {

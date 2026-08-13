@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { LoopPlayer } from '$lib/render/loop';
-	import { floatingCanvas } from '../canvas';
+	import { floatingFrameCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -28,16 +28,9 @@
 			() => session.loopRepeatCount,
 			() => (paused = true),
 			(ctx, frame) => {
-				const floating = session.floatingSelections(frame);
-				if (!floating.length) return false;
-				for (const [layerIndex, layer] of session.doc.frames[frame].layers.entries()) {
-					if (!layer.visible) continue;
-					ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, loopEl.width, loopEl.height);
-					for (const selection of floating) if (selection.layerIndex === layerIndex) {
-						const r = selection.renderRect;
-						ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * 4, r.y * 4, r.w * 4, r.h * 4);
-					}
-				}
+				const canvas = floatingFrameCanvas(session, frame);
+				if (!canvas) return false;
+				ctx.drawImage(canvas, 0, 0, loopEl.width, loopEl.height);
 				return true;
 			}
 		);

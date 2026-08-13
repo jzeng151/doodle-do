@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { EditorSession } from '$lib/editor/session.svelte';
+	import { floatingFrameCanvas } from '../canvas';
 
 	// thumbs=false renders only the action row (grid mode shows the frames itself)
 	let { session, thumbs = true }: { session: EditorSession; thumbs?: boolean } = $props();
@@ -22,13 +23,14 @@
 
 	$effect(() => {
 		void session.version;
+		void session.overlayVersion;
 		for (let i = 0; i < session.doc.frames.length; i++) {
 			const el = thumbEls[i];
 			if (!el) continue;
 			const ctx = el.getContext('2d')!;
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
-			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
+			ctx.drawImage(floatingFrameCanvas(session, i) ?? session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 		}
 	});
 
