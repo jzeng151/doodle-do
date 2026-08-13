@@ -5,7 +5,7 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import SidePanel from '../SidePanel.svelte';
 	import FrameStrip from '../focus/FrameStrip.svelte';
-	import { brushBounds, canvasPoint, floatingCanvas } from '../canvas';
+	import { brushBounds, canvasPoint, floatingFrameCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -15,6 +15,7 @@
 	let movePixel = { x: 0, y: 0 };
 	let linePointer: number | null = null;
 	let shapePointer: number | null = null;
+	let movePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -38,17 +39,8 @@
 			const ctx = el.getContext('2d')!;
 			ctx.imageSmoothingEnabled = false;
 			ctx.clearRect(0, 0, el.width, el.height);
-			const floating = session.floatingSelections(i);
-			if (!floating.length) ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
-			else for (const [layerIndex, layer] of session.doc.frames[i].layers.entries()) {
-				if (!layer.visible) continue;
-				ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, el.width, el.height);
-				if (layerIndex !== session.currentLayer) continue;
-				for (const selection of floating) {
-					const rect = selection.renderRect;
-					ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
-				}
-			}
+			const source = floatingFrameCanvas(session, i) ?? session.compositor.frameCanvas(i);
+			ctx.drawImage(source, 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
 				const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
@@ -107,6 +99,7 @@
 				break;
 			case 'move':
 				el.setPointerCapture(e.pointerId);
+				movePointer = e.pointerId;
 				moveTile = i;
 				movePixel = { x, y };
 				session.beginLayerMove();
@@ -129,13 +122,14 @@
 			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
-		if (moveTile === i) {
+		if (moveTile === i && e.pointerId === movePointer) {
 			session.moveFloatingBy(x - movePixel.x, y - movePixel.y);
 			movePixel = { x, y };
 		}
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (moveTile !== -1 && e.pointerId !== movePointer) return;
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
@@ -149,6 +143,7 @@
 		strokeTile = -1;
 		if (moveTile !== -1) session.endLayerMove();
 		moveTile = -1;
+		movePointer = null;
 		if (session.tool === 'line') {
 			linePointer = null;
 			session.lineEnd();
