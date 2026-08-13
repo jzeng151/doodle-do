@@ -203,7 +203,7 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
-		if (index !== this.currentFrame) this.lineEnd();
+		this.lineEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -222,6 +222,7 @@ export class EditorSession {
 
 	toggleBulkFrame(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
 		this.commitFloating();
 		const set = new Set(this.bulkFrames.length ? this.bulkFrames : [this.currentFrame]);
 		if (index !== this.currentFrame) {
@@ -236,6 +237,7 @@ export class EditorSession {
 
 	selectBulkRange(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
 		this.commitFloating();
 		const lo = Math.min(this.currentFrame, index);
 		const hi = Math.max(this.currentFrame, index);

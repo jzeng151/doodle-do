@@ -102,7 +102,11 @@
 		}
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
+		if (strokeTile >= 0 && session.tool === 'line') {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.lineMove(x, y, e.shiftKey);
+		}
 		strokeTile = -1;
 		if (session.tool === 'line') session.lineEnd();
 		else session.strokeEnd();
