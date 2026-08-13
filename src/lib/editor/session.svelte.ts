@@ -128,6 +128,7 @@ export class EditorSession {
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
+	private documentReplaceColors = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -155,6 +156,8 @@ export class EditorSession {
 			}
 			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
 			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
+			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
+			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -1053,9 +1056,11 @@ export class EditorSession {
 		if (!compacted) return;
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, compacted.doc));
-		this.colorValue = compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length);
-		this.backgroundColorValue = compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length);
+		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length)];
+		const command = new DocumentReplaceCommand(this.doc, compacted.doc);
+		this.documentReplaceColors.set(command, { before: [foreground, background], after });
+		this.bus.dispatch(command);
+		[this.colorValue, this.backgroundColorValue] = after;
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {
