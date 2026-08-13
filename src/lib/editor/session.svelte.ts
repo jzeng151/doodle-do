@@ -153,6 +153,10 @@ export class EditorSession {
 				this.clearGestures();
 				this.overlayVersion++;
 			}
+			if (command instanceof DocumentReplaceCommand) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
 			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
 			if (colors && action === 'dispatch') [this.colorValue, this.backgroundColorValue] = colors.after;
 			else if (command instanceof PaletteRemoveCommand && action !== 'dispatch') {
