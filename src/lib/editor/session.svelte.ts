@@ -1010,7 +1010,7 @@ export class EditorSession {
 			new FrameAddCommand(index, {
 				layers,
 				...(duplicate && src.durationMs !== undefined && { durationMs: src.durationMs })
-			})
+			}, duplicate ? this.currentFrame : undefined)
 		);
 		this.currentFrame = index;
 		if (duplicate) tips.fire('T03');
@@ -1073,6 +1073,7 @@ export class EditorSession {
 	}
 
 	setLoopRange(start: number, end: number): void {
+		if (!Number.isFinite(start) || !Number.isFinite(end)) return;
 		const last = this.doc.frames.length - 1;
 		const s = Math.max(0, Math.min(Math.min(start, end), last));
 		const e = Math.max(s, Math.min(Math.max(start, end), last));
@@ -1083,11 +1084,17 @@ export class EditorSession {
 	addAnimationTag(tag: AnimationTag): void {
 		const name = tag.name.trim();
 		if (!name) return;
+		const last = this.doc.frames.length - 1;
+		const current = this.effectiveLoopRange();
+		const rawFrom = Number.isFinite(tag.from) ? tag.from : current.start;
+		const rawTo = Number.isFinite(tag.to) ? tag.to : current.end;
+		const from = Math.max(0, Math.min(Math.round(Math.min(rawFrom, rawTo)), last));
+		const to = Math.max(from, Math.min(Math.round(Math.max(rawFrom, rawTo)), last));
 		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
 		const before = this.doc.meta.tags;
 		const active = this.activeAnimationTagName;
 		if (active && active !== name && before?.some((item) => item.name === name)) return;
-		const normalized = { ...tag, name, repeats };
+		const normalized = { ...tag, name, from, to, repeats };
 		const index = before?.findIndex((item) => item.name === (active || name)) ?? -1;
 		const after = index < 0
 			? [...(before ?? []), normalized]

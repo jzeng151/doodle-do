@@ -33,8 +33,12 @@ export class AnimationTagsCommand implements Command {
 	dirty(): DirtyRegion { return { frame: null, rect: null, metadata: true }; }
 }
 
-function addFrameTags(tags: AnimationTag[] | undefined, index: number) {
-	return tags?.map((tag) => ({ ...tag, from: tag.from >= index ? tag.from + 1 : tag.from, to: tag.to >= index ? tag.to + 1 : tag.to }));
+function addFrameTags(tags: AnimationTag[] | undefined, index: number, source?: number) {
+	return tags?.map((tag) => ({
+		...tag,
+		from: tag.from >= index ? tag.from + 1 : tag.from,
+		to: tag.to >= index || source !== undefined && source >= tag.from && source <= tag.to ? tag.to + 1 : tag.to
+	}));
 }
 
 function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: number) {
@@ -91,13 +95,14 @@ export class FrameAddCommand implements Command {
 	// covers blank add and duplicate — the caller builds the frame payload
 	constructor(
 		private readonly index: number,
-		private readonly frame: Frame
+		private readonly frame: Frame,
+		private readonly source?: number
 	) {}
 
 	do(doc: Doc): void {
 		this.beforeTags = copyTags(doc.meta.tags);
 		doc.frames.splice(this.index, 0, this.frame);
-		doc.meta.tags = addFrameTags(this.beforeTags, this.index);
+		doc.meta.tags = addFrameTags(this.beforeTags, this.index, this.source);
 	}
 	undo(doc: Doc): void {
 		doc.frames.splice(this.index, 1);
