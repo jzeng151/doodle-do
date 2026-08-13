@@ -361,6 +361,15 @@ describe('pixel-safe quarter turns', () => {
 		sel.commit();
 		expect(doc.frames[0].layers[0].pixels.filter(Boolean)).toHaveLength(2);
 	});
+
+	it('moves on the first nudge after an edge-clamped rotation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 1, w: 1, h: 3 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect(sel.renderRect.x).toBe(0);
+		sel.moveBy(1, 0);
+		expect(sel.renderRect.x).toBe(1);
+	});
 });
 
 describe('mirrored twin selection', () => {

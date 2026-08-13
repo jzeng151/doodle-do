@@ -263,8 +263,16 @@ export class FloatingSelection {
 			const rh = quarter % 2 ? bw : bh;
 			let x = Math.floor(bx + bw / 2 - rw / 2) + this.dx;
 			let y = Math.floor(by + bh / 2 - rh / 2) + this.dy;
-			if (this.dx === 0) x = Math.max(0, Math.min(this.doc.meta.width - rw, x));
-			if (this.dy === 0) y = Math.max(0, Math.min(this.doc.meta.height - rh, y));
+			if (this.dx === 0) {
+				const clamped = Math.max(0, Math.min(this.doc.meta.width - rw, x));
+				this.dx += clamped - x;
+				x = clamped;
+			}
+			if (this.dy === 0) {
+				const clamped = Math.max(0, Math.min(this.doc.meta.height - rh, y));
+				this.dy += clamped - y;
+				y = clamped;
+			}
 			this.renderRect = {
 				x,
 				y,
