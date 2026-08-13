@@ -25,7 +25,7 @@ import { Compositor } from '../render/compositor';
 import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
-import { StrokeBuilder } from '../tools/pencil';
+import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
@@ -33,6 +33,7 @@ import { tips } from '../learn/tips';
 
 export type Tool =
 	| 'pencil'
+	| 'line'
 	| 'eraser'
 	| 'fill'
 	| 'eyedropper'
@@ -106,6 +107,7 @@ export class EditorSession {
 	unsavedCommits = $state(0);
 
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
+	private lineOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
 
 	constructor(doc: Doc) {
@@ -134,6 +136,7 @@ export class EditorSession {
 
 	setTool(tool: Tool): void {
 		if (tool === this.tool) return;
+		this.lineEnd();
 		this.commitFloating();
 		this.selectionMask = null;
 		this.clearGestures();
@@ -147,6 +150,7 @@ export class EditorSession {
 	// document, current frame, zoom, and palette because nothing is rebuilt.
 	setMode(mode: Mode): void {
 		if (mode === this.mode) return;
+		this.lineEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -160,6 +164,7 @@ export class EditorSession {
 	}
 
 	resetComparisonFork(): void {
+		this.lineEnd();
 		this.commitFloating();
 		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
@@ -167,6 +172,8 @@ export class EditorSession {
 
 	applyComparisonFork(): void {
 		if (!this.comparisonSession) return;
+		this.lineEnd();
+		this.comparisonSession.lineEnd();
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
@@ -179,6 +186,8 @@ export class EditorSession {
 	swapComparisonFork(): void {
 		const fork = this.comparisonSession;
 		if (!fork) return;
+		this.lineEnd();
+		fork.lineEnd();
 		this.commitFloating();
 		fork.commitFloating();
 		const currentDoc = structuredClone(this.doc);
@@ -194,6 +203,11 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index === this.currentFrame) {
+			this.bulkFrames = [];
+			return;
+		}
+		this.lineEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -212,6 +226,7 @@ export class EditorSession {
 
 	toggleBulkFrame(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
 		this.commitFloating();
 		const set = new Set(this.bulkFrames.length ? this.bulkFrames : [this.currentFrame]);
 		if (index !== this.currentFrame) {
@@ -226,6 +241,7 @@ export class EditorSession {
 
 	selectBulkRange(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
 		this.commitFloating();
 		const lo = Math.min(this.currentFrame, index);
 		const hi = Math.max(this.currentFrame, index);
@@ -250,6 +266,7 @@ export class EditorSession {
 	}
 
 	selectLayer(index: number): void {
+		this.lineEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
@@ -532,13 +549,65 @@ export class EditorSession {
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
 	}
 
+	lineBegin(x: number, y: number): void {
+		if (this.floating) return;
+		this.lineEnd();
+		this.lineOrigin = { x, y };
+		this.strokes = this.editTargets().map((frame) => ({
+			frame,
+			builder: new StrokeBuilder(
+				this.doc,
+				frame,
+				this.currentLayer,
+				this.colorValue,
+				this.brushSize,
+				this.mirrorX,
+				'line'
+			)
+		}));
+		for (const s of this.strokes) {
+			const rect = s.builder.begin(x, y);
+			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+		}
+	}
+
+	lineMove(x: number, y: number, constrained = false): void {
+		if (!this.lineOrigin) return;
+		const end = constrained
+			? constrainLineEndpoint(this.lineOrigin.x, this.lineOrigin.y, x, y)
+			: { x, y };
+		for (const s of this.strokes) {
+			const rect = s.builder.previewLineTo(end.x, end.y);
+			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+		}
+	}
+
+	lineEnd(): void {
+		this.lineOrigin = null;
+		this.strokeEnd();
+	}
+
+	cancelLine(): void {
+		for (const stroke of this.strokes) {
+			const rect = stroke.builder.cancel();
+			if (rect) this.bus.emitChange({ frame: stroke.frame, rect });
+		}
+		this.strokes = [];
+		this.lineOrigin = null;
+	}
+
 	get strokeActive(): boolean {
 		return this.strokes.length > 0;
+	}
+
+	get lineActive(): boolean {
+		return this.lineOrigin !== null;
 	}
 
 	// --- other tools ---
 
 	fill(x: number, y: number): void {
+		this.lineEnd();
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmds = this.editTargets()
 			.map((f) => floodFill(this.doc, f, this.currentLayer, x, y, this.colorValue))
@@ -561,6 +630,7 @@ export class EditorSession {
 	// (a bare marquee lifts first, keeping the one-command guarantee),
 	// else to the whole active layer.
 	flip(axis: 'horizontal' | 'vertical'): void {
+		this.lineEnd();
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -580,6 +650,7 @@ export class EditorSession {
 	// --- frames ---
 
 	addFrame(duplicate: boolean): void {
+		this.lineEnd();
 		this.commitFloating();
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		const src = this.frame;
@@ -600,12 +671,14 @@ export class EditorSession {
 
 	deleteFrame(): void {
 		if (this.doc.frames.length <= 1) return;
+		this.lineEnd();
 		this.cancelFloating(); // the frame under the selection is going away
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		this.bus.dispatch(new FrameDeleteCommand(this.doc, this.currentFrame));
 	}
 
 	moveFrame(delta: -1 | 1): void {
+		this.lineEnd();
 		this.commitFloating();
 		const to = this.currentFrame + delta;
 		if (to < 0 || to >= this.doc.frames.length) return;
@@ -654,6 +727,7 @@ export class EditorSession {
 	// --- layers (per-frame, cap 8) ---
 
 	addLayer(): void {
+		this.lineEnd();
 		this.commitFloating();
 		const layers = this.frame.layers;
 		if (layers.length >= MAX_LAYERS) return;
@@ -698,12 +772,14 @@ export class EditorSession {
 
 	deleteLayer(): void {
 		if (this.frame.layers.length <= 1) return;
+		this.lineEnd();
 		this.cancelFloating(); // the layer under the selection is going away
 		this.bus.dispatch(new LayerDeleteCommand(this.doc, this.currentFrame, this.currentLayer));
 	}
 
 	// Flatten the active layer into the one below it, as ONE composite command.
 	mergeLayerDown(): void {
+		this.lineEnd();
 		this.commitFloating();
 		const cmd = mergeDownCommand(this.doc, this.currentFrame, this.currentLayer);
 		if (!cmd) return;
@@ -714,6 +790,7 @@ export class EditorSession {
 	// Copy (or move) the active layer onto the top of another frame's stack,
 	// as ONE composite command.
 	sendLayerToFrame(targetFrame: number, move: boolean): void {
+		this.lineEnd();
 		this.commitFloating();
 		const cmd = sendLayerCommand(this.doc, this.currentFrame, this.currentLayer, targetFrame, move);
 		if (!cmd) return;
@@ -721,6 +798,7 @@ export class EditorSession {
 	}
 
 	moveLayer(delta: -1 | 1): void {
+		this.lineEnd();
 		this.commitFloating();
 		const to = this.currentLayer + delta;
 		if (to < 0 || to >= this.frame.layers.length) return;
@@ -751,6 +829,7 @@ export class EditorSession {
 
 	removePaletteColor(index: number, remapTo?: number): boolean {
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		this.lineEnd();
 		const value = index + 1;
 		const inUse = this.doc.frames.some((frame) =>
 			frame.layers.some((layer) => layer.pixels.includes(value))
@@ -767,6 +846,7 @@ export class EditorSession {
 	// Resize the canvas of the existing document (extends §4.1 beyond
 	// creation-time). 'crop' keeps the art in place; 'scale' resamples it.
 	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale'): void {
+		this.lineEnd();
 		this.commitFloating();
 		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(width)));
 		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(height)));
@@ -784,13 +864,13 @@ export class EditorSession {
 	// T14/B5: undo removes the whole move in one step — a pending selection
 	// commits first, so the very next undo reverts it entirely.
 	undo(): void {
-		this.strokeEnd();
+		this.lineEnd();
 		this.commitFloating();
 		this.bus.undo();
 	}
 
 	redo(): void {
-		this.strokeEnd();
+		this.lineEnd();
 		this.commitFloating();
 		this.bus.redo();
 	}

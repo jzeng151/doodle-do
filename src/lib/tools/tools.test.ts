@@ -4,7 +4,7 @@ import { DEFAULT_PALETTE } from '../core/palette';
 import { floodFill, floodRegion } from './fill';
 import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
-import { StrokeBuilder } from './pencil';
+import { constrainLineEndpoint, StrokeBuilder } from './pencil';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -122,5 +122,34 @@ describe('mirror-draw', () => {
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
 		stroke.begin(3, 3);
 		expect(stroke.end()!.pixelCount).toBe(1);
+	});
+});
+
+describe('line tool', () => {
+	it('replaces its live preview and commits only the final line', () => {
+		const doc = testDoc();
+		const line = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line');
+		line.begin(1, 1);
+		line.previewLineTo(5, 1);
+		line.previewLineTo(1, 4);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[1 * 8 + 5]).toBe(0);
+		expect(pixels[4 * 8 + 1]).toBe(3);
+		expect(line.end()!.kind).toBe('line');
+	});
+
+	it('cancels its optimistic preview', () => {
+		const doc = testDoc();
+		const line = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line');
+		line.begin(1, 1);
+		line.previewLineTo(4, 1);
+		line.cancel();
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 0)).toBe(true);
+	});
+
+	it('constrains to horizontal, vertical, or diagonal lines', () => {
+		expect(constrainLineEndpoint(2, 2, 7, 3)).toEqual({ x: 7, y: 2 });
+		expect(constrainLineEndpoint(2, 2, 3, 7)).toEqual({ x: 2, y: 7 });
+		expect(constrainLineEndpoint(2, 2, 6, 5)).toEqual({ x: 6, y: 6 });
 	});
 });

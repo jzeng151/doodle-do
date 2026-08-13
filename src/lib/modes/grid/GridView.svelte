@@ -11,6 +11,7 @@
 
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
+	let linePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -37,7 +38,7 @@
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
-				const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+				const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
 				const bounds = brushBounds(
 					keyboardX,
 					keyboardY,
@@ -78,6 +79,12 @@
 				strokeTile = i;
 				session.strokeBegin(x, y);
 				break;
+			case 'line':
+				el.setPointerCapture(e.pointerId);
+				strokeTile = i;
+				linePointer = e.pointerId;
+				session.lineBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -91,15 +98,33 @@
 		const { x, y } = pixelFromEvent(e, tiles[i]!);
 		keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, x));
 		keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
-		if (strokeTile === i && session.strokeActive) session.strokeMove(x, y);
+		if (strokeTile === i && session.strokeActive) {
+			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else session.strokeMove(x, y);
+		}
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
+		if (strokeTile >= 0 && session.tool === 'line') {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.lineMove(x, y, e.shiftKey);
+		}
 		strokeTile = -1;
-		session.strokeEnd();
+		if (session.tool === 'line') {
+			linePointer = null;
+			session.lineEnd();
+		}
+		else session.strokeEnd();
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
+		if (e.key === 'Escape' && session.lineActive) {
+			e.preventDefault();
+			e.stopPropagation();
+			session.cancelLine();
+			return;
+		}
 		const moves: Record<string, [number, number]> = {
 			ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
 		};
@@ -110,6 +135,7 @@
 			keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 			return;
 		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -121,6 +147,13 @@
 			case 'eraser':
 				session.strokeBegin(keyboardX, keyboardY);
 				session.strokeEnd();
+				break;
+			case 'line':
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
+				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;

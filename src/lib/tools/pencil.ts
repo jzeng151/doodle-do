@@ -9,6 +9,7 @@ import { PixelDiffCommand, type Rect } from '../core/commands';
 export class StrokeBuilder {
 	private readonly dirty = new Map<number, number>(); // index → value before stroke
 	private last: { x: number; y: number } | null = null;
+	private origin: { x: number; y: number } | null = null;
 
 	constructor(
 		private readonly doc: Doc,
@@ -16,12 +17,13 @@ export class StrokeBuilder {
 		private readonly layerIndex: number,
 		private readonly value: number, // pixel value to place; 0 = eraser
 		private readonly size = 1,
-		private readonly mirrorX = false // mirror-draw toggle (§4.1)
+		private readonly mirrorX = false, // mirror-draw toggle (§4.1)
+		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke'
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
 	begin(x: number, y: number): Rect | null {
-		this.last = { x, y };
+		this.last = this.origin = { x, y };
 		return this.stamp(x, y);
 	}
 
@@ -30,6 +32,17 @@ export class StrokeBuilder {
 		const rect = this.line(this.last.x, this.last.y, x, y);
 		this.last = { x, y };
 		return rect;
+	}
+
+	// Replaces the previous preview with one line from the original pointer-down
+	// point. The final preview is recorded as the single undoable command.
+	previewLineTo(x: number, y: number): Rect | null {
+		if (!this.origin) return this.begin(x, y);
+		const previous = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return unionRect(previous, this.line(this.origin.x, this.origin.y, x, y));
 	}
 
 	end(): PixelDiffCommand | null {
@@ -46,7 +59,7 @@ export class StrokeBuilder {
 		}
 		if (indices.length === 0) return null;
 		return new PixelDiffCommand(
-			this.value === 0 ? 'eraser-stroke' : 'pencil-stroke',
+			this.kind,
 			this.frameIndex,
 			this.layerIndex,
 			new Uint32Array(indices),
@@ -54,6 +67,29 @@ export class StrokeBuilder {
 			new Uint8Array(after),
 			width
 		);
+	}
+
+	cancel(): Rect | null {
+		const rect = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return rect;
+	}
+
+	private dirtyRect(): Rect | null {
+		if (!this.dirty.size) return null;
+		const { width } = this.doc.meta;
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		for (const index of this.dirty.keys()) {
+			const x = index % width;
+			const y = (index / width) | 0;
+			minX = Math.min(minX, x);
+			minY = Math.min(minY, y);
+			maxX = Math.max(maxX, x);
+			maxY = Math.max(maxY, y);
+		}
+		return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
@@ -106,6 +142,15 @@ export class StrokeBuilder {
 		}
 		return rect;
 	}
+}
+
+export function constrainLineEndpoint(x0: number, y0: number, x1: number, y1: number) {
+	const dx = x1 - x0;
+	const dy = y1 - y0;
+	const distance = Math.max(Math.abs(dx), Math.abs(dy));
+	if (Math.abs(dx) > Math.abs(dy) * 2) return { x: x1, y: y0 };
+	if (Math.abs(dy) > Math.abs(dx) * 2) return { x: x0, y: y1 };
+	return { x: x0 + Math.sign(dx) * distance, y: y0 + Math.sign(dy) * distance };
 }
 
 export function unionRect(a: Rect | null, b: Rect | null): Rect | null {

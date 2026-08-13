@@ -19,6 +19,7 @@
 	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
+	let linePointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -102,7 +103,7 @@
 
 	function drawKeyboardCursor(ctx: CanvasRenderingContext2D) {
 		const z = renderZoom;
-		const size = session.tool === 'pencil' || session.tool === 'eraser' ? session.brushSize : 1;
+		const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
 		const bounds = brushBounds(
 			keyboardX,
 			keyboardY,
@@ -322,6 +323,11 @@
 				canvasEl.setPointerCapture(e.pointerId);
 				session.strokeBegin(x, y);
 				break;
+			case 'line':
+				canvasEl.setPointerCapture(e.pointerId);
+				linePointer = e.pointerId;
+				session.lineBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -433,17 +439,29 @@
 			}
 			return;
 		}
-		if (session.strokeActive) session.strokeMove(x, y);
+		if (session.strokeActive) {
+			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else session.strokeMove(x, y);
+		}
 		else if (cursorMoved) repaint();
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
 		rotateStart = null;
 		dragMirrored = false;
-		session.strokeEnd();
+		if (session.tool === 'line') {
+			if (session.lineActive) {
+				const { x, y } = pixelFromEvent(e);
+				session.lineMove(x, y, e.shiftKey);
+			}
+			session.lineEnd();
+			linePointer = null;
+		}
+		else session.strokeEnd();
 	}
 
 	function onWheel(e: WheelEvent) {
@@ -504,6 +522,7 @@
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
+				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 			}
 			repaint();
 			return;
@@ -512,6 +531,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			keyboardMarquee = false;
+			session.cancelLine();
 			session.cancelFloating();
 			return;
 		}
@@ -527,6 +547,13 @@
 			case 'eraser':
 				session.strokeBegin(keyboardX, keyboardY);
 				session.strokeEnd();
+				break;
+			case 'line':
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
+				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'fill':
 				session.fill(keyboardX, keyboardY);
