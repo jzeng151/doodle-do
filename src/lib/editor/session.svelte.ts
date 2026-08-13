@@ -686,7 +686,13 @@ export class EditorSession {
 	rotateSelectionQuarter(direction: -1 | 1): void {
 		if (this.currentLayerLocked) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
-		if (this.floating) this.rotateFloating(this.floating.angle + direction * Math.PI / 2);
+		if (!this.floating) return;
+		const quarter = Math.round(this.floating.angle / (Math.PI / 2)) + direction;
+		this.rotateFloating(quarter * Math.PI / 2);
+		if (this.floatingTwin) {
+			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
+			this.floatingTwin.moveBy(desiredX - this.floatingTwin.renderRect.x, 0);
+		}
 	}
 
 	// arrow-key nudge: a bare mask lifts first, like flip()

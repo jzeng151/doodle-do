@@ -465,8 +465,8 @@
 			const sel = session.floating;
 			if (sel && rotateStart) {
 				const p = pixelFromEventF(e);
-				const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
-				const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
+				const gx = sel.renderRect.x + sel.renderRect.w / 2;
+				const gy = sel.renderRect.y + sel.renderRect.h / 2;
 				let a = rotateStart.angle0 + Math.atan2(p.y - gy, p.x - gx) - rotateStart.grab;
 				if (e.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12); // snap 15°
 				session.rotateFloating(a);

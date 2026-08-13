@@ -175,9 +175,11 @@ export class FloatingSelection {
 	// the group bbox corners forward-mapped through rotate+translate, in
 	// source-space edge coordinates (shared by the overlay outline/handle)
 	corners(): [number, number][] {
-		if (this.quarterTurn() !== null) {
+		const quarter = this.quarterTurn();
+		if (quarter !== null) {
 			const { x, y, w, h } = this.renderRect;
-			return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+			const corners: [number, number][] = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+			return [...corners.slice(quarter), ...corners.slice(0, quarter)];
 		}
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
 		const cx = bx + bw / 2;
@@ -259,9 +261,13 @@ export class FloatingSelection {
 		if (quarter !== null) {
 			const rw = quarter % 2 ? bh : bw;
 			const rh = quarter % 2 ? bw : bh;
+			let x = Math.floor(bx + bw / 2 - rw / 2) + this.dx;
+			let y = Math.floor(by + bh / 2 - rh / 2) + this.dy;
+			if (this.dx === 0) x = Math.max(0, Math.min(this.doc.meta.width - rw, x));
+			if (this.dy === 0) y = Math.max(0, Math.min(this.doc.meta.height - rh, y));
 			this.renderRect = {
-				x: Math.floor(bx + bw / 2 - rw / 2) + this.dx,
-				y: Math.floor(by + bh / 2 - rh / 2) + this.dy,
+				x,
+				y,
 				w: rw,
 				h: rh
 			};

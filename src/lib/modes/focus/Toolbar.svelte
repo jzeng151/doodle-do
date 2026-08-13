@@ -158,8 +158,8 @@
 	</div>
 
 	<div class="group" role="group" aria-label="Rotate selection">
-		<button aria-label="Turn selection left 90 degrees" disabled={!session.hasSelection} title="Pixel-safe quarter turn left" onclick={() => session.rotateSelectionQuarter(-1)}>↶90°</button>
-		<button aria-label="Turn selection right 90 degrees" disabled={!session.hasSelection} title="Pixel-safe quarter turn right" onclick={() => session.rotateSelectionQuarter(1)}>↷90°</button>
+		<button aria-label="Turn selection left 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation left" onclick={() => session.rotateSelectionQuarter(-1)}>↶90°</button>
+		<button aria-label="Turn selection right 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation right" onclick={() => session.rotateSelectionQuarter(1)}>↷90°</button>
 		<button
 			aria-label="Rotate selection left 15 degrees"
 			disabled={!session.hasSelection}
