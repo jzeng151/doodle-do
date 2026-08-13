@@ -600,6 +600,12 @@ export class PaletteRemoveCommand implements Command {
 		}
 	}
 
+	mapActiveColor(value: number, action: 'undo' | 'redo'): number {
+		if (action === 'undo') return value >= this.removedValue ? value + 1 : value;
+		if (value === this.removedValue) return this.targetValue - Number(this.targetValue > this.removedValue);
+		return value > this.removedValue ? value - 1 : value;
+	}
+
 	serialize(): unknown {
 		return {
 			kind: this.kind,

@@ -149,6 +149,7 @@ export class EditorSession {
 	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number] }>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
+	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private documentReplaceColors = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
@@ -188,10 +189,16 @@ export class EditorSession {
 			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
 			if (replacementAxes) [this.mirrorAxisX, this.mirrorAxisY] = action === 'undo' ? replacementAxes.before : replacementAxes.after;
 			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
-			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
+			if (colors && action === 'dispatch') [this.colorValue, this.backgroundColorValue] = colors.after;
+			else if (command instanceof PaletteRemoveCommand && action !== 'dispatch') {
+				this.colorValue = command.mapActiveColor(this.colorValue, action);
+				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
+			}
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteSortCommand) this.invalidateStamp();
 			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
 			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
+			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
+			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -408,9 +415,10 @@ export class EditorSession {
 	selectAll(): void {
 		this.lineEnd();
 		this.shapeEnd();
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.overlayVersion++;
 	}
@@ -440,11 +448,11 @@ export class EditorSession {
 
 	reselect(): void {
 		if (!this.previousSelectionMask) return;
+		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		const current = this.selectionMask?.slice() ?? null;
 		this.selectionMask = this.previousSelectionMask;
-		this.previousSelectionMask = current;
+		this.previousSelectionMask = current?.some(Boolean) ? current : null;
 		this.overlayVersion++;
 	}
 
@@ -1239,9 +1247,12 @@ export class EditorSession {
 		);
 		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
 		this.invalidateStamp();
-		this.bus.dispatch(new PaletteReplaceCommand(this.doc.palette, colors));
-		this.colorValue = Math.min(this.colorValue, colors.length);
-		this.backgroundColorValue = Math.min(this.backgroundColorValue, colors.length);
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const after: [number, number] = [Math.min(this.colorValue, colors.length), Math.min(this.backgroundColorValue, colors.length)];
+		const command = new PaletteReplaceCommand(this.doc.palette, colors);
+		this.paletteReplaceColors.set(command, { before, after });
+		this.bus.dispatch(command);
+		[this.colorValue, this.backgroundColorValue] = after;
 	}
 
 	createPaletteFromArtwork(): void {
