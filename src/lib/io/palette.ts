@@ -5,7 +5,9 @@ const hex = (r: number, g: number, b: number) =>
 
 export function parseTextPalette(text: string): string[] {
 	const colors: string[] = [];
+	const gpl = /^\s*GIMP Palette(?:\r?\n|$)/i.test(text);
 	for (const line of text.split(/\r?\n/)) {
+		if (gpl && /^\s*#/.test(line)) continue;
 		const hexMatch = line.match(/^\s*#([\da-f]{6})\s*$/i);
 		const rgbMatch = line.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})(?:\s|$)/);
 		const color = hexMatch
