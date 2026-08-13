@@ -233,6 +233,22 @@ test('saving a renamed clip replaces the selected clip', async ({ page }) => {
 	await name.fill('run');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'run (1–2)']);
+	await page.getByLabel('Loop range start').fill('');
+	await name.fill('safe');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'safe (1–2)']);
+});
+
+test('reduced-motion reverse clips initialize at their end frame', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('reverse');
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await expect(page.locator('.counter')).toHaveText('2 / 2');
 });
 
 test('active clips follow frame structure changes', async ({ page }) => {
