@@ -64,10 +64,10 @@
 			const prev = (f - 1 + frames.length) % frames.length;
 			const next = (f + 1) % frames.length;
 			if (session.onionPreviousEnabled) {
-				drawOnionGhost(ctx, session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity * 0.55);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, prev) ?? session.compositor.frameCanvas(prev), ONION_PREV_COLOR, session.onionOpacity * 0.55);
 			}
 			if (session.onionNextEnabled && (next !== prev || !session.onionPreviousEnabled)) {
-				drawOnionGhost(ctx, session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, next) ?? session.compositor.frameCanvas(next), ONION_NEXT_COLOR, session.onionOpacity);
 			}
 		}
 		if (session.bulkFrames.length > 1) {
@@ -460,6 +460,7 @@
 		if (selectDrag === 'layer') {
 			session.endLayerMove();
 			layerPointer = null;
+			selectDrag = null;
 		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
