@@ -300,6 +300,7 @@
 
 	function onPointerDown(e: PointerEvent) {
 		if (e.button !== 0) return;
+		if (session.tool === 'move' && layerPointer !== null) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		keyboardX = x;

@@ -575,9 +575,10 @@ export class EditorSession {
 
 	autosaveSnapshot(): Doc {
 		const snapshot = structuredClone(this.doc);
-		for (let frame = 0; frame < snapshot.frames.length; frame++) {
-			for (const selection of this.floatingSelections(frame)) {
-				selection.stampPreviewInto(snapshot.frames[frame].layers[selection.layerIndex].pixels);
+		if (this.floating) {
+			this.floating.restoreSnapshotInto(snapshot.frames[this.floating.frameIndex].layers[this.floating.layerIndex].pixels);
+			for (const peer of this.floatingPeers) {
+				peer.main.restoreSnapshotInto(snapshot.frames[peer.main.frameIndex].layers[peer.main.layerIndex].pixels);
 			}
 		}
 		return snapshot;
