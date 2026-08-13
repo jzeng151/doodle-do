@@ -239,14 +239,36 @@ test('saving a renamed clip replaces the selected clip', async ({ page }) => {
 	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'safe (1–2)']);
 });
 
+test('editing a selected clip preserves its identity and integer range', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Loop range start').evaluate((input: HTMLInputElement) => {
+		input.value = '1.5';
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+	});
+	await expect(page.getByLabel('Clip')).toHaveValue('walk');
+	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'walk (2–2)']);
+	await page.locator('.film-frame').first().click();
+	await page.getByLabel('Clip').selectOption('');
+	await page.getByLabel('Clip').selectOption('walk');
+	await expect(page.locator('.counter')).toHaveText('2 / 2');
+});
+
 test('reduced-motion reverse clips initialize at their end frame', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await gotoApp(page);
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
+	await drawOn(page, page.locator('canvas.editor'));
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Name', { exact: true }).fill('reverse');
 	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	expect(await locatorHasInk(page.locator('.loop-panel canvas.loop'))).toBe(true);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.locator('.counter')).toHaveText('2 / 2');
 });
