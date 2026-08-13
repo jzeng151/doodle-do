@@ -12,6 +12,7 @@
 	let tiles: (HTMLCanvasElement | undefined)[] = $state([]);
 	let strokeTile = -1;
 	let linePointer: number | null = null;
+	let shapePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -38,7 +39,7 @@
 			ctx.drawImage(session.compositor.frameCanvas(i), 0, 0, el.width, el.height);
 			if (i === focusedTile) {
 				const z = session.gridZoom;
-				const size = session.tool === 'pencil' || session.tool === 'eraser' || session.tool === 'line' ? session.brushSize : 1;
+				const size = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'].includes(session.tool) ? session.brushSize : 1;
 				const bounds = brushBounds(
 					keyboardX,
 					keyboardY,
@@ -85,6 +86,13 @@
 				linePointer = e.pointerId;
 				session.lineBegin(x, y);
 				break;
+			case 'rectangle':
+			case 'ellipse':
+				el.setPointerCapture(e.pointerId);
+				strokeTile = i;
+				shapePointer = e.pointerId;
+				session.shapeBegin(x, y);
+				break;
 			case 'fill':
 				session.fill(x, y);
 				break;
@@ -100,26 +108,36 @@
 		keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, y));
 		if (strokeTile === i && session.strokeActive) {
 			if (session.tool === 'line') session.lineMove(x, y, e.shiftKey);
+			else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeMove(x, y);
 			else session.strokeMove(x, y);
 		}
 	}
 
 	function onPointerUp(e: PointerEvent) {
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
+		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
 			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
 			session.lineMove(x, y, e.shiftKey);
+		}
+		if (strokeTile >= 0 && (session.tool === 'rectangle' || session.tool === 'ellipse')) {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.shapeMove(x, y);
 		}
 		strokeTile = -1;
 		if (session.tool === 'line') {
 			linePointer = null;
 			session.lineEnd();
 		}
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') {
+			shapePointer = null;
+			session.shapeEnd();
+		}
 		else session.strokeEnd();
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
-		if (e.key === 'Escape' && session.lineActive) {
+		if (e.key === 'Escape' && (session.lineActive || session.shapeActive)) {
 			e.preventDefault();
 			e.stopPropagation();
 			session.cancelLine();
@@ -136,6 +154,7 @@
 			keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 			keyboardStatus = `Frame ${i + 1}, pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 			if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
+			if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
 			return;
 		}
 		if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -154,6 +173,14 @@
 					session.lineEnd();
 				}
 				else session.lineBegin(keyboardX, keyboardY);
+				break;
+			case 'rectangle':
+			case 'ellipse':
+				if (session.shapeActive) {
+					session.shapeMove(keyboardX, keyboardY);
+					session.shapeEnd();
+				}
+				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'fill': session.fill(keyboardX, keyboardY); break;
 			case 'eyedropper': session.eyedrop(keyboardX, keyboardY); break;

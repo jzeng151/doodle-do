@@ -6,6 +6,8 @@
 	const tools: { id: Tool; label: string; key: string; description: string }[] = [
 		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
 		{ id: 'line', label: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
+		{ id: 'rectangle', label: 'Rect', key: 'R', description: 'Draw a rectangle' },
+		{ id: 'ellipse', label: 'Ellipse', key: 'C', description: 'Draw an ellipse' },
 		{ id: 'eraser', label: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
 		{ id: 'fill', label: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
 		{ id: 'eyedropper', label: 'Pick', key: 'I', description: 'Pick a color from the canvas' },
@@ -46,7 +48,7 @@
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
 			Size
-			<select bind:value={session.brushSize}>
+			<select bind:value={session.brushSize} onchange={() => { session.lineEnd(); session.shapeEnd(); }}>
 				{#each [1, 2, 3, 4] as s (s)}
 					<option value={s}>{s}px</option>
 				{/each}
@@ -60,6 +62,16 @@
 		>
 			Mirror
 		</button>
+		{#if session.tool === 'rectangle' || session.tool === 'ellipse'}
+			<button
+				class:active={session.shapeFilled}
+				aria-pressed={session.shapeFilled}
+				title="Fill the shape"
+				onclick={() => { session.shapeEnd(); session.shapeFilled = !session.shapeFilled; }}
+			>
+				Filled
+			</button>
+		{/if}
 	</div>
 
 	<div class="group" role="group" aria-label="Flip layer">

@@ -44,6 +44,7 @@
 		error = '';
 		try {
 			session.lineEnd();
+			session.shapeEnd();
 			session.commitFloating(); // save/export must see the stamped document
 			await fn();
 		} catch (e) {
@@ -90,6 +91,7 @@
 		});
 	async function openClick() {
 		session.lineEnd();
+		session.shapeEnd();
 		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_OPEN))) return;
 		run('Open', async () => {
 			const doc = await openFromDisk();
@@ -99,6 +101,7 @@
 
 	async function newClick() {
 		session.lineEnd();
+		session.shapeEnd();
 		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_NEW))) return;
 		newDialog.open();
 	}

@@ -5,6 +5,7 @@ import { floodFill, floodRegion } from './fill';
 import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
+import { ellipsePoints, rectanglePoints } from './shapes';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -151,5 +152,42 @@ describe('line tool', () => {
 		expect(constrainLineEndpoint(2, 2, 7, 3)).toEqual({ x: 7, y: 2 });
 		expect(constrainLineEndpoint(2, 2, 3, 7)).toEqual({ x: 2, y: 7 });
 		expect(constrainLineEndpoint(2, 2, 6, 5)).toEqual({ x: 6, y: 6 });
+	});
+});
+
+describe('shape tools', () => {
+	it('creates outlined and filled rectangles', () => {
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 3, y: 3 }, false)).toHaveLength(8);
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 3, y: 3 }, true)).toHaveLength(9);
+	});
+
+	it('creates symmetric ellipse points inside the bounding box', () => {
+		const points = ellipsePoints({ x: 1, y: 1 }, { x: 6, y: 4 }, false);
+		expect(points.length).toBeGreaterThan(4);
+		expect(points.every(({ x, y }) => x >= 1 && x <= 6 && y >= 1 && y <= 4)).toBe(true);
+		expect(new Set(points.map(({ x, y }) => `${7 - x},${5 - y}`))).toEqual(
+			new Set(points.map(({ x, y }) => `${x},${y}`))
+		);
+	});
+
+	it('retains the endpoints of narrow ellipses', () => {
+		const points = ellipsePoints({ x: 0, y: 0 }, { x: 1, y: 7 }, false);
+		expect(points.some((point) => point.y === 0)).toBe(true);
+		expect(points.some((point) => point.y === 7)).toBe(true);
+	});
+
+	it('clamps an off-canvas shape preview before enumerating points', () => {
+		const points = rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 });
+		expect(points).toHaveLength(13);
+		expect(points).not.toContainEqual({ x: 7, y: 7 });
+	});
+
+	it('retains off-canvas centers whose thick brush can overlap the canvas', () => {
+		const points = rectanglePoints({ x: -1, y: 1 }, { x: 3, y: 3 }, false, {
+			width: 4,
+			height: 4,
+			padding: 1
+		});
+		expect(points).toContainEqual({ x: -1, y: 2 });
 	});
 });
