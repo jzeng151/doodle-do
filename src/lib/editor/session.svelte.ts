@@ -1080,7 +1080,9 @@ export class EditorSession {
 		if (!name) return;
 		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
 		const before = this.doc.meta.tags;
-		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name, repeats }];
+		const active = this.activeAnimationTagName;
+		if (active && active !== name && before?.some((item) => item.name === name)) return;
+		const after = [...(before ?? []).filter((item) => item.name !== name && item.name !== active), { ...tag, name, repeats }];
 		this.bus.dispatch(new AnimationTagsCommand(before, after));
 		this.selectAnimationTag(name);
 	}
