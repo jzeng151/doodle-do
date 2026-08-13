@@ -271,6 +271,8 @@ export class EditorSession {
 	}
 
 	toggleMirror(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.mirrorX = !this.mirrorX;
 		if (this.mirrorX) tips.fire('T13');
 	}
@@ -282,6 +284,7 @@ export class EditorSession {
 
 	selectLayer(index: number): void {
 		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
@@ -613,7 +616,7 @@ export class EditorSession {
 				frame,
 				this.currentLayer,
 				this.colorValue,
-				this.brushSize,
+				this.shapeFilled ? 1 : this.brushSize,
 				this.mirrorX,
 				this.tool
 			)
@@ -623,7 +626,7 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = { ...this.doc.meta, padding: this.brushSize >> 1 };
+		const bounds = { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
