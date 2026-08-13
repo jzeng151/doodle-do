@@ -14,6 +14,7 @@
 	let replaceFrom = $state(1);
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
+	let replaceStatus = $state('');
 	const replaceControlsId = $props.id();
 	let paletteSignature = '';
 	function resetReplaceEndpoints() {
@@ -51,6 +52,15 @@
 	function removeSelected() {
 		const index = session.colorValue - 1;
 		removePending = session.removePaletteColor(index) ? null : index;
+	}
+
+	function applyReplacement() {
+		replaceStatus = '';
+		try {
+			session.replaceColor(replaceFrom, replaceTo, replaceScope);
+		} catch (error) {
+			replaceStatus = error instanceof Error ? error.message : 'Replacement failed.';
+		}
 	}
 </script>
 
@@ -141,7 +151,8 @@
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={applyReplacement}>Apply replacement</button>
+			{#if replaceStatus}<p class="hint" aria-live="polite">{replaceStatus}</p>{/if}
 		</div>
 	{/if}
 
