@@ -21,6 +21,11 @@ function frameOption(page: Page, index: number) {
 	return page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(index);
 }
 
+function tilePixelOpaque(canvas: HTMLCanvasElement, [x, y]: [number, number]) {
+	const zoom = canvas.width / 32;
+	return canvas.getContext('2d')!.getImageData((x + 0.5) * zoom, (y + 0.5) * zoom, 1, 1).data[3] > 0;
+}
+
 test('a stroke lands on every bulk-selected frame as one undo step', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
@@ -85,5 +90,30 @@ test('a selection move applies to every bulk-selected frame', async ({ page }) =
 		await frameOption(page, f).click();
 		expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
 		expect(await page.evaluate(pixelOpaque, [16, 16] as [number, number])).toBe(false);
+	}
+});
+
+test('a Grid stamp keeps its bulk frame targets through focus and keyboard activation', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 7, 7);
+	await page.mouse.down();
+	await mouseOnPixel(page, 9, 9);
+	await page.mouse.up();
+	await page.getByRole('button', { name: 'Make stamp' }).click();
+	await frameOption(page, 1).click({ modifiers: ['Control'] });
+	await page.getByRole('group', { name: 'Workspace mode' }).getByRole('button', { name: 'Grid' }).click();
+
+	const tiles = page.getByRole('group', { name: 'Editable frames' }).locator('canvas');
+	await tiles.nth(1).focus();
+	for (const key of ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'Enter']) {
+		await page.keyboard.press(key);
+	}
+	for (const tile of [tiles.first(), tiles.nth(1)]) {
+		await expect.poll(() => tile.evaluate(tilePixelOpaque, [8, 0] as [number, number])).toBe(true);
 	}
 });
