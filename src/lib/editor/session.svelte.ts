@@ -147,7 +147,7 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
-	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean }>();
+	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean; roundTripAfter?: (number | undefined)[]; roundTripBefore?: (number | undefined)[] }>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number] }>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
@@ -201,9 +201,15 @@ export class EditorSession {
 				const fromSize = action === 'undo' ? axes.afterSize : axes.beforeSize;
 				const toSize = action === 'undo' ? axes.beforeSize : axes.afterSize;
 				const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
-				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => this.historyAxis(
-					current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch'
-				)) as [number, number];
+				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => {
+					if (action === 'redo' && axes.scaled && axes.roundTripBefore?.[index] === current[index]) return axes.roundTripAfter![index]!;
+					const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
+					if (action === 'undo' && axes.scaled && current[index] !== before[index]) {
+						(axes.roundTripAfter ??= [])[index] = current[index];
+						(axes.roundTripBefore ??= [])[index] = next;
+					}
+					return next;
+				}) as [number, number];
 			}
 			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
 			if (replacementAxes) {
