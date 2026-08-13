@@ -1226,7 +1226,11 @@ export class EditorSession {
 		const before = this.doc.meta.tags;
 		const active = this.activeAnimationTagName;
 		if (active && active !== name && before?.some((item) => item.name === name)) return;
-		const after = [...(before ?? []).filter((item) => item.name !== name && item.name !== active), { ...tag, name, repeats }];
+		const normalized = { ...tag, name, repeats };
+		const index = before?.findIndex((item) => item.name === (active || name)) ?? -1;
+		const after = index < 0
+			? [...(before ?? []), normalized]
+			: (before ?? []).map((item, itemIndex) => itemIndex === index ? normalized : item);
 		if (before && JSON.stringify(after) === JSON.stringify(before)) return;
 		this.bus.dispatch(new AnimationTagsCommand(before, after));
 		this.selectAnimationTag(name);
