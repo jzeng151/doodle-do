@@ -959,9 +959,10 @@ export class EditorSession {
 			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
 		} : { x, y };
 		const bounds = this.tiledDrawing ? undefined : { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
+		const wrap = this.tiledDrawing ? this.doc.meta : undefined;
 		const points = this.tool === 'ellipse'
-			? ellipsePoints(this.shapeOrigin, end, this.shapeFilled, bounds)
-			: rectanglePoints(this.shapeOrigin, end, this.shapeFilled, bounds);
+			? ellipsePoints(this.shapeOrigin, end, this.shapeFilled, bounds, wrap)
+			: rectanglePoints(this.shapeOrigin, end, this.shapeFilled, bounds, wrap);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
 			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });

@@ -223,6 +223,16 @@ describe('tiled drawing', () => {
 		expect([[0, 0], [3, 0], [0, 3], [3, 3]].every(([x, y]) => pixels[y * 4 + x] === 3)).toBe(true);
 	});
 
+	it('preserves mirrored dither phase while tiled', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 3.5, false, 3.5, true).begin(1, 2);
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 6]).toBe(doc.frames[0].layers[0].pixels[2 * 8 + 1]);
+	});
+
+	it('deduplicates filled tiled geometry before stamping', () => {
+		expect(rectanglePoints({ x: 0, y: 0 }, { x: 5, y: 5 }, true, undefined, { width: 4, height: 4 })).toHaveLength(16);
+	});
+
 	it('keeps a local dirty rect until a tiled brush crosses an edge', () => {
 		const doc = testDoc(8, 8);
 		const local = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 3.5, false, 3.5, true);

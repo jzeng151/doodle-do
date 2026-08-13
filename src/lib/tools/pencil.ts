@@ -193,8 +193,12 @@ export class StrokeBuilder {
 			for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
 				const tx = (x % width + width) % width, ty = (y % height + height) % height;
 				const i = ty * width + tx;
+				if (occupied?.has(i)) continue;
+				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				pixels[i] = ditherValue(tx, ty, this.value, this.secondaryValue, this.ditherSize);
+				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - tx + offset) : tx;
+				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - ty + offset) : ty;
+				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
 			}
 			const wrapsX = x0 < 0 || x1 >= width;
 			const wrapsY = y0 < 0 || y1 >= height;
