@@ -1231,10 +1231,9 @@ export class EditorSession {
 	setLoopRange(start: number, end: number): void {
 		if (!Number.isFinite(start) || !Number.isFinite(end)) return;
 		const last = this.doc.frames.length - 1;
-		const s = Math.max(0, Math.min(Math.min(start, end), last));
-		const e = Math.max(s, Math.min(Math.max(start, end), last));
+		const s = Math.max(0, Math.min(Math.round(Math.min(start, end)), last));
+		const e = Math.max(s, Math.min(Math.round(Math.max(start, end)), last));
 		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
-		this.activeAnimationTagName = '';
 	}
 
 	addAnimationTag(tag: AnimationTag): void {

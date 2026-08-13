@@ -82,6 +82,10 @@
 		tagName = tag?.name ?? '';
 		tagDirection = tag?.direction ?? 'forward';
 		tagRepeats = tag?.repeats ?? 0;
+		if (player && !playing) {
+			const range = session.effectiveLoopRange();
+			player.seek(session.loopPlaybackMode === 'reverse' ? range.end : range.start);
+		}
 	}
 
 	$effect(() => {
