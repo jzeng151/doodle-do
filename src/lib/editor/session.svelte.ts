@@ -1074,6 +1074,7 @@ export class EditorSession {
 		const s = Math.max(0, Math.min(Math.min(start, end), last));
 		const e = Math.max(s, Math.min(Math.max(start, end), last));
 		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
+		this.activeAnimationTagName = '';
 	}
 
 	addAnimationTag(tag: AnimationTag): void {
@@ -1097,8 +1098,8 @@ export class EditorSession {
 	}
 
 	selectAnimationTag(name: string): void {
-		this.activeAnimationTagName = name;
 		if (!name) {
+			this.activeAnimationTagName = '';
 			this.loopRange = null;
 			this.loopPlaybackMode = 'forward';
 			this.loopRepeatCount = 0;
@@ -1107,9 +1108,10 @@ export class EditorSession {
 		const tag = this.doc.meta.tags?.find((item) => item.name === name);
 		if (tag) {
 			this.setLoopRange(tag.from, tag.to);
+			this.activeAnimationTagName = name;
 			this.loopPlaybackMode = tag.direction;
 			this.loopRepeatCount = tag.repeats;
-		}
+		} else this.activeAnimationTagName = '';
 	}
 
 	// --- layers (per-frame, cap 8) ---
