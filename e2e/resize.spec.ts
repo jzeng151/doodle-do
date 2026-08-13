@@ -71,6 +71,10 @@ test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	await expect(axis).toHaveValue('20');
 	await page.getByRole('button', { name: 'Redo' }).click();
 	await expect(axis).toHaveValue('15');
+	await axis.fill('2');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('2');
+	await page.getByRole('button', { name: 'Redo' }).click();
 
 	await axis.fill('');
 	const box = await page.locator('canvas.editor').boundingBox();
