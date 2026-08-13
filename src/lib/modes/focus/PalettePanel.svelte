@@ -22,7 +22,12 @@
 	let rangeStart = $state(0);
 	let rangeEnd = $state(1);
 	let rangeSort = $state<PaletteSort>('luminance');
+	const replaceControlsId = $props.id();
+	let paletteSignature = '';
 	$effect(() => {
+		const signature = palette.join('\n');
+		if (paletteSignature && signature !== paletteSignature) removePending = null;
+		paletteSignature = signature;
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
 
@@ -152,7 +157,7 @@
 		</button>
 		<button
 			aria-expanded={replaceOpen}
-			aria-controls="replace-color-options"
+			aria-controls={replaceControlsId}
 			onclick={() => {
 				replaceFrom = Math.max(1, session.colorValue);
 				replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
@@ -164,17 +169,17 @@
 	</div>
 
 	{#if replaceOpen}
-		<div id="replace-color-options" class="replace-options">
+		<div id={replaceControlsId} class="replace-options">
 			<label>From<select bind:value={replaceFrom}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>To<select bind:value={replaceTo}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>Scope<select bind:value={replaceScope}>
-				<option value="selection" disabled={!session.selectionMask}>Selection</option>
+				<option value="selection" disabled={!session.hasSelection}>Selection</option>
 				<option value="layer">Current layer</option>
 				<option value="frame">Current frame</option>
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.selectionMask)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
 		</div>
 	{/if}
 	<div class="palette-io" role="group" aria-label="Palette files">

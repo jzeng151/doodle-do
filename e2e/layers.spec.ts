@@ -65,3 +65,20 @@ test('send layer to frame copies it onto the target frame', async ({ page }) => 
 	await page.keyboard.press('PageUp'); // back on frame 1: still intact
 	await expect.poll(() => page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
 });
+
+test('Move clamps the active layer when changing to a shorter frame', async ({ page }) => {
+	const errors: Error[] = [];
+	page.on('pageerror', (error) => errors.push(error));
+	await page.goto('/canvas');
+	const editor = page.locator('canvas.editor');
+	await editor.waitFor();
+	await page.getByTitle('Add layer').click();
+	await editor.focus();
+	await page.keyboard.press('PageDown');
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	expect(errors).toEqual([]);
+});
