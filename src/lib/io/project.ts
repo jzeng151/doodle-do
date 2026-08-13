@@ -112,9 +112,13 @@ export function parseProject(text: string): Doc {
 			if (!Array.isArray(rawLayers) || rawLayers.length < 1 || rawLayers.length > MAX_LAYERS) {
 				fail(`frame ${f} has a bad layer list`);
 			}
+			const frameLinks = new Set<string>();
 			return {
 				...(typeof rawFrame.durationMs === 'number' && { durationMs: rawFrame.durationMs }),
 				layers: rawLayers.map((rawLayer, l) => {
+					const linkId = typeof rawLayer.linkId === 'string' ? rawLayer.linkId : '';
+					if (linkId && frameLinks.has(linkId)) fail(`frame ${f} repeats linked cel ${linkId}`);
+					if (linkId) frameLinks.add(linkId);
 					const pixels = decodeBase64(rawLayer.pixels as string);
 					if (pixels.length !== width * height) fail(`frame ${f} layer ${l} pixel size mismatch`);
 					for (const v of pixels) {
@@ -123,7 +127,7 @@ export function parseProject(text: string): Doc {
 					return {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,
 						visible: rawLayer.visible !== false,
-						...(typeof rawLayer.linkId === 'string' && { linkId: rawLayer.linkId }),
+						...(linkId && { linkId }),
 						...(rawLayer.locked === true && { locked: true }),
 						...(typeof rawLayer.opacity === 'number' && { opacity: Math.max(0, Math.min(1, rawLayer.opacity)) }),
 						pixels

@@ -8,6 +8,7 @@ describe('palette files', () => {
 		expect(parseTextPalette('#112233\n#AABBCC')).toEqual(['#112233', '#aabbcc']);
 		expect(parseTextPalette('#112233\n#112233')).toEqual(['#112233', '#112233']);
 		expect(parseTextPalette('GIMP Palette\nName: #112233\n255 0 16 red')).toEqual(['#ff0010']);
+		expect(parseTextPalette('GIMP Palette\n#112233\n255 0 16 red')).toEqual(['#ff0010']);
 	});
 
 	it('exports GPL and hex text', () => {
