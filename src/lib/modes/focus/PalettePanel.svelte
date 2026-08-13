@@ -17,6 +17,7 @@
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
 	let ioStatus = $state('');
+	let importGeneration = 0;
 	const replaceControlsId = $props.id();
 	let paletteSignature = '';
 	$effect(() => {
@@ -60,6 +61,7 @@
 	}
 
 	function importPalette() {
+		const generation = ++importGeneration;
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.accept = '.gpl,.pal,.hex,.txt,image/png';
@@ -68,6 +70,7 @@
 			if (!file) return;
 			try {
 				const colors = await readPalette(file);
+				if (generation !== importGeneration) return;
 				session.importPalette(colors);
 				ioStatus = `Imported ${colors.length} colors.`;
 			} catch (error) {

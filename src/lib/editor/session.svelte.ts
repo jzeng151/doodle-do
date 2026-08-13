@@ -18,6 +18,7 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	ResizeCanvasCommand
@@ -129,7 +130,7 @@ export class EditorSession {
 	private manualPaletteAdds = 0;
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
-	private documentReplaceColors = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
+	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -163,10 +164,10 @@ export class EditorSession {
 				this.colorValue = command.mapActiveColor(this.colorValue, action);
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
-			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
-			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
+			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
+			if (remappedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? remappedColors.before : remappedColors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -1089,14 +1090,16 @@ export class EditorSession {
 
 	createPaletteFromArtwork(): void {
 		if (this.paletteLocked) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
-		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.doc.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.doc.palette.length)];
-		const command = new DocumentReplaceCommand(this.doc, compacted.doc);
-		this.documentReplaceColors.set(command, { before: [foreground, background], after });
+		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.palette.length)];
+		const command = new PaletteRemapCommand(this.doc.palette, compacted.palette, compacted.map);
+		this.paletteRemapColors.set(command, { before: [foreground, background], after });
 		this.bus.dispatch(command);
 		[this.colorValue, this.backgroundColorValue] = after;
 	}

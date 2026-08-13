@@ -363,6 +363,36 @@ export class PaletteReplaceCommand implements Command {
 	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 
+export class PaletteRemapCommand implements Command {
+	readonly kind = 'palette-remap';
+	readonly byteSize: number;
+	private readonly reverse: Map<number, number>;
+
+	constructor(
+		private readonly before: string[],
+		private readonly after: string[],
+		private readonly forward: Map<number, number>
+	) {
+		this.reverse = new Map([...forward].map(([from, to]) => [to, from]));
+		this.byteSize = JSON.stringify([before, after, [...forward]]).length + 64;
+	}
+
+	private apply(doc: Doc, palette: string[], map: Map<number, number>): void {
+		doc.palette = [...palette];
+		const seen = new Set<Uint8Array>();
+		for (const frame of doc.frames) for (const layer of frame.layers) {
+			if (seen.has(layer.pixels)) continue;
+			seen.add(layer.pixels);
+			for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i]) layer.pixels[i] = map.get(layer.pixels[i]) ?? layer.pixels[i];
+		}
+	}
+
+	do(doc: Doc): void { this.apply(doc, this.after, this.forward); }
+	undo(doc: Doc): void { this.apply(doc, this.before, this.reverse); }
+	serialize(): unknown { return { kind: this.kind, palette: this.after, map: [...this.forward] }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
+}
+
 // Palette swap (§4.2): replacing an entry updates every pixel using it
 // instantly — O(1) on the document, the compositor just rebuilds its LUT.
 export class PaletteSwapCommand implements Command {
