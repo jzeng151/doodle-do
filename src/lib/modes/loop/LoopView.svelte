@@ -46,7 +46,10 @@
 		);
 		playing = !media.matches;
 		if (playing) player.start();
-		else player.blit();
+		else {
+			const range = session.effectiveLoopRange();
+			player.seek(session.loopPlaybackMode === 'reverse' ? range.end : range.start);
+		}
 		const pauseForPreference = () => {
 			if (!media.matches) return;
 			playing = false;

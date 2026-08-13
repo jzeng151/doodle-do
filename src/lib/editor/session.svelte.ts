@@ -149,7 +149,7 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
-	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean }>();
+	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean; roundTripAfter?: (number | undefined)[]; roundTripBefore?: (number | undefined)[] }>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number] }>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
@@ -203,9 +203,15 @@ export class EditorSession {
 				const fromSize = action === 'undo' ? axes.afterSize : axes.beforeSize;
 				const toSize = action === 'undo' ? axes.beforeSize : axes.afterSize;
 				const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
-				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => this.historyAxis(
-					current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch'
-				)) as [number, number];
+				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => {
+					if (action === 'redo' && axes.scaled && axes.roundTripBefore?.[index] === current[index]) return axes.roundTripAfter![index]!;
+					const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
+					if (action === 'undo' && axes.scaled && current[index] !== before[index]) {
+						(axes.roundTripAfter ??= [])[index] = current[index];
+						(axes.roundTripBefore ??= [])[index] = next;
+					}
+					return next;
+				}) as [number, number];
 			}
 			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
 			if (replacementAxes) {
@@ -1136,7 +1142,7 @@ export class EditorSession {
 			new FrameAddCommand(index, {
 				layers,
 				...(duplicate && src.durationMs !== undefined && { durationMs: src.durationMs })
-			})
+			}, duplicate ? this.currentFrame : undefined)
 		);
 		this.currentFrame = index;
 		if (duplicate) tips.fire('T03');
@@ -1220,6 +1226,7 @@ export class EditorSession {
 	}
 
 	setLoopRange(start: number, end: number): void {
+		if (!Number.isFinite(start) || !Number.isFinite(end)) return;
 		const last = this.doc.frames.length - 1;
 		const s = Math.max(0, Math.min(Math.min(start, end), last));
 		const e = Math.max(s, Math.min(Math.max(start, end), last));
@@ -1230,11 +1237,17 @@ export class EditorSession {
 	addAnimationTag(tag: AnimationTag): void {
 		const name = tag.name.trim();
 		if (!name) return;
+		const last = this.doc.frames.length - 1;
+		const current = this.effectiveLoopRange();
+		const rawFrom = Number.isFinite(tag.from) ? tag.from : current.start;
+		const rawTo = Number.isFinite(tag.to) ? tag.to : current.end;
+		const from = Math.max(0, Math.min(Math.round(Math.min(rawFrom, rawTo)), last));
+		const to = Math.max(from, Math.min(Math.round(Math.max(rawFrom, rawTo)), last));
 		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
 		const before = this.doc.meta.tags;
 		const active = this.activeAnimationTagName;
 		if (active && active !== name && before?.some((item) => item.name === name)) return;
-		const normalized = { ...tag, name, repeats };
+		const normalized = { ...tag, name, from, to, repeats };
 		const index = before?.findIndex((item) => item.name === (active || name)) ?? -1;
 		const after = index < 0
 			? [...(before ?? []), normalized]
