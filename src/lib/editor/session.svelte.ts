@@ -18,6 +18,8 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
+	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	ResizeCanvasCommand
 } from '../core/structural';
@@ -32,6 +34,7 @@ import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirror
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { tips } from '../learn/tips';
+import { paletteFromArtwork } from '../io/palette';
 
 export type Tool =
 	| 'pencil'
@@ -81,6 +84,7 @@ export class EditorSession {
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
 	showGrid = $state(false);
 	paletteLocked = $state(false);
+	paletteImportGeneration = 0;
 	onionEnabled = $state(true); // on by default (§4.5)
 	onionPreviousEnabled = $state(true);
 	onionNextEnabled = $state(true);
@@ -127,6 +131,8 @@ export class EditorSession {
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
+	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
+	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -148,6 +154,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
+			if (command.dirty().palette) this.paletteImportGeneration++;
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
@@ -164,6 +171,10 @@ export class EditorSession {
 				this.colorValue = command.mapActiveColor(this.colorValue, action);
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
+			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
+			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
+			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
+			if (remappedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? remappedColors.before : remappedColors.after;
 			if (command instanceof PaletteAddCommand) {
 				this.colorValue = Math.min(this.colorValue, doc.palette.length);
 				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
@@ -1132,6 +1143,43 @@ export class EditorSession {
 		this.paletteRemovalColors.set(command, { before, after });
 		this.bus.dispatch(command);
 		return true;
+	}
+
+	importPalette(colors: string[]): boolean {
+		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return false;
+		if (colors.length === this.doc.palette.length && colors.every((color, index) => color === this.doc.palette[index])) return true;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const highestUsed = this.doc.frames.reduce(
+			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
+			0
+		);
+		if (colors.length < highestUsed) throw new Error(`This artwork uses palette index ${highestUsed}; import at least ${highestUsed} colors.`);
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const after: [number, number] = [Math.min(this.colorValue, colors.length), Math.min(this.backgroundColorValue, colors.length)];
+		const command = new PaletteReplaceCommand(this.doc.palette, colors);
+		this.paletteReplaceColors.set(command, { before, after });
+		this.bus.dispatch(command);
+		[this.colorValue, this.backgroundColorValue] = after;
+		return true;
+	}
+
+	createPaletteFromArtwork(): void {
+		if (this.paletteLocked) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const compacted = paletteFromArtwork(this.doc);
+		if (!compacted) return;
+		if (compacted.palette.length === this.doc.palette.length && compacted.palette.every((color, index) => color === this.doc.palette[index])) return;
+		const foreground = this.colorValue;
+		const background = this.backgroundColorValue;
+		const after: [number, number] = [compacted.map.get(foreground) ?? Math.min(foreground, compacted.palette.length), compacted.map.get(background) ?? Math.min(background, compacted.palette.length)];
+		const command = new PaletteRemapCommand(this.doc.palette, compacted.palette, compacted.map);
+		this.paletteRemapColors.set(command, { before: [foreground, background], after });
+		this.bus.dispatch(command);
+		[this.colorValue, this.backgroundColorValue] = after;
 	}
 
 	replaceColor(from: number, to: number, scope: ReplaceScope): void {

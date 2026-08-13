@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { MAX_PALETTE } from '$lib/core/document';
 	import type { EditorSession, ReplaceScope } from '$lib/editor/session.svelte';
+	import { downloadBlob } from '$lib/io/files';
+	import { gplPalette, hexPalette, readPalette } from '$lib/io/palette';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -14,6 +16,7 @@
 	let replaceFrom = $state(1);
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
+	let ioStatus = $state('');
 	let replaceStatus = $state('');
 	const replaceControlsId = $props.id();
 	let paletteSignature = '';
@@ -22,12 +25,15 @@
 		replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
 	}
 	$effect(() => {
-		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 		const signature = palette.join('\0');
 		if (signature !== paletteSignature) {
+			if (paletteSignature) {
+				removePending = null;
+			}
 			paletteSignature = signature;
 			resetReplaceEndpoints();
 		}
+		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
 
 	function onSwatchClick(e: MouseEvent, i: number) {
@@ -61,6 +67,34 @@
 	function removeSelected() {
 		const index = session.colorValue - 1;
 		removePending = session.removePaletteColor(index) ? null : index;
+	}
+
+	function importPalette() {
+		const generation = ++session.paletteImportGeneration;
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.gpl,.pal,.hex,.txt,image/png';
+		input.onchange = async () => {
+			const file = input.files?.[0];
+			if (!file) return;
+			try {
+				const colors = await readPalette(file);
+				if (generation !== session.paletteImportGeneration) return;
+				ioStatus = session.importPalette(colors)
+					? `Imported ${colors.length} colors.`
+					: 'Unlock the palette before importing.';
+			} catch (error) {
+				if (generation !== session.paletteImportGeneration) return;
+				ioStatus = error instanceof Error ? error.message : 'Palette import failed.';
+			}
+		};
+		input.click();
+	}
+
+	function exportPalette(format: 'gpl' | 'hex') {
+		const name = session.doc.meta.name || 'doodle-do';
+		const text = format === 'gpl' ? gplPalette(palette, name) : hexPalette(palette);
+		downloadBlob(new Blob([text], { type: 'text/plain' }), `${name}.${format}`);
 	}
 
 	function applyReplacement() {
@@ -173,6 +207,13 @@
 			{#if replaceStatus}<p class="hint" aria-live="polite">{replaceStatus}</p>{/if}
 		</div>
 	{/if}
+	<div class="palette-io" role="group" aria-label="Palette files">
+		<button disabled={session.paletteLocked} onclick={importPalette}>Import</button>
+		<button onclick={() => exportPalette('gpl')}>Export GPL</button>
+		<button onclick={() => exportPalette('hex')}>Export HEX</button>
+		<button disabled={session.paletteLocked} onclick={() => session.createPaletteFromArtwork()}>From artwork</button>
+	</div>
+	{#if ioStatus}<p class="hint" aria-live="polite">{ioStatus}</p>{/if}
 
 	<!-- hidden native color input drives palette swap (§4.2: every pixel updates instantly) -->
 	<input
@@ -236,6 +277,7 @@
 	.replace-options { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .5rem; border-top: 2px solid var(--ink); }
 	.replace-options label { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: .35rem; font-size: .75rem; }
 	.replace-options select { min-width: 0; }
+	.palette-io { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .5rem; }
 	.hint {
 		font-size: 0.75rem;
 		margin: 0 0 0.4rem;

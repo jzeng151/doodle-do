@@ -14,6 +14,8 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
+	PaletteReplaceCommand,
 	PaletteSwapCommand
 } from './structural';
 
@@ -98,6 +100,40 @@ describe('layer commands', () => {
 });
 
 describe('palette commands', () => {
+	it('remaps palette indices in place and preserves linked buffer identity', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[1].layers[0].pixels = pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, [doc.palette[0], doc.palette[2]], new Map([[1, 1], [3, 2]]));
+		command.do(doc);
+		expect(pixels[0]).toBe(2);
+		expect(doc.frames[1].layers[0].pixels).toBe(pixels);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
+	it('undoes duplicate-color remaps to the used slot', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#111111', '#222222', '#111111'] });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, ['#111111'], new Map([[3, 1], [1, 1]]));
+		command.do(doc);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
+	it('replaces only the palette and undoes compactly', () => {
+		const doc = testDoc();
+		const bus = new CommandBus(doc);
+		const cmd = new PaletteReplaceCommand(doc.palette, ['#000000']);
+		expect(cmd.byteSize).toBeLessThan(512);
+		bus.dispatch(cmd);
+		expect(doc.palette).toEqual(['#000000']);
+		bus.undo();
+		expect(doc.palette).toEqual(DEFAULT_PALETTE);
+	});
+
 	it('add and swap undo cleanly and mark the palette dirty', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
