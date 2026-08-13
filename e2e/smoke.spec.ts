@@ -79,7 +79,7 @@ test('frame duplicate, navigate, delete', async ({ page }) => {
 	await expect(frames).toHaveCount(2); // smart default: 2 frames
 
 	await drawStroke(page);
-	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await expect(frames).toHaveCount(3);
 	// duplicated frame carries the drawing
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);

@@ -304,7 +304,7 @@ test('mirror twin: moving a selection moves its mirrored counterpart symmetrical
 	await page.locator('canvas.editor').waitFor();
 
 	// mirror-draw a dot: (8,8) paints its twin at (23,8) on a 32px canvas
-	await page.getByRole('button', { name: 'Mirror' }).click();
+	await page.getByRole('button', { name: 'Mirror X', exact: true }).click();
 	await mouseOnPixel(page, 8, 8);
 	await page.mouse.down();
 	await page.mouse.up();
@@ -341,7 +341,7 @@ test('mirror twin: dragging the twin side makes it follow the pointer', async ({
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 
-	await page.getByRole('button', { name: 'Mirror' }).click();
+	await page.getByRole('button', { name: 'Mirror X', exact: true }).click();
 	await mouseOnPixel(page, 8, 8);
 	await page.mouse.down();
 	await page.mouse.up();

@@ -101,9 +101,19 @@ export class LoopPlayer {
 		this.blit();
 	}
 
+	private configValue(): string {
+		const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
+		return `${start}:${end}:${this.playbackMode?.() ?? 'forward'}:${Math.max(0, this.repeatCount?.() ?? 0)}`;
+	}
+
 	private advance(start: number, end: number): boolean {
 		const mode = this.playbackMode?.() ?? 'forward';
 		const repeats = Math.max(0, this.repeatCount?.() ?? 0);
+		if (this.frame < start || this.frame > end) {
+			this.frame = mode === 'reverse' ? end : start;
+			this.direction = mode === 'reverse' ? -1 : 1;
+			return false;
+		}
 		let completed = false;
 		if (start === end) completed = true;
 		else if (mode === 'reverse') {
@@ -141,6 +151,7 @@ export class LoopPlayer {
 		this.frame = Math.max(0, Math.min(this.doc.frames.length - 1, frame));
 		this.acc = 0;
 		this.cycles = 0;
+		this.config = this.configValue();
 		this.started = true;
 		this.onFrame?.(this.frame);
 		this.blit();

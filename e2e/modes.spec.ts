@@ -229,7 +229,7 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 		'true'
 	);
 
-	await editors.nth(1).getByRole('button', { name: 'Duplicate' }).click();
+	await editors.nth(1).getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
 	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
 	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();

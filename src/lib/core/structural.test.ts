@@ -16,6 +16,7 @@ import {
 	LinkedFrameAddCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	UnlinkFrameCommand
 } from './structural';
@@ -80,6 +81,13 @@ describe('frame commands', () => {
 		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
 	});
 
+	it('keeps a clip range when reordering within it', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(2, 3).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
 	it('per-frame duration and fps commands undo cleanly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
@@ -132,6 +140,17 @@ describe('layer commands', () => {
 });
 
 describe('palette commands', () => {
+	it('replaces only the palette and undoes compactly', () => {
+		const doc = testDoc();
+		const bus = new CommandBus(doc);
+		const cmd = new PaletteReplaceCommand(doc.palette, ['#000000']);
+		expect(cmd.byteSize).toBeLessThan(512);
+		bus.dispatch(cmd);
+		expect(doc.palette).toEqual(['#000000']);
+		bus.undo();
+		expect(doc.palette).toEqual(DEFAULT_PALETTE);
+	});
+
 	it('add and swap undo cleanly and mark the palette dirty', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);

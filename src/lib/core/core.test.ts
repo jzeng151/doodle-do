@@ -232,12 +232,12 @@ describe('CommandBus (B4 budget)', () => {
 	it('fires commit listeners on dispatch, undo, and redo', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
-		let commits = 0;
-		bus.onCommit(() => commits++);
+		const actions: string[] = [];
+		bus.onCommit((_command, action) => actions.push(action));
 		bus.dispatch(strokeCmd(doc, 0, 1));
 		bus.undo();
 		bus.redo();
-		expect(commits).toBe(3);
+		expect(actions).toEqual(['dispatch', 'undo', 'redo']);
 	});
 });
 

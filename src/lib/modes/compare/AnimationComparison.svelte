@@ -30,10 +30,9 @@
 	}
 
 	function start() {
-		currentComplete = false;
-		forkComplete = false;
-		currentPlayer.start();
-		forkPlayer.start();
+		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
+		if (!currentComplete) currentPlayer.start();
+		if (!forkComplete) forkPlayer.start();
 	}
 
 	function complete(side: 'current' | 'fork') {

@@ -24,6 +24,9 @@
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
 	const zoomLabel = $derived(`${Number(session.zoom.toFixed(2))}×`);
+	const mirrorDrawingTools: Tool[] = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'];
+	const supportsDrawingMirror = $derived(mirrorDrawingTools.includes(session.tool));
+	const supportsSelectionMirror = $derived(SELECT_TOOLS.includes(session.tool));
 
 	function zoomOut() {
 		session.zoom = Math.max(0.25, session.zoom - (session.zoom <= 1 ? 0.25 : 2));
@@ -84,17 +87,19 @@
 				{/each}
 			</select>
 		</label>
-		<button
-			class:active={session.mirrorX}
-			aria-pressed={session.mirrorX}
-			aria-label="Mirror"
-			title="Mirror-draw: paint both halves at once"
-			onclick={() => session.toggleMirror()}
-		>
-			Mirror X
-		</button>
-		{#if !SELECT_TOOLS.includes(session.tool)}
-			<button class:active={session.mirrorY} aria-pressed={session.mirrorY} aria-label="Vertical symmetry" title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
+		{#if supportsDrawingMirror || supportsSelectionMirror}
+			<button
+				class:active={session.mirrorX}
+				aria-pressed={session.mirrorX}
+				aria-label="Mirror X"
+				title="Mirror-draw: paint both halves at once"
+				onclick={() => session.toggleMirror()}
+			>
+				Mirror X
+			</button>
+		{/if}
+		{#if supportsDrawingMirror}
+			<button class:active={session.mirrorY} aria-pressed={session.mirrorY} aria-label="Mirror Y" title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
 			{#if session.mirrorX}<label>X axis<input type="number" min="0" max={session.doc.meta.width - 1} step="0.5" bind:value={session.mirrorAxisX} /></label>{/if}
 			{#if session.mirrorY}<label>Y axis<input type="number" min="0" max={session.doc.meta.height - 1} step="0.5" bind:value={session.mirrorAxisY} /></label>{/if}
 		{/if}
@@ -270,6 +275,7 @@
 	.onion-swatch { display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; vertical-align: -.05rem; }
 	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
 	.onion-swatch.next { background: var(--onion-next); }
+	.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 	@media (max-width: 720px) {
 		.toolbar { flex: none; }
 	}

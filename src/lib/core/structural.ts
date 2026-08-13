@@ -29,7 +29,7 @@ export class AnimationTagsCommand implements Command {
 	do(doc: Doc): void { doc.meta.tags = copyTags(this.after); }
 	undo(doc: Doc): void { doc.meta.tags = copyTags(this.before); }
 	serialize(): unknown { return { kind: this.kind, tags: this.after }; }
-	dirty(): DirtyRegion { return DOC_DIRTY; }
+	dirty(): DirtyRegion { return { frame: null, rect: null, metadata: true }; }
 }
 
 function addFrameTags(tags: AnimationTag[] | undefined, index: number) {
@@ -48,8 +48,8 @@ function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: 
 function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: number) {
 	const move = (index: number) => index === from ? to : from < to && index > from && index <= to ? index - 1 : from > to && index >= to && index < from ? index + 1 : index;
 	return tags?.map((tag) => {
-		const a = move(tag.from), b = move(tag.to);
-		return { ...tag, from: Math.min(a, b), to: Math.max(a, b) };
+		const moved = Array.from({ length: tag.to - tag.from + 1 }, (_, index) => move(tag.from + index));
+		return { ...tag, from: Math.min(...moved), to: Math.max(...moved) };
 	});
 }
 
@@ -80,6 +80,25 @@ export class DocumentReplaceCommand implements Command {
 	dirty(): DirtyRegion {
 		return PALETTE_DIRTY;
 	}
+}
+
+export class PaletteSortCommand implements Command {
+	readonly kind = 'palette-sort';
+	private readonly replacement: DocumentReplaceCommand;
+	readonly byteSize: number;
+	constructor(
+		doc: Doc,
+		after: Doc,
+		readonly beforeColors: [number, number],
+		readonly afterColors: [number, number]
+	) {
+		this.replacement = new DocumentReplaceCommand(doc, after);
+		this.byteSize = this.replacement.byteSize;
+	}
+	do(doc: Doc): void { this.replacement.do(doc); }
+	undo(doc: Doc): void { this.replacement.undo(doc); }
+	serialize(): unknown { return { kind: this.kind }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 
 export class FrameAddCommand implements Command {
@@ -278,7 +297,7 @@ export class ResizeCanvasCommand implements Command {
 			}
 		}
 		// both buffer sets are retained (after = live doc, before = for undo)
-		this.byteSize = this.after.reduce((n, a) => n + a.byteLength, 0) * 2 + 128;
+		this.byteSize = [...new Set([...this.before, ...this.after])].reduce((n, pixels) => n + pixels.byteLength, 128);
 	}
 
 	do(doc: Doc): void {
@@ -475,6 +494,18 @@ export class PaletteAddCommand implements Command {
 	dirty(): DirtyRegion {
 		return PALETTE_DIRTY;
 	}
+}
+
+export class PaletteReplaceCommand implements Command {
+	readonly kind = 'palette-replace';
+	readonly byteSize: number;
+	constructor(private readonly before: string[], private readonly after: string[]) {
+		this.byteSize = JSON.stringify([before, after]).length + 64;
+	}
+	do(doc: Doc): void { doc.palette = [...this.after]; }
+	undo(doc: Doc): void { doc.palette = [...this.before]; }
+	serialize(): unknown { return { kind: this.kind, palette: this.after }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 
 // Palette swap (§4.2): replacing an entry updates every pixel using it
