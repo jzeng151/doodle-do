@@ -46,10 +46,13 @@ export function rectanglePoints(a: Point, b: Point, filled: boolean, bounds?: { 
 	const { points, add } = pointCollector(wrap);
 	if (filled) for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) add(x, y);
 	else {
-		if (y0 >= iy0 && y0 <= iy1) for (let x = ix0; x <= ix1; x++) add(x, y0);
-		if (y1 !== y0 && y1 >= iy0 && y1 <= iy1) for (let x = ix0; x <= ix1; x++) add(x, y1);
-		if (x0 >= ix0 && x0 <= ix1) for (let y = iy0; y <= iy1; y++) if (y !== y0 && y !== y1) add(x0, y);
-		if (x1 !== x0 && x1 >= ix0 && x1 <= ix1) for (let y = iy0; y <= iy1; y++) if (y !== y0 && y !== y1) add(x1, y);
+		for (let y = iy0; y <= iy1; y++) {
+			if (y === y0 || y === y1) for (let x = ix0; x <= ix1; x++) add(x, y);
+			else {
+				if (x0 >= ix0 && x0 <= ix1) add(x0, y);
+				if (x1 !== x0 && x1 >= ix0 && x1 <= ix1) add(x1, y);
+			}
+		}
 	}
 	return points;
 }
