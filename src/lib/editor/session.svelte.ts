@@ -813,10 +813,16 @@ export class EditorSession {
 	moveFloatingBy(dx: number, dy: number): void {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
 		this.floating.moveBy(dx, dy);
-		this.floatingTwin?.moveBy(-dx, dy); // mirrored motion
+		if (this.floatingTwin) {
+			this.floatingTwin.moveBy(-dx, dy);
+			this.alignFloatingTwin(this.floating, this.floatingTwin);
+		}
 		for (const p of this.floatingPeers) {
 			p.main.moveBy(dx, dy);
-			p.twin?.moveBy(-dx, dy);
+			if (p.twin) {
+				p.twin.moveBy(-dx, dy);
+				this.alignFloatingTwin(p.main, p.twin);
+			}
 		}
 		this.overlayVersion++;
 		tips.fire('T14');
@@ -827,18 +833,20 @@ export class EditorSession {
 		this.floating.rotateTo(angleRad);
 		if (this.floatingTwin) {
 			this.floatingTwin.rotateTo(-angleRad);
-			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
-			this.floatingTwin.alignRenderX(desiredX);
+			this.alignFloatingTwin(this.floating, this.floatingTwin);
 		}
 		for (const p of this.floatingPeers) {
 			p.main.rotateTo(angleRad);
 			if (p.twin) {
 				p.twin.rotateTo(-angleRad);
-				const desiredX = this.doc.meta.width - p.main.renderRect.x - p.twin.renderRect.w;
-				p.twin.alignRenderX(desiredX);
+				this.alignFloatingTwin(p.main, p.twin);
 			}
 		}
 		this.overlayVersion++;
+	}
+
+	private alignFloatingTwin(main: FloatingSelection, twin: FloatingSelection): void {
+		twin.alignRenderX(this.doc.meta.width - main.renderRect.x - twin.renderRect.w);
 	}
 
 	rotateSelectionBy(deltaRad: number): void {

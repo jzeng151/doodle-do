@@ -402,6 +402,8 @@ test('mirror twin stays aligned after a quarter turn followed by free rotation',
 	await mouseOnPixel(page, 10, 9);
 	await page.mouse.up();
 	await page.getByRole('button', { name: 'Turn selection right 90 degrees' }).click();
+	await page.locator('canvas.editor').focus();
+	await page.keyboard.press('ArrowDown');
 	await page.getByRole('button', { name: 'Rotate selection right 15 degrees' }).click();
 	await page.locator('canvas.editor').focus();
 	await page.keyboard.press('Enter');
