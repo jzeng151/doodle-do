@@ -13,6 +13,7 @@ import {
 	LayerReorderCommand,
 	LayerVisibilityCommand,
 	LinkedFrameAddCommand,
+	DocumentReplaceCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
 	PaletteReplaceCommand,
@@ -78,6 +79,22 @@ describe('frame commands', () => {
 		expect(doc.frames[0].layers[0].pixels).not.toBe(doc.frames[1].layers[0].pixels);
 		unlink.undo(doc);
 		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
+
+	it('counts linked buffers once and reconnects unlink undo to live snapshots', () => {
+		const doc = createDoc({ width: 4, height: 4, palette: [], frameCount: 2 });
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const replacement = new DocumentReplaceCommand(doc, structuredClone(doc));
+		expect(replacement.byteSize).toBe(544);
+
+		const unlink = new UnlinkFrameCommand(doc, 1);
+		unlink.do(doc);
+		const refresh = new DocumentReplaceCommand(doc, structuredClone(doc));
+		refresh.do(doc);
+		refresh.undo(doc);
+		unlink.undo(doc);
+		expect(doc.frames[1].layers[0].pixels).toBe(doc.frames[0].layers[0].pixels);
 	});
 
 	it('keeps a clip range when reordering within it', () => {

@@ -914,6 +914,8 @@ export class EditorSession {
 
 	unlinkCurrentFrame(): void {
 		if (!this.frame.layers.some((layer) => layer.linkId)) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.bus.dispatch(new UnlinkFrameCommand(this.doc, this.currentFrame));
 	}
