@@ -78,7 +78,7 @@
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
 			Size
-			<select bind:value={session.brushSize}>
+			<select bind:value={session.brushSize} onchange={() => { session.lineEnd(); session.shapeEnd(); }}>
 				{#each [1, 2, 3, 4] as s (s)}
 					<option value={s}>{s}px</option>
 				{/each}
@@ -209,7 +209,7 @@
 		>
 			<i class="onion-swatch previous" aria-hidden="true"></i>Previous
 		</button>
-		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={session.onionPreviousRange} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
+		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={session.onionPreviousRange} onchange={(e) => (session.onionPreviousRange = Math.max(1, Math.min(8, Math.round(e.currentTarget.valueAsNumber) || 1)))} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
 		<button
 			class:active={session.onionNextEnabled}
 			aria-pressed={session.onionNextEnabled}
@@ -219,7 +219,7 @@
 		>
 			<i class="onion-swatch next" aria-hidden="true"></i>Next
 		</button>
-		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={session.onionNextRange} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
+		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={session.onionNextRange} onchange={(e) => (session.onionNextRange = Math.max(1, Math.min(8, Math.round(e.currentTarget.valueAsNumber) || 1)))} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
 	</div>
 </div>
 
