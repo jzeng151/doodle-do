@@ -5,7 +5,7 @@ import { floodFill, floodRegion } from './fill';
 import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
-import { ellipsePoints, rectanglePoints } from './shapes';
+import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from './shapes';
 import { replaceColorCommand } from './replace';
 import { ditherValue } from './dither';
 import { flipStamp, rotateStamp, stampCommand } from './stamp';
@@ -185,6 +185,12 @@ describe('mirror-draw', () => {
 });
 
 describe('tiled drawing', () => {
+	it('retains one complete traversal plus the wrapped endpoint', () => {
+		expect(boundedTileEndpoint(0, 5, 4)).toBe(5);
+		expect(boundedTileEndpoint(0, 100_001, 4)).toBe(5);
+		expect(boundedTileEndpoint(3, -6, 4)).toBe(-2);
+	});
+
 	it('wraps brush pixels across canvas edges', () => {
 		const doc = testDoc(4, 4);
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 1.5, false, 1.5, true);
@@ -266,6 +272,15 @@ describe('shape tools', () => {
 		const points = rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 });
 		expect(points).toHaveLength(13);
 		expect(points).not.toContainEqual({ x: 7, y: 7 });
+	});
+
+	it('retains off-canvas centers whose thick brush can overlap the canvas', () => {
+		const points = rectanglePoints({ x: -1, y: 1 }, { x: 3, y: 3 }, false, {
+			width: 4,
+			height: 4,
+			padding: 1
+		});
+		expect(points).toContainEqual({ x: -1, y: 2 });
 	});
 });
 

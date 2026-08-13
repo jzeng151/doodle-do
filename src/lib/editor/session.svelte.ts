@@ -31,7 +31,7 @@ import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
-import { ellipsePoints, rectanglePoints } from '../tools/shapes';
+import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
 import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
@@ -161,8 +161,15 @@ export class EditorSession {
 		this.mirrorAxisY = (doc.meta.height - 1) / 2;
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
-			const pixels = doc.frames.flatMap((frame) => frame.layers.map((layer) => layer.pixels));
-			this.compositor.invalidate(new Set(pixels).size < pixels.length ? { ...region, frame: null, rect: null } : region);
+			this.compositor.invalidate(region);
+			if (region.frame !== null && region.layer !== undefined) {
+				const pixels = doc.frames[region.frame]?.layers[region.layer]?.pixels;
+				if (pixels) for (let frame = 0; frame < doc.frames.length; frame++) {
+					if (frame !== region.frame && doc.frames[frame].layers.some((layer) => layer.pixels === pixels)) {
+						this.compositor.invalidate({ ...region, frame });
+					}
+				}
+			}
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
@@ -195,6 +202,7 @@ export class EditorSession {
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteSortCommand) this.invalidateStamp();
+			if (command instanceof PaletteAddCommand && action === 'undo' && this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const replacementColors = command instanceof DocumentReplaceCommand ? this.documentReplaceColors.get(command) : undefined;
 			if (replacementColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? replacementColors.before : replacementColors.after;
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
@@ -306,6 +314,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index === this.currentFrame) {
+			this.bulkFrames = [];
+			return;
+		}
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating(); // B5: frame change commits
@@ -388,6 +400,7 @@ export class EditorSession {
 	}
 
 	selectLayer(index: number): void {
+		this.lineEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
@@ -424,6 +437,8 @@ export class EditorSession {
 	}
 
 	deselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (!this.selectionMask && !this.floating && !pending) return;
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
@@ -435,6 +450,8 @@ export class EditorSession {
 	}
 
 	invertSelection(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
@@ -447,6 +464,8 @@ export class EditorSession {
 	}
 
 	reselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
 		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
@@ -593,10 +612,11 @@ export class EditorSession {
 		this.overlayVersion++;
 		this.bus.emitChange({
 			frame: this.currentFrame,
+			layer: this.currentLayer,
 			rect: this.floatingTwin ? null : this.floating.rect // twin: whole frame
 		});
 		for (const p of this.floatingPeers) {
-			this.bus.emitChange({ frame: p.main.frameIndex, rect: null }); // lifted holes
+			this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null }); // lifted holes
 		}
 		tips.fire('T20'); // arrow-key nudge
 	}
@@ -708,7 +728,7 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 	}
 
 	cancelFloating(): void {
@@ -719,10 +739,10 @@ export class EditorSession {
 			this.floating = null;
 			this.floatingTwin = null; // main's snapshot predates the twin's lift
 			sel.cancel();
-			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 			for (const p of this.floatingPeers) {
 				p.main.cancel();
-				this.bus.emitChange({ frame: p.main.frameIndex, rect: null });
+				this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null });
 			}
 			this.floatingPeers = [];
 		}
@@ -759,14 +779,14 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
 	strokeMove(x: number, y: number): void {
 		for (const s of this.strokes) {
 			const rect = s.builder.moveTo(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -806,7 +826,7 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -817,7 +837,7 @@ export class EditorSession {
 			: { x, y };
 		for (const s of this.strokes) {
 			const rect = s.builder.previewLineTo(end.x, end.y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -855,23 +875,17 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounded = (origin: number, value: number, span: number) => {
-			const delta = value - origin;
-			if (Math.abs(delta) <= span) return value;
-			const remainder = Math.abs(delta) % span;
-			return origin + Math.sign(delta) * (remainder || span);
-		};
 		const end = this.tiledDrawing ? {
-			x: bounded(this.shapeOrigin.x, x, this.doc.meta.width),
-			y: bounded(this.shapeOrigin.y, y, this.doc.meta.height)
+			x: boundedTileEndpoint(this.shapeOrigin.x, x, this.doc.meta.width),
+			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
 		} : { x, y };
-		const bounds = this.tiledDrawing ? undefined : this.doc.meta;
+		const bounds = this.tiledDrawing ? undefined : { ...this.doc.meta, padding: this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, end, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, end, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -883,7 +897,7 @@ export class EditorSession {
 	cancelLine(): void {
 		for (const stroke of this.strokes) {
 			const rect = stroke.builder.cancel();
-			if (rect) this.bus.emitChange({ frame: stroke.frame, rect });
+			if (rect) this.bus.emitChange({ frame: stroke.frame, layer: this.currentLayer, rect });
 		}
 		this.strokes = [];
 		this.lineOrigin = null;
@@ -1303,14 +1317,22 @@ export class EditorSession {
 		if (scope === 'selection' && !this.hasSelection) return;
 		this.lineEnd();
 		this.shapeEnd();
-		const mainCoverage = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
-		const twinCoverage = this.floatingTwin?.coverageMask() ?? null;
-		const selection = twinCoverage ? combineMasks(mainCoverage, twinCoverage, 'add') : mainCoverage;
+		const selectionTargets = scope === 'selection'
+			? this.editTargets().map((frame) => {
+				const floating = this.floatingSelections(frame);
+				const mask = floating.length
+					? floating.reduce<Uint8Array | null>(
+						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
+						null
+					)
+					: this.selectionMask?.slice() ?? null;
+				return { frame, layer: this.currentLayer, mask };
+			}).filter((target) => target.mask)
+			: [];
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
-			if (!selection) return;
-			targets.push({ frame: this.currentFrame, layer: this.currentLayer, mask: selection });
+			targets.push(...selectionTargets);
 		} else if (scope === 'layer') {
 			targets.push({ frame: this.currentFrame, layer: this.currentLayer });
 		} else {
