@@ -174,6 +174,8 @@ export class EditorSession {
 		if (mode === this.mode) return;
 		this.lineEnd();
 		this.shapeEnd();
+		this.comparisonSession?.lineEnd();
+		this.comparisonSession?.shapeEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
@@ -309,6 +311,21 @@ export class EditorSession {
 	}
 
 	// --- selection (B5) ---
+	private canonicalSelectionMask(mask: Uint8Array | null): Uint8Array | null {
+		if (!mask || !this.mirrorX) return mask;
+		const { width, height } = this.doc.meta;
+		const canonical = new Uint8Array(mask.length);
+		for (let y = 0; y < height; y++) for (let x = 0; x <= (width - 1) / 2; x++) {
+			const mirror = width - 1 - x;
+			if (mask[y * width + x] || mask[y * width + mirror]) canonical[y * width + x] = 1;
+		}
+		return canonical.some(Boolean) ? canonical : null;
+	}
+
+	private selectionGesturePending(): boolean {
+		return !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+	}
+
 	private effectiveSelectionMask(): Uint8Array | null {
 		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		const twin = this.floatingTwin?.coverageMask()
@@ -319,7 +336,7 @@ export class EditorSession {
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
-		const base = this.effectiveSelectionMask();
+		const base = this.canonicalSelectionMask(this.effectiveSelectionMask());
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
 		this.selectionMask = base?.some(Boolean) ? base : null;
@@ -329,8 +346,10 @@ export class EditorSession {
 	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
 		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
-		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
-		this.previousSelectionMask = this.gestureBaseMask;
+		const next = this.canonicalSelectionMask(combineMasks(this.effectiveSelectionMask(), add, this.gestureSelectionMode));
+		const changed = !next || !this.gestureBaseMask || next.some((value, index) => value !== this.gestureBaseMask![index]);
+		this.selectionMask = next;
+		if (changed) this.previousSelectionMask = this.gestureBaseMask;
 		this.gestureBaseMask = null;
 		tips.fire('T16'); // shift-add + rotate handle
 		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
@@ -342,8 +361,13 @@ export class EditorSession {
 		const before = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
-		this.previousSelectionMask = before?.some(Boolean) ? before : null;
-		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
+		if (before?.every(Boolean)) {
+			this.selectionMask = this.canonicalSelectionMask(before);
+			this.overlayVersion++;
+			return;
+		}
+		this.previousSelectionMask = this.canonicalSelectionMask(before?.some(Boolean) ? before : null);
+		this.selectionMask = this.canonicalSelectionMask(new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1));
 		this.overlayVersion++;
 	}
 
@@ -354,7 +378,7 @@ export class EditorSession {
 		if (!this.selectionMask && !this.floating && !pending) return;
 		const before = this.effectiveSelectionMask();
 		this.commitFloating();
-		if (before?.some(Boolean)) this.previousSelectionMask = before;
+		if (before?.some(Boolean)) this.previousSelectionMask = this.canonicalSelectionMask(before);
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -369,8 +393,8 @@ export class EditorSession {
 		const length = this.doc.meta.width * this.doc.meta.height;
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
-		this.selectionMask = inverted.some(Boolean) ? inverted : null;
-		this.previousSelectionMask = before?.some(Boolean) ? before : null;
+		this.selectionMask = this.canonicalSelectionMask(inverted.some(Boolean) ? inverted : null);
+		this.previousSelectionMask = this.canonicalSelectionMask(before?.some(Boolean) ? before : null);
 		this.overlayVersion++;
 	}
 
@@ -378,7 +402,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
-		const current = this.effectiveSelectionMask();
+		const current = this.canonicalSelectionMask(this.effectiveSelectionMask());
 		this.commitFloating();
 		this.clearGestures();
 		this.selectionMask = this.previousSelectionMask;
@@ -502,7 +526,7 @@ export class EditorSession {
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
 	liftSelection(mirrored = this.mirrorX): void {
-		if (this.floating || !this.selectionMask) return;
+		if (this.floating || !this.selectionMask || this.selectionGesturePending()) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
 		const mirroredMask = mirrored ? mirrorMaskX(mask, width, height) : null;
@@ -541,6 +565,16 @@ export class EditorSession {
 		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
 		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
 		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+	}
+
+	autosaveSnapshot(): Doc {
+		const snapshot = structuredClone(this.doc);
+		for (let frame = 0; frame < snapshot.frames.length; frame++) {
+			for (const selection of this.floatingSelections(frame)) {
+				selection.stampPreviewInto(snapshot.frames[frame].layers[selection.layerIndex].pixels);
+			}
+		}
+		return snapshot;
 	}
 
 	endLayerMove(): void {
@@ -582,7 +616,7 @@ export class EditorSession {
 	}
 
 	get hasSelection(): boolean {
-		return this.floating !== null || this.selectionMask !== null;
+		return !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
 	}
 
 	get canReselect(): boolean {

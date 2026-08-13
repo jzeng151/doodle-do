@@ -16,7 +16,7 @@
 	function startSession(doc: Doc, isNew: boolean) {
 		detachAutosave?.();
 		const next = new EditorSession(doc);
-		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()), () => next.commitFloating());
+		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()), () => next.autosaveSnapshot());
 		session = next;
 		if (isNew) tips.fire('T01');
 	}
