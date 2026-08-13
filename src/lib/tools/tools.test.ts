@@ -290,6 +290,28 @@ describe('tiled drawing', () => {
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 16_000, y: 12_000 }, false, undefined, wrap).length).toBeLessThanOrEqual(16);
 	});
 
+	it('bounds narrow wrapped ellipses and keeps their points row-major', () => {
+		const points = ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 1, y: 1_000_000_000 },
+			false,
+			undefined,
+			{ width: 512, height: 512 }
+		);
+		expect(points).toEqual([...points].sort((a, b) => a.y - b.y || a.x - b.x));
+		expect(points.length).toBeLessThanOrEqual(512 * 512);
+	});
+
+	it('keeps local wrapped ellipse outlines in row-major order', () => {
+		const wrap = { width: 4, height: 4 };
+		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
+			[
+				{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
+				{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }
+			]
+		);
+	});
+
 	it('keeps a local dirty rect until a tiled brush crosses an edge', () => {
 		const doc = testDoc(8, 8);
 		const local = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 3.5, false, 3.5, true);
@@ -335,7 +357,7 @@ describe('tiled drawing', () => {
 		const doc = testDoc(2, 2);
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
 		stroke.begin(0, 0);
-		stroke.moveTo(-4, -2);
+		stroke.moveTo(-8, -6);
 		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
 	});
 });
