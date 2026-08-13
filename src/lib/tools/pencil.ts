@@ -122,9 +122,14 @@ export class StrokeBuilder {
 
 	private stamp(cx: number, cy: number): Rect | null {
 		const evenOffset = this.size % 2 === 0 ? 1 : 0;
-		let rect: Rect | null = null;
-		for (const point of this.symmetryPoints(cx, cy, evenOffset)) {
-			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, this.occupied));
+		const points = this.symmetryPoints(cx, cy, evenOffset);
+		const sourceRect = this.stampOne(cx, cy, false, false, this.occupied);
+		let rect = sourceRect;
+		if (sourceRect) for (const point of points.slice(1)) {
+			const x0 = point.reflectX ? Math.round(2 * this.mirrorAxisX - (sourceRect.x + sourceRect.w - 1)) : sourceRect.x;
+			const y0 = point.reflectY ? Math.round(2 * this.mirrorAxisY - (sourceRect.y + sourceRect.h - 1)) : sourceRect.y;
+			const clip = { x: x0, y: y0, w: sourceRect.w, h: sourceRect.h };
+			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, this.occupied, clip));
 		}
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
@@ -177,14 +182,14 @@ export class StrokeBuilder {
 		return true;
 	}
 
-	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, occupied?: Set<number>): Rect | null {
+	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, occupied?: Set<number>, clip?: Rect): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
-		const x0 = Math.max(0, cx - r);
-		const y0 = Math.max(0, cy - r);
-		const x1 = Math.min(width - 1, cx - r + this.size - 1);
-		const y1 = Math.min(height - 1, cy - r + this.size - 1);
+		const x0 = Math.max(0, clip?.x ?? -Infinity, cx - r);
+		const y0 = Math.max(0, clip?.y ?? -Infinity, cy - r);
+		const x1 = Math.min(width - 1, clip ? clip.x + clip.w - 1 : Infinity, cx - r + this.size - 1);
+		const y1 = Math.min(height - 1, clip ? clip.y + clip.h - 1 : Infinity, cy - r + this.size - 1);
 		if (x1 < x0 || y1 < y0) return null;
 		for (let y = y0; y <= y1; y++) {
 			for (let x = x0; x <= x1; x++) {
