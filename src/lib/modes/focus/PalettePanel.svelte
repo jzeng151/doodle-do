@@ -71,8 +71,9 @@
 			try {
 				const colors = await readPalette(file);
 				if (generation !== importGeneration) return;
-				session.importPalette(colors);
-				ioStatus = `Imported ${colors.length} colors.`;
+				ioStatus = session.importPalette(colors)
+					? `Imported ${colors.length} colors.`
+					: 'Unlock the palette before importing.';
 			} catch (error) {
 				ioStatus = error instanceof Error ? error.message : 'Palette import failed.';
 			}

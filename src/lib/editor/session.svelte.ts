@@ -1110,8 +1110,8 @@ export class EditorSession {
 		return true;
 	}
 
-	importPalette(colors: string[]): void {
-		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return;
+	importPalette(colors: string[]): boolean {
+		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return false;
 		this.commitFloating();
 		const highestUsed = this.doc.frames.reduce(
 			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
@@ -1124,6 +1124,7 @@ export class EditorSession {
 		this.paletteReplaceColors.set(command, { before, after });
 		this.bus.dispatch(command);
 		[this.colorValue, this.backgroundColorValue] = after;
+		return true;
 	}
 
 	createPaletteFromArtwork(): void {

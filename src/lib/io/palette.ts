@@ -22,12 +22,17 @@ export function parseTextPalette(text: string): string[] {
 export async function readPalette(file: File): Promise<string[]> {
 	if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) return parseTextPalette(await file.text());
 	const bitmap = await createImageBitmap(file);
+	if (bitmap.width * bitmap.height > 1_048_576) {
+		bitmap.close();
+		throw new Error('Palette PNGs must be no larger than 1 megapixel.');
+	}
 	const canvas = document.createElement('canvas');
 	canvas.width = bitmap.width;
 	canvas.height = bitmap.height;
 	const ctx = canvas.getContext('2d')!;
 	ctx.drawImage(bitmap, 0, 0);
 	const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+	bitmap.close();
 	const colors: string[] = [];
 	for (let i = 0; i < data.length && colors.length < MAX_PALETTE; i += 4) {
 		if (data[i + 3] < 128) continue;
