@@ -5,8 +5,7 @@
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import SidePanel from '../SidePanel.svelte';
 	import FrameStrip from '../focus/FrameStrip.svelte';
-	import { buildLut } from '$lib/core/palette';
-	import { brushBounds, canvasPoint } from '../canvas';
+	import { brushBounds, canvasPoint, floatingCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -14,6 +13,8 @@
 	let strokeTile = -1;
 	let moveTile = -1;
 	let movePixel = { x: 0, y: 0 };
+	let linePointer: number | null = null;
+	let shapePointer: number | null = null;
 	let focusedTile = $state(-1);
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
@@ -22,24 +23,6 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
 	const tileH = $derived((session.version, session.doc.meta.height * session.gridZoom));
-	const floatCache = new WeakMap<object, { version: number; documentVersion: number; canvas: HTMLCanvasElement }>();
-
-	function floatingCanvas(selection: NonNullable<typeof session.floating>) {
-		const cached = floatCache.get(selection);
-		if (cached?.version === selection.version && cached.documentVersion === session.version) return cached.canvas;
-		const canvas = document.createElement('canvas');
-		canvas.width = selection.renderRect.w;
-		canvas.height = selection.renderRect.h;
-		const ctx = canvas.getContext('2d')!;
-		const image = ctx.createImageData(canvas.width, canvas.height);
-		const rgba = new Uint32Array(image.data.buffer);
-		const lut = buildLut(session.doc.palette);
-		for (let j = 0; j < selection.buffer.length; j++) rgba[j] = lut[selection.buffer[j]];
-		ctx.putImageData(image, 0, 0);
-		floatCache.set(selection, { version: selection.version, documentVersion: session.version, canvas });
-		return canvas;
-	}
-
 	$effect(() => {
 		void session.version;
 		void session.gridZoom;
@@ -63,7 +46,7 @@
 				if (layerIndex !== session.currentLayer) continue;
 				for (const selection of floating) {
 					const rect = selection.renderRect;
-					ctx.drawImage(floatingCanvas(selection), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
+					ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), rect.x * session.gridZoom, rect.y * session.gridZoom, rect.w * session.gridZoom, rect.h * session.gridZoom);
 				}
 			}
 			if (i === focusedTile) {
@@ -116,12 +99,14 @@
 			case 'line':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
+				linePointer = e.pointerId;
 				session.lineBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
+				shapePointer = e.pointerId;
 				session.shapeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'move':
@@ -156,15 +141,27 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
+		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
 			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
 			session.lineMove(x, y, e.shiftKey);
 		}
+		if (strokeTile >= 0 && (session.tool === 'rectangle' || session.tool === 'ellipse')) {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.shapeMove(x, y);
+		}
 		strokeTile = -1;
 		if (moveTile !== -1) session.endLayerMove();
 		moveTile = -1;
-		if (session.tool === 'line') session.lineEnd();
-		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
+		if (session.tool === 'line') {
+			linePointer = null;
+			session.lineEnd();
+		}
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') {
+			shapePointer = null;
+			session.shapeEnd();
+		}
 		else session.strokeEnd();
 	}
 
@@ -213,12 +210,18 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (session.lineActive) session.lineEnd();
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
 				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'rectangle':
 			case 'ellipse':
-				if (session.shapeActive) session.shapeEnd();
+				if (session.shapeActive) {
+					session.shapeMove(keyboardX, keyboardY);
+					session.shapeEnd();
+				}
 				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'move':
