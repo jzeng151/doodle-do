@@ -236,7 +236,15 @@ export class EditorSession {
 		if (mode !== 'grid' || this.tool !== 'stamp') this.bulkFrames = [];
 		this.overlayVersion++;
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
-		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
+		if (mode === 'compare') {
+			if (!this.comparisonSession) this.resetComparisonFork();
+			else {
+				const name = this.activeAnimationTagName;
+				this.comparisonSession.selectAnimationTag(
+					name && this.comparisonSession.doc.meta.tags?.some((tag) => tag.name === name) ? name : ''
+				);
+			}
+		}
 		this.mode = mode;
 		if (mode === 'loop') tips.fire('T21'); // playback range
 		if (mode === 'compare') tips.fire('T27'); // independent editable fork
