@@ -373,10 +373,22 @@ test('reselect availability updates and resets after canvas resize', async ({ pa
 	await page.getByRole('button', { name: 'Deselect', exact: true }).click();
 	const reselect = page.getByRole('button', { name: 'Reselect', exact: true });
 	await expect(reselect).toBeEnabled();
+	await page.getByRole('button', { name: 'Polygon', exact: true }).click();
+	await mouseOnPixel(page, 2, 2);
+	await page.mouse.down();
+	await page.mouse.up();
+	await page.keyboard.press('Escape');
+	await expect(reselect).toBeEnabled();
 
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('button', { name: '16×16' }).click();
 	await page.locator('dialog').getByRole('button', { name: 'Resize' }).click();
+	await expect(reselect).toBeDisabled();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await page.getByRole('button', { name: 'Deselect', exact: true }).click();
+	await expect(reselect).toBeEnabled();
+	await page.keyboard.press('Control+z');
 	await expect(reselect).toBeDisabled();
 });
 

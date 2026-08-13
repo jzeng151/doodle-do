@@ -78,7 +78,19 @@
 			}
 			ctx.globalAlpha = 1;
 		}
-		ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
+		const moved = session.tool === 'move' ? session.floatingSelections(f) : [];
+		if (!moved.length) ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
+		else for (const [layerIndex, layer] of session.frame.layers.entries()) {
+			if (!layer.visible) continue;
+			ctx.globalAlpha = layer.opacity ?? 1;
+			ctx.drawImage(session.compositor.layerCanvas(layer.pixels), 0, 0, canvasEl.width, canvasEl.height);
+			if (layerIndex !== session.currentLayer) continue;
+			for (const selection of moved) {
+				const r = selection.renderRect;
+				ctx.drawImage(floatingCanvas(selection), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
+			}
+		}
+		ctx.globalAlpha = 1;
 
 		if (session.showGrid && session.zoom >= 4) {
 			const z = renderZoom;
@@ -96,7 +108,7 @@
 			ctx.stroke();
 		}
 
-		drawSelectionOverlay(ctx);
+		drawSelectionOverlay(ctx, !moved.length);
 		if (keyboardFocused) drawKeyboardCursor(ctx);
 	}
 
@@ -120,7 +132,7 @@
 		ctx.restore();
 	}
 
-	function drawSelectionOverlay(ctx: CanvasRenderingContext2D) {
+	function drawSelectionOverlay(ctx: CanvasRenderingContext2D, drawPixels = true) {
 		const z = renderZoom;
 		const sel = session.floating;
 		if (sel) {
@@ -128,7 +140,11 @@
 			for (const s of [session.floatingTwin, sel]) {
 				if (!s) continue;
 				const r = s.renderRect;
-				ctx.drawImage(floatingCanvas(s), r.x * z, r.y * z, r.w * z, r.h * z);
+				if (drawPixels) {
+					ctx.globalAlpha = session.doc.frames[s.frameIndex].layers[s.layerIndex].opacity ?? 1;
+					ctx.drawImage(floatingCanvas(s), r.x * z, r.y * z, r.w * z, r.h * z);
+					ctx.globalAlpha = 1;
+				}
 				// rotated group outline
 				dashedStroke(ctx, () => {
 					ctx.beginPath();

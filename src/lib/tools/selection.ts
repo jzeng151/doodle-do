@@ -112,7 +112,9 @@ export class FloatingSelection {
 	// render output may go out of bounds while dragging; stamp clips
 	renderRect: Rect;
 	buffer: Uint8Array; // what the overlay draws and commit stamps
+	private renderCoverage: Uint8Array;
 	private readonly pristine: Uint8Array; // bbox-sized union lift, never resampled
+	private readonly coverage: Uint8Array;
 	private readonly snapshot: Uint8Array;
 	private contentVersion = 0; // bumped on every re-rasterize, for render caching
 
@@ -146,10 +148,12 @@ export class FloatingSelection {
 		// transparent, so they neither move pixels nor punch holes on stamp
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
 		this.pristine = new Uint8Array(bw * bh);
+		this.coverage = new Uint8Array(bw * bh);
 		for (let y = 0; y < bh; y++) {
 			for (let x = 0; x < bw; x++) {
 				const src = (by + y) * width + (bx + x);
 				if (!mask[src]) continue;
+				this.coverage[y * bw + x] = 1;
 				this.pristine[y * bw + x] = pixels[src];
 				pixels[src] = 0;
 			}
@@ -157,6 +161,7 @@ export class FloatingSelection {
 
 		this.renderRect = { ...this.bbox };
 		this.buffer = this.pristine.slice();
+		this.renderCoverage = this.coverage.slice();
 	}
 
 	get rect(): Rect {
@@ -170,6 +175,10 @@ export class FloatingSelection {
 	// the group bbox corners forward-mapped through rotate+translate, in
 	// source-space edge coordinates (shared by the overlay outline/handle)
 	corners(): [number, number][] {
+		if (this.quarterTurn() !== null) {
+			const { x, y, w, h } = this.renderRect;
+			return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+		}
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
 		const cx = bx + bw / 2;
 		const cy = by + bh / 2;
@@ -199,16 +208,20 @@ export class FloatingSelection {
 	}
 
 	contains(px: number, py: number): boolean {
-		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
-		const cx = bx + bw / 2;
-		const cy = by + bh / 2;
-		const cos = Math.cos(this.angle);
-		const sin = Math.sin(this.angle);
-		const ux = px + 0.5 - this.dx - cx;
-		const uy = py + 0.5 - this.dy - cy;
-		const sx = cos * ux + sin * uy + cx;
-		const sy = -sin * ux + cos * uy + cy;
-		return sx >= bx && sx < bx + bw && sy >= by && sy < by + bh;
+		const { x, y, w, h } = this.renderRect;
+		return px >= x && py >= y && px < x + w && py < y + h && !!this.renderCoverage[(py - y) * w + px - x];
+	}
+
+	coverageMask(): Uint8Array {
+		const { width, height } = this.doc.meta;
+		const mask = new Uint8Array(width * height);
+		const { x, y, w, h } = this.renderRect;
+		for (let py = Math.max(0, y); py < Math.min(height, y + h); py++) {
+			for (let px = Math.max(0, x); px < Math.min(width, x + w); px++) {
+				if (this.contains(px, py)) mask[py * width + px] = 1;
+			}
+		}
+		return mask;
 	}
 
 	// Flipping the pristine pixels and negating the angle reads as a flip
@@ -246,6 +259,26 @@ export class FloatingSelection {
 	// At angle 0 this degenerates to an exact integer copy (lossless moves).
 	private rerasterize(): void {
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
+		const quarter = this.quarterTurn();
+		if (quarter !== null) {
+			const rw = quarter % 2 ? bh : bw;
+			const rh = quarter % 2 ? bw : bh;
+			this.renderRect = {
+				x: Math.floor(bx + bw / 2 - rw / 2) + this.dx,
+				y: Math.floor(by + bh / 2 - rh / 2) + this.dy,
+				w: rw,
+				h: rh
+			};
+			this.buffer = new Uint8Array(rw * rh);
+			this.renderCoverage = new Uint8Array(rw * rh);
+			for (let sy = 0; sy < bh; sy++) for (let sx = 0; sx < bw; sx++) {
+				const [tx, ty] = quarter === 1 ? [bh - 1 - sy, sx] : quarter === 2 ? [bw - 1 - sx, bh - 1 - sy] : quarter === 3 ? [sy, bw - 1 - sx] : [sx, sy];
+				this.buffer[ty * rw + tx] = this.pristine[sy * bw + sx];
+				this.renderCoverage[ty * rw + tx] = this.coverage[sy * bw + sx];
+			}
+			this.contentVersion++;
+			return;
+		}
 		const cx = bx + bw / 2;
 		const cy = by + bh / 2;
 		const cos = Math.cos(this.angle);
@@ -270,6 +303,7 @@ export class FloatingSelection {
 
 		const { x: rx, y: ry, w: rw, h: rh } = this.renderRect;
 		this.buffer = new Uint8Array(rw * rh);
+		this.renderCoverage = new Uint8Array(rw * rh);
 		for (let ty = 0; ty < rh; ty++) {
 			for (let tx = 0; tx < rw; tx++) {
 				const ux = rx + tx + 0.5 - this.dx - cx;
@@ -278,10 +312,16 @@ export class FloatingSelection {
 				const sy = Math.floor(-sin * ux + cos * uy + cy) - by;
 				if (sx >= 0 && sx < bw && sy >= 0 && sy < bh) {
 					this.buffer[ty * rw + tx] = this.pristine[sy * bw + sx];
+					this.renderCoverage[ty * rw + tx] = this.coverage[sy * bw + sx];
 				}
 			}
 		}
 		this.contentVersion++;
+	}
+
+	private quarterTurn(): 0 | 1 | 2 | 3 | null {
+		const turns = Math.round(this.angle / (Math.PI / 2));
+		return Math.abs(this.angle - turns * Math.PI / 2) < 1e-10 ? (((turns % 4) + 4) % 4) as 0 | 1 | 2 | 3 : null;
 	}
 
 	// stamp the render buffer into a canvas-sized pixel array, clipped;

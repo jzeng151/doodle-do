@@ -15,13 +15,15 @@ export function mergeDownCommand(
 	if (layerIndex <= 0) return null;
 	const layers = doc.frames[frameIndex].layers;
 	const upperLayer = layers[layerIndex];
+	const lowerLayer = layers[layerIndex - 1];
+	if (lowerLayer.locked || (upperLayer.opacity ?? 1) !== 1 || (lowerLayer.opacity ?? 1) !== 1) return null;
 	const upper = upperLayer.pixels;
-	const lower = layers[layerIndex - 1].pixels;
+	const lower = lowerLayer.pixels;
 	const indices: number[] = [];
 	const before: number[] = [];
 	const after: number[] = [];
 	for (let i = 0; i < upper.length; i++) {
-		if ((upperLayer.opacity ?? 1) >= .5 && upper[i] !== 0 && lower[i] !== upper[i]) {
+		if (upper[i] !== 0 && lower[i] !== upper[i]) {
 			indices.push(i);
 			before.push(lower[i]);
 			after.push(upper[i]);

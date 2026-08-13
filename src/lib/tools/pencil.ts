@@ -12,6 +12,7 @@ export class StrokeBuilder {
 	private last: { x: number; y: number } | null = null;
 	private origin: { x: number; y: number } | null = null;
 	private centers: { x: number; y: number }[] = [];
+	private readonly centerCounts = new Map<number, number>();
 
 	constructor(
 		private readonly doc: Doc,
@@ -117,52 +118,53 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		let rect = this.stampOne(cx, cy);
 		const evenOffset = this.size % 2 === 0 ? 1 : 0;
-		const mx = Math.round(2 * this.mirrorAxisX - cx + evenOffset);
-		const my = Math.round(2 * this.mirrorAxisY - cy + evenOffset);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(mx, cy));
-		if (this.mirrorY) rect = unionRect(rect, this.stampOne(cx, my));
-		if (this.mirrorX && this.mirrorY) rect = unionRect(rect, this.stampOne(mx, my));
+		let rect: Rect | null = null;
+		for (const point of this.symmetryPoints(cx, cy, evenOffset)) rect = unionRect(rect, this.stampOne(point.x, point.y));
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
-		this.centers.push({ x: cx, y: cy });
+		const center = { x: cx, y: cy };
+		this.centers.push(center);
+		this.trackCenter(center, 1);
 		if (this.centers.length < 3) return rect;
 		const [a, b, c] = this.centers.slice(-3);
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
-		const { width, height } = this.doc.meta;
-		const endpoints = new Set<number>();
-		const protect = (x: number, y: number) => {
-			if (this.tiled) {
-				x = (x % width + width) % width;
-				y = (y % height + height) % height;
-			}
-			if (x >= 0 && y >= 0 && x < width && y < height) endpoints.add(y * width + x);
-		};
-		for (const [index, point] of this.centers.entries()) {
-			if (index === this.centers.length - 2) continue;
-			const pmx = Math.round(2 * this.mirrorAxisX - point.x);
-			const pmy = Math.round(2 * this.mirrorAxisY - point.y);
-			protect(point.x, point.y);
-			if (this.mirrorX) protect(pmx, point.y);
-			if (this.mirrorY) protect(point.x, pmy);
-			if (this.mirrorX && this.mirrorY) protect(pmx, pmy);
-		}
-		const bmx = Math.round(2 * this.mirrorAxisX - b.x);
-		const bmy = Math.round(2 * this.mirrorAxisY - b.y);
-		const corners = [{ x: b.x, y: b.y }];
-		if (this.mirrorX) corners.push({ x: bmx, y: b.y });
-		if (this.mirrorY) corners.push({ x: b.x, y: bmy });
-		if (this.mirrorX && this.mirrorY) corners.push({ x: bmx, y: bmy });
-		for (const point of corners) {
-			if (this.restorePixel(point.x, point.y, endpoints)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
+		this.trackCenter(b, -1);
+		for (const point of this.symmetryPoints(b.x, b.y)) {
+			if (this.restorePixel(point.x, point.y)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
 	}
 
-	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): boolean {
+	private symmetryPoints(x: number, y: number, offset = 0): { x: number; y: number }[] {
+		const mx = Math.round(2 * this.mirrorAxisX - x + offset);
+		const my = Math.round(2 * this.mirrorAxisY - y + offset);
+		const points = [{ x, y }];
+		if (this.mirrorX) points.push({ x: mx, y });
+		if (this.mirrorY) points.push({ x, y: my });
+		if (this.mirrorX && this.mirrorY) points.push({ x: mx, y: my });
+		return points;
+	}
+
+	private trackCenter(point: { x: number; y: number }, delta: 1 | -1): void {
+		const { width, height } = this.doc.meta;
+		const track = (x: number, y: number) => {
+			if (this.tiled) {
+				x = (x % width + width) % width;
+				y = (y % height + height) % height;
+			}
+			if (x < 0 || y < 0 || x >= width || y >= height) return;
+			const index = y * width + x;
+			const count = (this.centerCounts.get(index) ?? 0) + delta;
+			if (count) this.centerCounts.set(index, count);
+			else this.centerCounts.delete(index);
+		};
+		for (const mirrored of this.symmetryPoints(point.x, point.y)) track(mirrored.x, mirrored.y);
+	}
+
+	private restorePixel(x: number, y: number): boolean {
 		const { width, height } = this.doc.meta;
 		if (this.tiled) {
 			x = (x % width + width) % width;
@@ -170,7 +172,7 @@ export class StrokeBuilder {
 		}
 		if (x < 0 || y < 0 || x >= width || y >= height) return false;
 		const index = y * width + x;
-		if (protectedIndices.has(index)) return false;
+		if (this.centerCounts.has(index)) return false;
 		const before = this.dirty.get(index);
 		if (before === undefined) return false;
 		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;

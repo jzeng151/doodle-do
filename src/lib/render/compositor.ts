@@ -18,6 +18,7 @@ interface FrameCacheEntry {
 export class Compositor {
 	private lut: Uint32Array;
 	private cache: FrameCacheEntry[] = [];
+	private layerCache = new WeakMap<Uint8Array, HTMLCanvasElement>();
 
 	constructor(private readonly doc: Doc) {
 		this.lut = buildLut(doc.palette);
@@ -25,6 +26,7 @@ export class Compositor {
 
 	invalidate(region: DirtyRegion): void {
 		if (region.metadata) return;
+		this.layerCache = new WeakMap();
 		if (region.palette) {
 			this.invalidatePalette();
 			return;
@@ -46,6 +48,22 @@ export class Compositor {
 	invalidatePalette(): void {
 		this.lut = buildLut(this.doc.palette);
 		this.cache = [];
+		this.layerCache = new WeakMap();
+	}
+
+	layerCanvas(pixels: Uint8Array): HTMLCanvasElement {
+		const cached = this.layerCache.get(pixels);
+		if (cached) return cached;
+		const canvas = document.createElement('canvas');
+		canvas.width = this.doc.meta.width;
+		canvas.height = this.doc.meta.height;
+		const ctx = canvas.getContext('2d')!;
+		const image = ctx.createImageData(canvas.width, canvas.height);
+		const rgba = new Uint32Array(image.data.buffer);
+		for (let i = 0; i < pixels.length; i++) rgba[i] = this.lut[pixels[i]];
+		ctx.putImageData(image, 0, 0);
+		this.layerCache.set(pixels, canvas);
+		return canvas;
 	}
 
 	frameCanvas(frameIndex: number): HTMLCanvasElement {

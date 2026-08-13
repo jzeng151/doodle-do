@@ -40,6 +40,15 @@ describe('selection modes', () => {
 });
 
 describe('FloatingSelection (B5)', () => {
+	it('tracks transformed selection coverage independently of transparent pixels', () => {
+		const doc = testDoc();
+		const mask = maskFromRects([{ x: 1, y: 1, w: 1, h: 1 }, { x: 3, y: 1, w: 1, h: 1 }], 8, 8);
+		const sel = new FloatingSelection(doc, 0, 0, mask);
+		sel.moveBy(1, 1);
+		const moved = sel.coverageMask();
+		expect([moved[2 * 8 + 2], moved[2 * 8 + 3], moved[2 * 8 + 4]]).toEqual([1, 0, 1]);
+	});
+
 	it('lift clears the source and captures the buffer', () => {
 		const doc = testDoc();
 		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
@@ -337,6 +346,20 @@ describe('extract to layer', () => {
 		const { layerPixels, sourceDiff } = sel.extract();
 		expect(sourceDiff).toBeNull();
 		expect(layerPixels.every((v) => v === 0)).toBe(true);
+	});
+});
+
+describe('pixel-safe quarter turns', () => {
+	it('rotates a parity-mismatched selection without dropping pixels', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].pixels.fill(0);
+		doc.frames[0].layers[0].pixels[8] = 3;
+		doc.frames[0].layers[0].pixels[9] = 5;
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 1, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect([...sel.buffer]).toEqual([3, 5]);
+		sel.commit();
+		expect(doc.frames[0].layers[0].pixels.filter(Boolean)).toHaveLength(2);
 	});
 });
 
