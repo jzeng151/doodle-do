@@ -395,7 +395,18 @@ export class EditorSession {
 		if (this.mirrorX) tips.fire('T13');
 	}
 
-	toggleMirrorY(): void { this.mirrorY = !this.mirrorY; }
+	toggleMirrorY(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.mirrorY = !this.mirrorY;
+	}
+
+	setMirrorAxis(axis: 'x' | 'y', value: number): void {
+		this.lineEnd();
+		this.shapeEnd();
+		if (axis === 'x') this.mirrorAxisX = this.normalizeAxis(value, this.doc.meta.width - 1);
+		else this.mirrorAxisY = this.normalizeAxis(value, this.doc.meta.height - 1);
+	}
 
 	private normalizeMirrorAxes(): void {
 		this.mirrorAxisX = this.normalizeAxis(this.mirrorAxisX, this.doc.meta.width - 1);
