@@ -1230,7 +1230,6 @@ export class EditorSession {
 				return { frame, layer: this.currentLayer, mask };
 			}).filter((target) => target.mask)
 			: [];
-		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
 			targets.push(...selectionTargets);
@@ -1246,12 +1245,29 @@ export class EditorSession {
 				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
 			}
 		}
-		const cmds = targets
-			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
-			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		const source = this.floating ? structuredClone(this.doc) : this.doc;
+		if (this.floating) {
+			for (const { main, twin } of [
+				{ main: this.floating, twin: this.floatingTwin },
+				...this.floatingPeers
+			]) {
+				const layerPixels = (twin ? main.extractPair(twin) : main.extract()).layerPixels;
+				const pixels = source.frames[main.frameIndex].layers[main.layerIndex].pixels;
+				for (let i = 0; i < pixels.length; i++) if (layerPixels[i]) pixels[i] = layerPixels[i];
+			}
+		}
+		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
+		let byteSize = 0;
+		for (const { frame, layer, mask } of targets) {
+			const cmd = replaceColorCommand(source, frame, layer, from, to, mask);
+			if (!cmd) continue;
+			byteSize += cmd.byteSize;
+			if (byteSize + (cmds.length ? 64 : 0) > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+			cmds.push(cmd);
+		}
 		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
 		if (!command) return;
-		if (command.byteSize > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+		this.commitFloating();
 		this.bus.dispatch(command);
 	}
 
