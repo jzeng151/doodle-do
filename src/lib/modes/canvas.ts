@@ -1,5 +1,6 @@
 import { buildLut } from '$lib/core/palette';
 import type { FloatingSelection } from '$lib/tools/selection';
+import type { EditorSession } from '$lib/editor/session.svelte';
 
 const floatCache = new WeakMap<object, { version: number; documentVersion: number; canvas: HTMLCanvasElement }>();
 
@@ -16,6 +17,37 @@ export function floatingCanvas(selection: FloatingSelection, palette: string[], 
 	for (let i = 0; i < selection.buffer.length; i++) rgba[i] = lut[selection.buffer[i]];
 	ctx.putImageData(image, 0, 0);
 	floatCache.set(selection, { version: selection.version, documentVersion, canvas });
+	return canvas;
+}
+
+export function floatingFrameCanvas(session: EditorSession, frame: number): HTMLCanvasElement | null {
+	const floating = session.floatingSelections(frame);
+	if (!floating.length) return null;
+	const { width, height } = session.doc.meta;
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d')!;
+	for (const [layerIndex, layer] of session.doc.frames[frame].layers.entries()) {
+		if (!layer.visible) continue;
+		const selections = floating.filter((selection) => selection.layerIndex === layerIndex);
+		let source = session.compositor.layerCanvas(layer.pixels);
+		if (selections.length) {
+			const layerCanvas = document.createElement('canvas');
+			layerCanvas.width = width;
+			layerCanvas.height = height;
+			const layerCtx = layerCanvas.getContext('2d')!;
+			layerCtx.drawImage(source, 0, 0);
+			for (const selection of selections) {
+				const rect = selection.renderRect;
+				layerCtx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), rect.x, rect.y);
+			}
+			source = layerCanvas;
+		}
+		ctx.globalAlpha = 'opacity' in layer && typeof layer.opacity === 'number' ? layer.opacity : 1;
+		ctx.drawImage(source, 0, 0);
+	}
+	ctx.globalAlpha = 1;
 	return canvas;
 }
 
