@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { LoopPlayer } from '$lib/render/loop';
 
@@ -127,7 +127,7 @@
 		currentComplete = forkComplete = false;
 		currentPlayer.reset();
 		forkPlayer.reset();
-		if (playing) start();
+		if (untrack(() => playing)) start();
 	});
 </script>
 
@@ -151,8 +151,8 @@
 					{/each}
 				</select>
 			</label>
-			<label>Direction<select bind:value={session.loopPlaybackMode}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
-			<label>Repeats<input type="number" min="0" max="99" bind:value={session.loopRepeatCount} title="0 repeats continuously" /></label>
+			<label>Current direction<select bind:value={session.loopPlaybackMode}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+			<label>Current repeats<input type="number" min="0" max="99" bind:value={session.loopRepeatCount} title="Fork playback uses the fork clip's saved setting; 0 repeats continuously" /></label>
 			<button
 				class:active={session.showPreviewBackground}
 				aria-pressed={session.showPreviewBackground}
