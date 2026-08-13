@@ -105,6 +105,12 @@ test('mirror axis edits survive lossy scaled resize history', async ({ page }) =
 	await expect(axis).toHaveValue('5');
 	await page.getByRole('button', { name: 'Redo' }).click();
 	await expect(axis).toHaveValue('10');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await axis.fill('10');
+	await page.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('20.5');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('10');
 });
 
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {
