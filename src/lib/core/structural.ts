@@ -66,7 +66,7 @@ export class DocumentReplaceCommand implements Command {
 		this.byteSize = [...this.before.frames, ...this.after.frames].reduce(
 			(sum, frame) => sum + frameBytes(frame),
 			256
-		);
+		) + tagsBytes(this.before.meta.tags) + tagsBytes(this.after.meta.tags);
 	}
 
 	do(doc: Doc): void {
