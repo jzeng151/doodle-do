@@ -85,11 +85,12 @@ export async function loadAutosave(): Promise<Doc | null> {
 }
 
 // Wires the bus commit stream to autosave. Returns a detach function.
-export function attachAutosave(bus: CommandBus, onSaved?: () => void): () => void {
+export function attachAutosave(bus: CommandBus, onSaved?: () => void, beforeSave?: () => void): () => void {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const detach = bus.onCommit(() => {
 		clearTimeout(timer);
 		timer = setTimeout(() => {
+			beforeSave?.();
 			writeAutosave(bus.doc)
 				.then(onSaved)
 				.catch((e) => console.warn('autosave failed', e));
