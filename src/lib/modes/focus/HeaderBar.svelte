@@ -92,7 +92,7 @@
 	async function openClick() {
 		session.lineEnd();
 		session.shapeEnd();
-		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_OPEN))) return;
+		if ((session.unsavedCommits > 0 || session.floating) && !(await confirm.open(DISCARD_OPEN))) return;
 		run('Open', async () => {
 			const doc = await openFromDisk();
 			if (doc) onOpenDoc(doc);
@@ -102,7 +102,7 @@
 	async function newClick() {
 		session.lineEnd();
 		session.shapeEnd();
-		if (session.unsavedCommits > 0 && !(await confirm.open(DISCARD_NEW))) return;
+		if ((session.unsavedCommits > 0 || session.floating) && !(await confirm.open(DISCARD_NEW))) return;
 		newDialog.open();
 	}
 

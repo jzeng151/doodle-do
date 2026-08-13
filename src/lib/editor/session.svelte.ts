@@ -256,7 +256,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
-		this.bulkFrames = [];
+		if (mode !== 'grid' || this.tool !== 'stamp') this.bulkFrames = [];
 		this.overlayVersion++;
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
 		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
@@ -691,7 +691,15 @@ export class EditorSession {
 
 	beginLayerMove(): void {
 		if (this.floating || !this.frame.layers[this.currentLayer] || this.currentLayerLocked) return;
-		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
+		const mask = new Uint8Array(this.doc.meta.width * this.doc.meta.height);
+		for (const frame of this.editTargets()) {
+			const pixels = this.doc.frames[frame].layers[this.currentLayer]?.pixels;
+			if (pixels) pixels.forEach((color, index) => {
+				if (color) mask[index] = 1;
+			});
+		}
+		if (!mask.some(Boolean)) return;
+		this.selectionMask = mask;
 		this.liftSelection(false);
 	}
 
@@ -977,7 +985,10 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const end = this.tiledDrawing ? {
+		// Keep tiled ellipses on their true bounding box: shortening each axis
+		// independently changes their aspect ratio. Wrapped point collection
+		// still deduplicates the resulting tile pixels.
+		const end = this.tiledDrawing && this.tool === 'rectangle' ? {
 			x: boundedTileEndpoint(this.shapeOrigin.x, x, this.doc.meta.width),
 			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
 		} : { x, y };

@@ -26,10 +26,17 @@
 	const replaceControlsId = $props.id();
 	const rangeControlsId = `${replaceControlsId}-range`;
 	let paletteSignature = '';
+	function resetReplaceEndpoints() {
+		replaceFrom = Math.min(Math.max(1, session.colorValue), palette.length);
+		replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+	}
 	$effect(() => {
-		const signature = palette.join('\n');
-		if (paletteSignature && signature !== paletteSignature) removePending = null;
-		paletteSignature = signature;
+		const signature = palette.join('\0');
+		if (signature !== paletteSignature) {
+			if (paletteSignature) removePending = null;
+			paletteSignature = signature;
+			resetReplaceEndpoints();
+		}
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
 
@@ -169,8 +176,7 @@
 			aria-expanded={replaceOpen}
 			aria-controls={replaceControlsId}
 			onclick={() => {
-				replaceFrom = Math.max(1, session.colorValue);
-				replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+				resetReplaceEndpoints();
 				replaceOpen = !replaceOpen;
 			}}
 		>

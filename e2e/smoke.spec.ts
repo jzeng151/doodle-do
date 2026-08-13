@@ -73,6 +73,20 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await expect(colors.first()).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('palette changes reset replace-color endpoints', async ({ page }) => {
+	await gotoApp(page);
+	const palette = page.locator('.palette-panel');
+	await palette.getByRole('button', { name: 'Replace', exact: true }).click();
+	const from = palette.getByLabel('From');
+	const to = palette.getByLabel('To');
+	await from.selectOption('10');
+	await to.selectOption('11');
+	await palette.locator('.swatch:not(.eraser)').first().click();
+	await palette.getByRole('button', { name: 'Remove', exact: true }).click();
+	await expect(from).toHaveValue('1');
+	await expect(to).toHaveValue('2');
+});
+
 test('frame duplicate, navigate, delete', async ({ page }) => {
 	await gotoApp(page);
 	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
