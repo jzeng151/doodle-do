@@ -233,7 +233,7 @@ test('active clips follow frame structure changes', async ({ page }) => {
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.locator('.film-frame').first().click();
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
-	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.getByLabel('Clip')).toHaveValue('idle');
 	await expect(page.getByLabel('Loop range start')).toHaveValue('3');
