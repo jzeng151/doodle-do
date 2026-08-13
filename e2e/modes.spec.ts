@@ -167,6 +167,17 @@ test('comparison playback commits a pending layer move', async ({ page }) => {
 	await expect.poll(() => locatorHasInk(page.locator('canvas.compare-canvas').first())).toBe(true);
 });
 
+test('linked frame thumbnails retain a pending selection preview', async ({ page }) => {
+	await gotoApp(page);
+	await drawOn(page, page.locator('canvas.editor'), 0.25, 0.25);
+	await page.getByTitle('Duplicate with shared cel pixels').click();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await page.keyboard.press('Alt+ArrowRight');
+	const firstThumb = page.getByRole('group', { name: 'Frames' }).getByRole('button').first().locator('canvas');
+	await expect.poll(() => locatorHasInk(firstThumb)).toBe(true);
+});
+
 test('Grid previews and keyboard-moves a floating layer', async ({ page }) => {
 	await gotoApp(page);
 	await drawOn(page, page.locator('canvas.editor'));
@@ -211,6 +222,17 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await expect(page.getByLabel('Playback speed')).toHaveValue('0.25');
+});
+
+test('saving a renamed clip replaces the selected clip', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	const name = page.getByLabel('Name', { exact: true });
+	await name.fill('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await name.fill('run');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'run (1–2)']);
 });
 
 test('preview background setting is shared with Loop mode', async ({ page }) => {
