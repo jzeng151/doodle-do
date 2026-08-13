@@ -708,7 +708,12 @@ export class EditorSession {
 	floatingSelections(frame: number): FloatingSelection[] {
 		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
 		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
-		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+		const linked = frame !== this.currentFrame
+			&& this.floating
+			&& this.doc.frames[frame].layers[this.currentLayer]?.pixels === this.frame.layers[this.currentLayer]?.pixels
+			? [this.floatingTwin, this.floating]
+			: [];
+		return [...active, ...linked, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
 	}
 
 	autosaveSnapshot(): Doc {
@@ -796,7 +801,7 @@ export class EditorSession {
 	}
 
 	get hasSelection(): boolean {
-		return !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
+		return !this.wholeLayerMove && !this.selectionGesturePending() && (this.floating !== null || this.selectionMask !== null);
 	}
 
 	get canReselect(): boolean {
@@ -1059,6 +1064,8 @@ export class EditorSession {
 	}
 
 	swapActiveColors(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		[this.colorValue, this.backgroundColorValue] = [this.backgroundColorValue, this.colorValue];
 	}
 
@@ -1197,7 +1204,9 @@ export class EditorSession {
 		if (!name) return;
 		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
 		const before = this.doc.meta.tags;
-		const after = [...(before ?? []).filter((item) => item.name !== name), { ...tag, name, repeats }];
+		const active = this.activeAnimationTagName;
+		if (active && active !== name && before?.some((item) => item.name === name)) return;
+		const after = [...(before ?? []).filter((item) => item.name !== name && item.name !== active), { ...tag, name, repeats }];
 		this.bus.dispatch(new AnimationTagsCommand(before, after));
 		this.selectAnimationTag(name);
 	}
@@ -1280,6 +1289,10 @@ export class EditorSession {
 	// lifts first, so any pending move/rotate lands on the new layer.
 	extractSelectionToLayer(): void {
 		if (this.bulkFrames.length) return; // layer-structure edits stay single-frame
+		if (this.wholeLayerMove) {
+			this.commitFloating();
+			return;
+		}
 		if (this.frame.layers.length >= MAX_LAYERS) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		const sel = this.floating;

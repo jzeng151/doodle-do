@@ -77,6 +77,10 @@ test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	if (!box) throw new Error('no editor canvas');
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 	await expect(axis).toHaveValue('7.5');
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: '48×48' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
+	await expect(axis).toHaveAttribute('max', '47');
 });
 
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {

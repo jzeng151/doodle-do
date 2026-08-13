@@ -23,10 +23,18 @@ export function parseTextPalette(text: string): string[] {
 
 export async function readPalette(file: File): Promise<string[]> {
 	if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) return parseTextPalette(await file.text());
+	const header = new Uint8Array(await file.slice(0, 24).arrayBuffer());
+	const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+	if (header.length < 24 || !signature.every((byte, index) => header[index] === byte) || String.fromCharCode(...header.slice(12, 16)) !== 'IHDR') {
+		throw new Error('That file is not a valid PNG.');
+	}
+	const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+	const width = view.getUint32(16), height = view.getUint32(20);
+	if (!width || !height || width > 1_048_576 / height) throw new Error('Palette PNGs must be no larger than 1 megapixel.');
 	const bitmap = await createImageBitmap(file);
-	if (bitmap.width * bitmap.height > 1_048_576) {
+	if (bitmap.width !== width || bitmap.height !== height) {
 		bitmap.close();
-		throw new Error('Palette PNGs must be no larger than 1 megapixel.');
+		throw new Error('PNG dimensions changed while decoding.');
 	}
 	const canvas = document.createElement('canvas');
 	canvas.width = bitmap.width;

@@ -21,6 +21,9 @@ export function nextPlaybackFrame(
 	direction = 1
 ) {
 	if (start === end) return { frame: start, direction, wrapped: true };
+	if (frame < start || frame > end) return mode === 'reverse'
+		? { frame: end, direction: -1, wrapped: false }
+		: { frame: start, direction: 1, wrapped: false };
 	if (mode === 'reverse') return frame <= start || frame > end
 		? { frame: end, direction: -1, wrapped: frame <= start }
 		: { frame: frame - 1, direction: -1, wrapped: false };
