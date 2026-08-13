@@ -152,6 +152,21 @@ test('selection shortcuts stay in editable selection views and target the fork p
 	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
 });
 
+test('comparison playback commits a pending layer move', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const current = page.locator('.editor-pane').first();
+	const editor = current.locator('canvas.editor');
+	await drawOn(page, editor);
+	await current.getByRole('button', { name: 'Move', exact: true }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect.poll(() => locatorHasInk(page.locator('canvas.compare-canvas').first())).toBe(true);
+});
+
 test('Grid previews and keyboard-moves a floating layer', async ({ page }) => {
 	await gotoApp(page);
 	await drawOn(page, page.locator('canvas.editor'));
