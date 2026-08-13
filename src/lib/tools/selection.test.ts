@@ -40,6 +40,15 @@ describe('selection modes', () => {
 });
 
 describe('FloatingSelection (B5)', () => {
+	it('tracks transformed selection coverage independently of transparent pixels', () => {
+		const doc = testDoc();
+		const mask = maskFromRects([{ x: 1, y: 1, w: 1, h: 1 }, { x: 3, y: 1, w: 1, h: 1 }], 8, 8);
+		const sel = new FloatingSelection(doc, 0, 0, mask);
+		sel.moveBy(1, 1);
+		const moved = sel.coverageMask();
+		expect([moved[2 * 8 + 2], moved[2 * 8 + 3], moved[2 * 8 + 4]]).toEqual([1, 0, 1]);
+	});
+
 	it('lift clears the source and captures the buffer', () => {
 		const doc = testDoc();
 		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 2 }], 8, 8));
