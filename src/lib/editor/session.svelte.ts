@@ -222,7 +222,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();
-		this.bulkFrames = [];
+		if (mode !== 'grid' || this.tool !== 'stamp') this.bulkFrames = [];
 		this.overlayVersion++;
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
 		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
