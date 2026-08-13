@@ -14,6 +14,7 @@ import {
 	LayerVisibilityCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand
 } from './structural';
@@ -120,6 +121,19 @@ describe('layer commands', () => {
 });
 
 describe('palette commands', () => {
+	it('remaps palette indices in place and preserves linked buffer identity', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[1].layers[0].pixels = pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, [doc.palette[0], doc.palette[2]], new Map([[1, 1], [3, 2]]));
+		command.do(doc);
+		expect(pixels[0]).toBe(2);
+		expect(doc.frames[1].layers[0].pixels).toBe(pixels);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
 	it('replaces only the palette and undoes compactly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
