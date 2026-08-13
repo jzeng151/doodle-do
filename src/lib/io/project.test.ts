@@ -36,6 +36,14 @@ describe('project file round-trip', () => {
 		expect(parseProject(JSON.stringify(legacy)).meta.tags).toBeUndefined();
 	});
 
+	it('rejects empty and duplicate animation tag names', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
+		raw.meta.tags = [{ name: ' walk ', from: 0, to: 0, direction: 'forward', repeats: 0 }, { name: 'walk', from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
+		raw.meta.tags = [{ name: ' ', from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
+	});
+
 	it('rejects wrong format, version, and corrupt payloads', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: DEFAULT_PALETTE });
 		const good = JSON.parse(serializeProject(doc));

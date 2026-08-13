@@ -82,26 +82,6 @@ export class DocumentReplaceCommand implements Command {
 	}
 }
 
-export class PaletteSortCommand implements Command {
-	readonly kind = 'palette-sort';
-	private readonly replacement: DocumentReplaceCommand;
-	readonly byteSize: number;
-	readonly reverseColors: ReadonlyMap<number, number>;
-	constructor(
-		doc: Doc,
-		after: Doc,
-		readonly forwardColors: ReadonlyMap<number, number>
-	) {
-		this.replacement = new DocumentReplaceCommand(doc, after);
-		this.byteSize = this.replacement.byteSize;
-		this.reverseColors = new Map([...forwardColors].map(([before, after]) => [after, before]));
-	}
-	do(doc: Doc): void { this.replacement.do(doc); }
-	undo(doc: Doc): void { this.replacement.undo(doc); }
-	serialize(): unknown { return { kind: this.kind, colors: [...this.forwardColors] }; }
-	dirty(): DirtyRegion { return PALETTE_DIRTY; }
-}
-
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
 	readonly byteSize: number;
@@ -427,6 +407,36 @@ export class PaletteReplaceCommand implements Command {
 	do(doc: Doc): void { doc.palette = [...this.after]; }
 	undo(doc: Doc): void { doc.palette = [...this.before]; }
 	serialize(): unknown { return { kind: this.kind, palette: this.after }; }
+	dirty(): DirtyRegion { return PALETTE_DIRTY; }
+}
+
+export class PaletteRemapCommand implements Command {
+	readonly kind = 'palette-remap';
+	readonly byteSize: number;
+	private readonly reverse: Map<number, number>;
+
+	constructor(
+		private readonly before: string[],
+		private readonly after: string[],
+		private readonly forward: Map<number, number>
+	) {
+		this.reverse = new Map([...forward].map(([from, to]) => [to, from]));
+		this.byteSize = JSON.stringify([before, after, [...forward]]).length + 64;
+	}
+
+	private apply(doc: Doc, palette: string[], map: Map<number, number>): void {
+		doc.palette = [...palette];
+		const seen = new Set<Uint8Array>();
+		for (const frame of doc.frames) for (const layer of frame.layers) {
+			if (seen.has(layer.pixels)) continue;
+			seen.add(layer.pixels);
+			for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i]) layer.pixels[i] = map.get(layer.pixels[i]) ?? layer.pixels[i];
+		}
+	}
+
+	do(doc: Doc): void { this.apply(doc, this.after, this.forward); }
+	undo(doc: Doc): void { this.apply(doc, this.before, this.reverse); }
+	serialize(): unknown { return { kind: this.kind, palette: this.after, map: [...this.forward] }; }
 	dirty(): DirtyRegion { return PALETTE_DIRTY; }
 }
 

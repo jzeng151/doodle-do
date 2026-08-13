@@ -115,7 +115,7 @@ export class StrokeBuilder {
 
 	private stamp(cx: number, cy: number): Rect | null {
 		let rect = this.stampOne(cx, cy);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy));
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true));
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
@@ -159,7 +159,7 @@ export class StrokeBuilder {
 		return true;
 	}
 
-	private stampOne(cx: number, cy: number): Rect | null {
+	private stampOne(cx: number, cy: number, mirrored = false): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
@@ -172,7 +172,7 @@ export class StrokeBuilder {
 			for (let x = x0; x <= x1; x++) {
 				const i = y * width + x;
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				pixels[i] = ditherValue(x, y, this.value, this.secondaryValue, this.ditherSize);
+				pixels[i] = ditherValue(mirrored ? width - 1 - x : x, y, this.value, this.secondaryValue, this.ditherSize);
 			}
 		}
 		return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
