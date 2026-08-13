@@ -24,7 +24,7 @@
 	let rangeSort = $state<PaletteSort>('luminance');
 	let importGeneration = 0;
 	const replaceControlsId = $props.id();
-	const rangeControlsId = $props.id();
+	const rangeControlsId = `${replaceControlsId}-range`;
 	let paletteSignature = '';
 	$effect(() => {
 		const signature = palette.join('\n');
