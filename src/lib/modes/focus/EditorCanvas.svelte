@@ -302,6 +302,7 @@
 		if (e.button !== 0 && e.button !== 2) return;
 		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
 		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
+		if (session.tool === 'move' && layerPointer !== null) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
@@ -387,7 +388,7 @@
 				}
 				// 4) otherwise start this tool's gesture; without shift it
 				// replaces the selection (committing any pending float, B5)
-				const additive = e.shiftKey && !session.floating;
+				const additive = e.shiftKey;
 				switch (session.tool) {
 					case 'select':
 						session.beginMarquee(x, y, additive);
