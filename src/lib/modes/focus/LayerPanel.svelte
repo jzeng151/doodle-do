@@ -63,6 +63,7 @@
 	</header>
 	<ul aria-label="Layers">
 		{#each layers as layer, di (di)}
+			{@const effectiveLocked = session.isLayerLocked(realIndex(di))}
 			<li>
 				<button
 					class="name"
@@ -80,7 +81,7 @@
 				>
 					{layer.visible ? '👁' : '—'}
 				</button>
-				<button aria-pressed={layer.locked === true} aria-label={`${layer.locked ? 'Unlock' : 'Lock'} ${layer.name}`} title={layer.locked ? 'Unlock layer' : 'Lock layer'} onclick={() => session.setLayerLocked(realIndex(di), !layer.locked)}>{layer.locked ? '🔒' : '○'}</button>
+				<button disabled={effectiveLocked && !layer.locked} aria-pressed={effectiveLocked} aria-label={effectiveLocked && !layer.locked ? `${layer.name} locked by linked cel` : `${layer.locked ? 'Unlock' : 'Lock'} ${layer.name}`} title={effectiveLocked && !layer.locked ? 'Locked by linked cel' : layer.locked ? 'Unlock layer' : 'Lock layer'} onclick={() => session.setLayerLocked(realIndex(di), !layer.locked)}>{effectiveLocked ? '🔒' : '○'}</button>
 				<label class="opacity" title={`${layer.name} opacity`}><span class="sr-only">{layer.name} opacity</span><input type="range" min="0" max="1" step="0.05" value={layer.opacity ?? 1} onchange={(e) => session.setLayerOpacity(realIndex(di), e.currentTarget.valueAsNumber)} /></label>
 			</li>
 		{/each}

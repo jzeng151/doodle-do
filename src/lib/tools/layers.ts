@@ -16,7 +16,8 @@ export function mergeDownCommand(
 	const layers = doc.frames[frameIndex].layers;
 	const upperLayer = layers[layerIndex];
 	const lowerLayer = layers[layerIndex - 1];
-	if (lowerLayer.locked || (upperLayer.opacity ?? 1) !== 1 || (lowerLayer.opacity ?? 1) !== 1) return null;
+	const lowerLocked = doc.frames.some((frame) => frame.layers.some((layer) => layer.pixels === lowerLayer.pixels && layer.locked));
+	if (lowerLocked || (upperLayer.opacity ?? 1) !== 1 || (lowerLayer.opacity ?? 1) !== 1) return null;
 	const upper = upperLayer.pixels;
 	const lower = lowerLayer.pixels;
 	const indices: number[] = [];
