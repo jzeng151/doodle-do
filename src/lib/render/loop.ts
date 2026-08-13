@@ -119,7 +119,7 @@ export class LoopPlayer {
 			this.onComplete?.();
 			return true;
 		}
-		this.frame = mode === 'reverse' ? end : start;
+		this.frame = mode === 'reverse' ? end : mode === 'ping-pong' && start < end ? start + 1 : start;
 		this.direction = mode === 'reverse' ? -1 : 1;
 		return false;
 	}

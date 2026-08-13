@@ -85,10 +85,11 @@ export function parseProject(text: string): Doc {
 		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {
 			const name = typeof tag.name === 'string' ? tag.name.trim() : '';
 			const from = Number(tag.from), to = Number(tag.to);
+			const repeats = Number(tag.repeats);
 			const direction = tag.direction;
-			if (!name || names.has(name) || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
+			if (!name || names.has(name) || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
 			names.add(name);
-			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats: Math.max(0, Math.min(99, Math.round(Number(tag.repeats) || 0))) };
+			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats };
 		});
 	}
 
