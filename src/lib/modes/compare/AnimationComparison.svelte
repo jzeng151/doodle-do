@@ -30,13 +30,13 @@
 	}
 
 	function activeTag(target: EditorSession) {
-		return target.doc.meta.tags?.find((tag) => tag.name === session.activeAnimationTagName);
+		return target.doc.meta.tags?.find((tag) => tag.name === target.activeAnimationTagName);
 	}
 
 	function playbackRange(target: EditorSession) {
 		const last = target.doc.frames.length - 1;
-		const tag = activeTag(target);
-		const range = tag ? { start: tag.from, end: tag.to } : session.effectiveLoopRange();
+		const tag = target === fork ? activeTag(target) : undefined;
+		const range = tag ? { start: tag.from, end: tag.to } : target.effectiveLoopRange();
 		const start = Math.min(range.start, last);
 		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
@@ -90,8 +90,8 @@
 			(frame) => (forkFrame = frame),
 			() => playbackRange(fork),
 			() => session.loopPlaybackSpeed,
-			() => activeTag(fork)?.direction ?? session.loopPlaybackMode,
-			() => activeTag(fork)?.repeats ?? session.loopRepeatCount,
+			() => activeTag(fork)?.direction ?? fork.loopPlaybackMode,
+			() => activeTag(fork)?.repeats ?? fork.loopRepeatCount,
 			() => complete('fork')
 		);
 		playing = !media.matches;
