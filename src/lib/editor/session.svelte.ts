@@ -139,7 +139,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command) => {
-			if (command instanceof ResizeCanvasCommand) {
+			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
 				this.clearGestures();
@@ -233,10 +233,8 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
-		if (index !== this.currentFrame) {
-			this.lineEnd();
-			this.shapeEnd();
-		}
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
@@ -256,6 +254,8 @@ export class EditorSession {
 
 	toggleBulkFrame(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const set = new Set(this.bulkFrames.length ? this.bulkFrames : [this.currentFrame]);
 		if (index !== this.currentFrame) {
@@ -270,6 +270,8 @@ export class EditorSession {
 
 	selectBulkRange(index: number): void {
 		if (index < 0 || index >= this.doc.frames.length) return;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const lo = Math.min(this.currentFrame, index);
 		const hi = Math.max(this.currentFrame, index);
@@ -302,8 +304,10 @@ export class EditorSession {
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
+		const base = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
+		this.selectionMask = base?.some(Boolean) ? base : null;
 		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
 	}
 
@@ -317,6 +321,8 @@ export class EditorSession {
 	}
 
 	selectAll(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		this.clearGestures();
 		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
@@ -325,9 +331,11 @@ export class EditorSession {
 	}
 
 	deselect(): void {
-		if (!this.selectionMask && !this.floating) return;
+		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		if (!this.selectionMask && !this.floating && !pending) return;
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -341,7 +349,7 @@ export class EditorSession {
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
 		this.selectionMask = inverted.some(Boolean) ? inverted : null;
-		this.previousSelectionMask = before;
+		this.previousSelectionMask = before?.some(Boolean) ? before : null;
 		this.overlayVersion++;
 	}
 
