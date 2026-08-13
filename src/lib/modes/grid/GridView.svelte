@@ -73,6 +73,7 @@
 		if (e.button !== 0 && e.button !== 2) return;
 		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
 		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
+		if (session.tool === 'move' && movePointer !== null) return;
 		const el = tiles[i]!;
 		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
@@ -132,7 +133,14 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
-		if (moveTile !== -1 && e.pointerId !== movePointer) return;
+		if (moveTile !== -1) {
+			if (e.pointerId !== movePointer) return;
+			session.endLayerMove();
+			moveTile = -1;
+			movePointer = null;
+			strokeTile = -1;
+			return;
+		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (strokeTile >= 0 && session.tool === 'line') {
@@ -144,9 +152,6 @@
 			session.shapeMove(x, y);
 		}
 		strokeTile = -1;
-		if (moveTile !== -1) session.endLayerMove();
-		moveTile = -1;
-		movePointer = null;
 		if (session.tool === 'line') {
 			linePointer = null;
 			session.lineEnd();
