@@ -51,7 +51,8 @@ export class LoopPlayer {
 		private readonly playbackSpeed?: () => number,
 		private readonly playbackMode?: () => PlaybackMode,
 		private readonly repeatCount?: () => number,
-		private readonly onComplete?: () => void
+		private readonly onComplete?: () => void,
+		private readonly drawOverlay?: (ctx: CanvasRenderingContext2D, frame: number) => void
 	) {}
 
 	get playing(): boolean {
@@ -175,5 +176,6 @@ export class LoopPlayer {
 			this.target.width,
 			this.target.height
 		);
+		this.drawOverlay?.(ctx, this.frame);
 	}
 }

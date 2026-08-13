@@ -405,6 +405,10 @@ export class LayerDeleteCommand implements Command {
 		doc.frames[this.frameIndex].layers.splice(this.layerIndex, 1);
 	}
 	undo(doc: Doc): void {
+		const peer = this.layer.linkId
+			? doc.frames.flatMap((frame) => frame.layers).find((layer) => layer.linkId === this.layer.linkId)
+			: undefined;
+		if (peer) this.layer.pixels = peer.pixels;
 		doc.frames[this.frameIndex].layers.splice(this.layerIndex, 0, this.layer);
 	}
 	serialize(): unknown {
