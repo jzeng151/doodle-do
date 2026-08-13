@@ -311,6 +311,37 @@ test('comparison fork keeps its saved clip playback settings', async ({ page }) 
 	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', forkPaused!);
 });
 
+test('comparison fork starts with the active clip', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
+	await drawOn(page, page.locator('canvas.editor'));
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const previews = page.locator('.loop-panel canvas.loop');
+	await expect(previews).toHaveCount(2);
+	expect(await locatorHasInk(previews.first())).toBe(true);
+	expect(await locatorHasInk(previews.last())).toBe(true);
+});
+
+test('comparison playback preserves an unsaved current clip range', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range end').fill('1');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 2 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 1 of 2/);
+});
+
 test('preview background setting is shared with Loop mode', async ({ page }) => {
 	await gotoApp(page);
 	const sidePanel = page.locator('.loop-panel');
