@@ -12,6 +12,7 @@ describe('palette files', () => {
 
 	it('exports GPL and hex text', () => {
 		expect(gplPalette(['#ff0010'], 'Test')).toContain('255 0 16');
+		expect(gplPalette(['#ff0010'], 'Walk\nCycle').split('\n')[1]).toBe('Name: Walk Cycle');
 		expect(hexPalette(['#112233', '#aabbcc'])).toBe('#112233\n#aabbcc\n');
 	});
 
