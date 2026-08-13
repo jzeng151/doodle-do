@@ -13,6 +13,15 @@ describe('flattenFrameIndices', () => {
 		doc.frames[0].layers[1].visible = false;
 		expect(Array.from(flattenFrameIndices(doc, 0))).toEqual([1, 3]);
 	});
+
+	it('accumulates translucent layers before applying GIF transparency', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, layerCount: 2 });
+		for (const layer of doc.frames[0].layers) {
+			layer.pixels[0] = 1;
+			layer.opacity = .4;
+		}
+		expect(flattenFrameIndices(doc, 0)[0]).toBe(1);
+	});
 });
 
 describe('sheetLayout', () => {
@@ -59,7 +68,9 @@ describe('export metadata schemas', () => {
 		expect(parsed.meta.image).toBe('strut.png');
 		expect(parsed.meta.size).toEqual({ w: 128, h: 32 });
 		expect(parsed.meta.scale).toBe('1');
-		expect(parsed.meta.frameTags).toEqual(doc.meta.tags?.map((tag) => ({ ...tag, direction: tag.direction === 'ping-pong' ? 'pingpong' : tag.direction })));
+		expect(parsed.meta.frameTags).toEqual([
+			{ name: 'walk', from: 0, to: 3, direction: 'pingpong', repeat: 2 }
+		]);
 	});
 
 	it('doodledo.json carries fps and per-frame durations', () => {

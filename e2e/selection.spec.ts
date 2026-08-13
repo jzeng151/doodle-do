@@ -387,6 +387,38 @@ test('mirror twin: dragging the twin side makes it follow the pointer', async ({
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(false);
 });
 
+test('mirror twin stays aligned after a quarter turn followed by free rotation', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await page.getByRole('button', { name: 'Mirror X', exact: true }).click();
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await mouseOnPixel(page, 9, 8);
+	await page.mouse.up();
+
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 7, 7);
+	await page.mouse.down();
+	await mouseOnPixel(page, 10, 9);
+	await page.mouse.up();
+	await page.getByRole('button', { name: 'Turn selection right 90 degrees' }).click();
+	await page.getByRole('button', { name: 'Rotate selection right 15 degrees' }).click();
+	await page.locator('canvas.editor').focus();
+	await page.keyboard.press('Enter');
+
+	expect(await page.evaluate(() => {
+		const canvas = document.querySelector('canvas.editor') as HTMLCanvasElement;
+		const context = canvas.getContext('2d')!;
+		const zoom = canvas.width / 32;
+		for (let y = 0; y < 32; y++) for (let x = 0; x < 16; x++) {
+			const left = context.getImageData((x + .5) * zoom, (y + .5) * zoom, 1, 1).data[3];
+			const right = context.getImageData((31 - x + .5) * zoom, (y + .5) * zoom, 1, 1).data[3];
+			if ((left > 0) !== (right > 0)) return false;
+		}
+		return true;
+	})).toBe(true);
+});
+
 test('reselect availability updates and resets after canvas resize', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();

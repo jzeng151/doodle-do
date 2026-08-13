@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
-import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
+import { CommandBus, CompositeCommand, UNDO_MAX_BYTES, type Rect } from '../core/commands';
 import {
 	AnimationTagsCommand,
 	DocumentReplaceCommand,
@@ -98,6 +98,7 @@ export class EditorSession {
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
 	showGrid = $state(false);
 	paletteLocked = $state(false);
+	paletteImportGeneration = 0;
 	onionEnabled = $state(true); // on by default (§4.5)
 	onionPreviousEnabled = $state(true);
 	onionNextEnabled = $state(true);
@@ -209,7 +210,7 @@ export class EditorSession {
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand) this.invalidateStamp();
-			if (command instanceof PaletteAddCommand && action === 'undo' && this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
+			else if (this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
@@ -781,10 +782,18 @@ export class EditorSession {
 	rotateFloating(angleRad: number): void {
 		if (!this.floating || angleRad === this.floating.angle) return;
 		this.floating.rotateTo(angleRad);
-		this.floatingTwin?.rotateTo(-angleRad); // mirrored rotation
+		if (this.floatingTwin) {
+			this.floatingTwin.rotateTo(-angleRad);
+			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
+			this.floatingTwin.moveBy(desiredX - this.floatingTwin.renderRect.x, 0);
+		}
 		for (const p of this.floatingPeers) {
 			p.main.rotateTo(angleRad);
-			p.twin?.rotateTo(-angleRad);
+			if (p.twin) {
+				p.twin.rotateTo(-angleRad);
+				const desiredX = this.doc.meta.width - p.main.renderRect.x - p.twin.renderRect.w;
+				p.twin.moveBy(desiredX - p.twin.renderRect.x, 0);
+			}
 		}
 		this.overlayVersion++;
 	}
@@ -801,14 +810,6 @@ export class EditorSession {
 		const turns = this.floating.angle / (Math.PI / 2);
 		const quarter = direction > 0 ? Math.floor(turns + Number.EPSILON) + 1 : Math.ceil(turns - Number.EPSILON) - 1;
 		this.rotateFloating(quarter * Math.PI / 2);
-		if (this.floatingTwin) {
-			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
-			this.floatingTwin.moveBy(desiredX - this.floatingTwin.renderRect.x, 0);
-		}
-		for (const peer of this.floatingPeers) if (peer.twin) {
-			const desiredX = this.doc.meta.width - peer.main.renderRect.x - peer.twin.renderRect.w;
-			peer.twin.moveBy(desiredX - peer.twin.renderRect.x, 0);
-		}
 	}
 
 	// arrow-key nudge: a bare mask lifts first, like flip()
@@ -1535,8 +1536,10 @@ export class EditorSession {
 			.filter(({ frame, layer }) => !this.layerLocked(frame, layer))
 			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
 			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
-		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
-		else if (cmds.length) this.bus.dispatch(new CompositeCommand('replace-color-scope', cmds));
+		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
+		if (!command) return;
+		if (command.byteSize > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+		this.bus.dispatch(command);
 	}
 
 	// --- canvas ---

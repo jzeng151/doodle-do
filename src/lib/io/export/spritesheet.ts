@@ -59,7 +59,13 @@ export function texturePackerJson(doc: Doc, layout: SheetLayout, imageName: stri
 				format: 'RGBA8888',
 				size: { w: layout.width, h: layout.height },
 				scale: '1',
-				...(doc.meta.tags?.length && { frameTags: doc.meta.tags.map((tag) => ({ ...tag, direction: tag.direction === 'ping-pong' ? 'pingpong' : tag.direction })) })
+				...(doc.meta.tags?.length && {
+					frameTags: doc.meta.tags.map(({ repeats, ...tag }) => ({
+						...tag,
+						direction: tag.direction === 'ping-pong' ? 'pingpong' : tag.direction,
+						repeat: repeats
+					}))
+				})
 			}
 		},
 		null,

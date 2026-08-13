@@ -44,7 +44,7 @@ function editable(session: EditorSession, args: Args): void {
 	if (expected !== session.version) {
 		throw new Error(`version conflict: expected ${expected}, current ${session.version}; read the document again`);
 	}
-	if (session.strokeActive || session.hasSelection || session.selectionGestureActive) {
+	if (session.strokeActive || session.floating || session.hasSelection || session.selectionGestureActive) {
 		throw new Error('finish the active user stroke or selection before applying an agent edit');
 	}
 }

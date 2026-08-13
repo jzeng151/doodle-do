@@ -67,7 +67,7 @@
 				session.onionNextEnabled ? session.onionNextRange : 0
 			)) {
 				const previous = ghost.direction === -1;
-				drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), previous ? ONION_PREV_COLOR : ONION_NEXT_COLOR, session.onionOpacity * (previous ? .55 : 1) * ghost.fade);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, ghost.frame) ?? session.compositor.frameCanvas(ghost.frame), previous ? ONION_PREV_COLOR : ONION_NEXT_COLOR, session.onionOpacity * (previous ? .55 : 1) * ghost.fade);
 			}
 		}
 		if (session.bulkFrames.length > 1) {
@@ -360,7 +360,8 @@
 				const hp = handleScreenPos();
 				if (hp && Math.hypot(ex - hp.x, ey - hp.y) <= HANDLE_R) {
 					session.liftSelection(); // no-op when already floating
-					const sel = session.floating!;
+					const sel = session.floating;
+					if (!sel) break;
 					const gx = sel.renderRect.x + sel.renderRect.w / 2;
 					const gy = sel.renderRect.y + sel.renderRect.h / 2;
 					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx), x: gx, y: gy };
@@ -464,6 +465,7 @@
 		if (selectDrag === 'layer') {
 			session.endLayerMove();
 			layerPointer = null;
+			selectDrag = null;
 		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;

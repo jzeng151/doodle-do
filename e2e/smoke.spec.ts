@@ -203,6 +203,15 @@ test('swapping active colors finalizes a keyboard line preview', async ({ page }
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
 });
 
+test('transparent background color remains visible after swapping', async ({ page }) => {
+	await gotoApp(page);
+	const palette = page.locator('.palette-panel');
+	await palette.getByRole('button', { name: 'Transparent' }).click();
+	await palette.getByTitle('Swap foreground and background colors (X)').click();
+	await expect(palette.getByRole('button', { name: 'Transparent' })).toHaveClass(/background-selected/);
+	await expect(palette.locator('.active-color.background')).toHaveClass(/transparent/);
+});
+
 test('keyboard pencil indicator matches the brush size', async ({ page }) => {
 	await gotoApp(page);
 	await page.getByRole('group', { name: 'Brush settings' }).getByRole('combobox').selectOption('4');
