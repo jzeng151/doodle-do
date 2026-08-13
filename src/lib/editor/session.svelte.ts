@@ -461,11 +461,11 @@ export class EditorSession {
 			if (action === 'undo' && axes.projectedAfter?.[index] === current[index] && axes.projectedAfterGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactBefore![index]!;
 			if (action === 'redo' && axes.projectedBefore?.[index] === current[index] && axes.projectedBeforeGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactAfter![index]!;
 			const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
-			if (axes.scaled && action === 'undo' && current[index] !== before[index]) {
+			if (action === 'undo' && current[index] !== before[index]) {
 				(axes.exactAfter ??= [])[index] = current[index];
 				(axes.projectedBefore ??= [])[index] = next;
 				(axes.projectedBeforeGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
-			} else if (axes.scaled && action === 'redo' && current[index] !== before[index]) {
+			} else if (action === 'redo' && current[index] !== before[index]) {
 				(axes.exactBefore ??= [])[index] = current[index];
 				(axes.projectedAfter ??= [])[index] = next;
 				(axes.projectedAfterGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
