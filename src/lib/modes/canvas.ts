@@ -3,6 +3,7 @@ import type { FloatingSelection } from '$lib/tools/selection';
 import type { EditorSession } from '$lib/editor/session.svelte';
 
 const floatCache = new WeakMap<object, { version: number; documentVersion: number; canvas: HTMLCanvasElement }>();
+const frameCache = new WeakMap<EditorSession, { version: number; overlayVersion: number; frames: Map<number, HTMLCanvasElement> }>();
 
 export function floatingCanvas(selection: FloatingSelection, palette: string[], documentVersion: number) {
 	const cached = floatCache.get(selection);
@@ -23,6 +24,13 @@ export function floatingCanvas(selection: FloatingSelection, palette: string[], 
 export function floatingFrameCanvas(session: EditorSession, frame: number): HTMLCanvasElement | null {
 	const floating = session.floatingSelections(frame);
 	if (!floating.length) return null;
+	let cached = frameCache.get(session);
+	if (!cached || cached.version !== session.version || cached.overlayVersion !== session.overlayVersion) {
+		cached = { version: session.version, overlayVersion: session.overlayVersion, frames: new Map() };
+		frameCache.set(session, cached);
+	}
+	const hit = cached.frames.get(frame);
+	if (hit) return hit;
 	const { width, height } = session.doc.meta;
 	const canvas = document.createElement('canvas');
 	canvas.width = width;
@@ -48,6 +56,7 @@ export function floatingFrameCanvas(session: EditorSession, frame: number): HTML
 		ctx.drawImage(source, 0, 0);
 	}
 	ctx.globalAlpha = 1;
+	cached.frames.set(frame, canvas);
 	return canvas;
 }
 

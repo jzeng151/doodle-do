@@ -25,6 +25,7 @@ function replaceDocument(doc: Doc, snapshot: Doc): void {
 }
 
 const copyTags = (tags?: AnimationTag[]) => tags?.map((tag) => ({ ...tag }));
+const tagsBytes = (tags?: AnimationTag[]) => tags ? JSON.stringify(tags).length : 0;
 
 export class AnimationTagsCommand implements Command {
 	readonly kind = 'animation-tags';
@@ -87,16 +88,14 @@ export class DocumentReplaceCommand implements Command {
 
 export class FrameAddCommand implements Command {
 	readonly kind = 'frame-add';
-	readonly byteSize: number;
 	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return frameBytes(this.frame) + tagsBytes(this.beforeTags); }
 
 	// covers blank add and duplicate — the caller builds the frame payload
 	constructor(
 		private readonly index: number,
 		private readonly frame: Frame
-	) {
-		this.byteSize = frameBytes(frame);
-	}
+	) {}
 
 	do(doc: Doc): void {
 		this.beforeTags = copyTags(doc.meta.tags);
@@ -117,8 +116,8 @@ export class FrameAddCommand implements Command {
 
 export class LinkedFrameAddCommand implements Command {
 	readonly kind = 'linked-frame-add';
-	readonly byteSize = 256;
 	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return 256 + tagsBytes(this.beforeTags); }
 	private beforeIds: (string | undefined)[] = [];
 	constructor(private readonly sourceIndex: number, private readonly index: number, private readonly linkIds: string[]) {}
 	do(doc: Doc): void {
@@ -190,7 +189,7 @@ export class FrameDeleteCommand implements Command {
 		this.beforeTags = copyTags(doc.meta.tags);
 		const peers = new Set(doc.frames.flatMap((frame, frameIndex) => frameIndex === index ? [] : frame.layers.map((layer) => layer.pixels)));
 		const retained = new Set(this.frame.layers.map((layer) => layer.pixels).filter((pixels) => !peers.has(pixels)));
-		this.byteSize = [...retained].reduce((sum, pixels) => sum + pixels.byteLength, 64);
+		this.byteSize = [...retained].reduce((sum, pixels) => sum + pixels.byteLength, 64 + tagsBytes(this.beforeTags));
 	}
 
 	do(doc: Doc): void {
@@ -215,8 +214,8 @@ export class FrameDeleteCommand implements Command {
 
 export class FrameReorderCommand implements Command {
 	readonly kind = 'frame-reorder';
-	readonly byteSize = 64;
 	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return 64 + tagsBytes(this.beforeTags); }
 
 	constructor(
 		private readonly from: number,
