@@ -8,5 +8,5 @@ export function samplePixel(doc: Doc, frameIndex: number, x: number, y: number):
 	const { width, height } = doc.meta;
 	if (x < 0 || y < 0 || x >= width || y >= height) return 0;
 	const i = y * width + x;
-	return compositePixelIndex(doc.frames[frameIndex].layers, i, doc.palette);
+	return compositePixelIndex(doc.frames[frameIndex].layers, i, doc.palette, undefined, 1);
 }
