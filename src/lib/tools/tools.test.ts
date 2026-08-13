@@ -310,6 +310,15 @@ describe('tiled drawing', () => {
 		stroke.moveTo(4, 2);
 		expect(doc.frames[0].layers[0].pixels[1 * 4]).toBe(0);
 	});
+
+	it('keeps revisited tiled centers during pixel-perfect cleanup', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-3, -1);
+		stroke.moveTo(-3, -3);
+		expect(doc.frames[0].layers[0].pixels[3]).toBe(3);
+	});
 });
 
 describe('line tool', () => {
