@@ -6,7 +6,6 @@
 import type { Doc } from '../core/document';
 import { PixelDiffCommand, type Rect } from '../core/commands';
 import { ditherValue } from './dither';
-import { boundedTileEndpoint } from './shapes';
 
 export class StrokeBuilder {
 	private readonly dirty = new Map<number, number>(); // index → value before stroke
@@ -244,8 +243,20 @@ export class StrokeBuilder {
 		const seen = this.tiled && (!this.pixelPerfect || this.size !== 1) ? new Set<number>() : null;
 		const { width, height } = this.doc.meta;
 		if (this.tiled && this.pixelPerfect && this.size === 1) {
-			x1 = boundedTileEndpoint(x0, x1, width);
-			y1 = boundedTileEndpoint(y0, y1, height);
+			const deltaX = x1 - x0, deltaY = y1 - y0;
+			const steps = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+			const limit = 2 * Math.max(width, height);
+			if (steps > limit) {
+				const scale = limit / steps;
+				const bound = (delta: number, span: number) => {
+					if (!delta) return 0;
+					const magnitude = Math.abs(delta), remainder = magnitude % span;
+					const scaled = Math.max(remainder || span, Math.round((magnitude * scale - remainder) / span) * span + remainder);
+					return Math.sign(delta) * scaled;
+				};
+				x1 = x0 + bound(deltaX, width);
+				y1 = y0 + bound(deltaY, height);
+			}
 		}
 		const dx = Math.abs(x1 - x0);
 		const dy = -Math.abs(y1 - y0);
