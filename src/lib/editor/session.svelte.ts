@@ -125,6 +125,7 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
+	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
@@ -143,13 +144,15 @@ export class EditorSession {
 			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			this.version++;
 		});
-		this.bus.onCommit((command) => {
+		this.bus.onCommit((command, action) => {
 			if (command instanceof ResizeCanvasCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
 				this.clearGestures();
 				this.overlayVersion++;
 			}
+			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
+			if (colors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? colors.before : colors.after;
 			this.unsavedCommits++;
 		});
 	}
@@ -1010,12 +1013,13 @@ export class EditorSession {
 		);
 		if (inUse && remapTo === undefined) return false;
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
-		const background = this.backgroundColorValue;
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
 		const removedValue = index + 1;
-		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
-		this.colorValue = target < index ? target + 1 : target;
-		if (background === removedValue) this.backgroundColorValue = target < index ? target + 1 : target;
-		else if (background > removedValue) this.backgroundColorValue = background - 1;
+		const remapped = target < index ? target + 1 : target;
+		const after: [number, number] = [remapped, before[1] === removedValue ? remapped : before[1] > removedValue ? before[1] - 1 : before[1]];
+		const command = new PaletteRemoveCommand(this.doc, index, target);
+		this.paletteRemovalColors.set(command, { before, after });
+		this.bus.dispatch(command);
 		return true;
 	}
 
