@@ -14,6 +14,7 @@
 	let replaceFrom = $state(1);
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
+	const replaceControlsId = $props.id();
 	$effect(() => {
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
 	});
@@ -120,7 +121,7 @@
 		</button>
 		<button
 			aria-expanded={replaceOpen}
-			aria-controls="replace-color-options"
+			aria-controls={replaceControlsId}
 			onclick={() => {
 				replaceFrom = Math.max(1, session.colorValue);
 				replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
@@ -132,17 +133,17 @@
 	</div>
 
 	{#if replaceOpen}
-		<div id="replace-color-options" class="replace-options">
+		<div id={replaceControlsId} class="replace-options">
 			<label>From<select bind:value={replaceFrom}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>To<select bind:value={replaceTo}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
 			<label>Scope<select bind:value={replaceScope}>
-				<option value="selection" disabled={!session.selectionMask}>Selection</option>
+				<option value="selection" disabled={!session.hasSelection}>Selection</option>
 				<option value="layer">Current layer</option>
 				<option value="frame">Current frame</option>
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.selectionMask)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
 		</div>
 	{/if}
 
