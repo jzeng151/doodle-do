@@ -98,6 +98,7 @@ export class EditorSession {
 	// becomes one command
 	selectionMask = $state<Uint8Array | null>(null); // canvas-sized, 1 = selected
 	private previousSelectionMask = $state<Uint8Array | null>(null);
+	private gestureBaseMask: Uint8Array | null = null;
 	private gestureSelectionMode: SelectionMode = 'replace';
 	pendingRect = $state<Rect | null>(null); // rect-marquee drag preview
 	lassoPath = $state<{ x: number; y: number }[] | null>(null);
@@ -136,7 +137,15 @@ export class EditorSession {
 			this.colorValue = Math.min(this.colorValue, doc.palette.length);
 			this.version++;
 		});
-		this.bus.onCommit(() => this.unsavedCommits++);
+		this.bus.onCommit((command) => {
+			if (command instanceof ResizeCanvasCommand) {
+				this.selectionMask = null;
+				this.previousSelectionMask = null;
+				this.clearGestures();
+				this.overlayVersion++;
+			}
+			this.unsavedCommits++;
+		});
 	}
 
 	get frame() {
@@ -293,12 +302,14 @@ export class EditorSession {
 	private startGesture(additive: boolean): void {
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
-		this.previousSelectionMask = this.selectionMask?.slice() ?? null;
+		this.gestureBaseMask = this.selectionMask?.slice() ?? null;
 	}
 
 	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
 		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
+		this.previousSelectionMask = this.gestureBaseMask;
+		this.gestureBaseMask = null;
 		tips.fire('T16'); // shift-add + rotate handle
 		tips.fire('T19'); // extract-to-layer (waits its turn behind T16)
 	}
@@ -321,9 +332,9 @@ export class EditorSession {
 	}
 
 	invertSelection(): void {
+		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
-		const before = this.selectionMask?.slice() ?? null;
 		const length = this.doc.meta.width * this.doc.meta.height;
 		const inverted = new Uint8Array(length);
 		for (let i = 0; i < length; i++) inverted[i] = Number(!before?.[i]);
@@ -427,6 +438,7 @@ export class EditorSession {
 		this.pendingRect = null;
 		this.lassoPath = null;
 		this.polygonVerts = null;
+		this.gestureBaseMask = null;
 	}
 
 	selectionContains(x: number, y: number): boolean {
@@ -551,6 +563,7 @@ export class EditorSession {
 
 	cancelFloating(): void {
 		const restoreGesture = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
+		const gestureBase = this.gestureBaseMask?.slice() ?? null;
 		if (this.floating) {
 			const sel = this.floating;
 			this.floating = null;
@@ -563,7 +576,7 @@ export class EditorSession {
 			}
 			this.floatingPeers = [];
 		}
-		this.selectionMask = restoreGesture ? this.previousSelectionMask?.slice() ?? null : null;
+		this.selectionMask = restoreGesture ? gestureBase : null;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
