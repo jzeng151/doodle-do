@@ -1093,7 +1093,7 @@ export class EditorSession {
 						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
 						null
 					)
-					: this.selectionMask?.slice() ?? null;
+					: this.effectiveSelectionMask();
 				return { frame, layer: this.currentLayer, mask };
 			}).filter((target) => target.mask)
 			: [];
