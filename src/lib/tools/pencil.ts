@@ -114,8 +114,9 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		let rect = this.stampOne(cx, cy);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true));
+		const occupied = new Set<number>();
+		let rect = this.stampOne(cx, cy, false, occupied);
+		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true, occupied));
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
@@ -159,7 +160,7 @@ export class StrokeBuilder {
 		return true;
 	}
 
-	private stampOne(cx: number, cy: number, mirrored = false): Rect | null {
+	private stampOne(cx: number, cy: number, mirrored = false, occupied?: Set<number>): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
@@ -171,6 +172,8 @@ export class StrokeBuilder {
 		for (let y = y0; y <= y1; y++) {
 			for (let x = x0; x <= x1; x++) {
 				const i = y * width + x;
+				if (occupied?.has(i)) continue;
+				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
 				pixels[i] = ditherValue(mirrored ? width - 1 - x : x, y, this.value, this.secondaryValue, this.ditherSize);
 			}
