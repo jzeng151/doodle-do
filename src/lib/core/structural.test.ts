@@ -115,6 +115,18 @@ describe('frame commands', () => {
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
 	});
 
+	it('counts retained animation tags in frame command history', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
+		doc.meta.tags = [{ name: 'a'.repeat(200), from: 0, to: 1, direction: 'forward', repeats: 0 }];
+		const add = new FrameAddCommand(1, { layers: [createLayer(doc, 'Layer 1')] });
+		add.do(doc);
+		const reorder = new FrameReorderCommand(0, 1);
+		reorder.do(doc);
+		expect(add.byteSize).toBeGreaterThan(200);
+		expect(reorder.byteSize).toBeGreaterThan(200);
+		expect(new FrameDeleteCommand(doc, 0).byteSize).toBeGreaterThan(200);
+	});
+
 	it('per-frame duration and fps commands undo cleanly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
