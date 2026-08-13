@@ -215,6 +215,15 @@ describe('shape tools', () => {
 		expect(points).toHaveLength(13);
 		expect(points).not.toContainEqual({ x: 7, y: 7 });
 	});
+
+	it('retains off-canvas centers whose thick brush can overlap the canvas', () => {
+		const points = rectanglePoints({ x: -1, y: 1 }, { x: 3, y: 3 }, false, {
+			width: 4,
+			height: 4,
+			padding: 1
+		});
+		expect(points).toContainEqual({ x: -1, y: 2 });
+	});
 });
 
 describe('pixel-perfect pencil', () => {
