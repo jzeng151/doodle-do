@@ -159,6 +159,8 @@ export class EditorSession {
 		if (mode === this.mode) return;
 		this.lineEnd();
 		this.shapeEnd();
+		this.comparisonSession?.lineEnd();
+		this.comparisonSession?.shapeEnd();
 		this.commitFloating(); // B5: mode switch commits a pending selection
 		this.selectionMask = null;
 		this.clearGestures();

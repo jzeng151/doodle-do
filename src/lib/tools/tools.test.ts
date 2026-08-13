@@ -170,6 +170,12 @@ describe('shape tools', () => {
 		);
 	});
 
+	it('retains the endpoints of narrow ellipses', () => {
+		const points = ellipsePoints({ x: 0, y: 0 }, { x: 1, y: 7 }, false);
+		expect(points.some((point) => point.y === 0)).toBe(true);
+		expect(points.some((point) => point.y === 7)).toBe(true);
+	});
+
 	it('clamps an off-canvas shape preview before enumerating points', () => {
 		const points = rectanglePoints({ x: 1, y: 1 }, { x: 100_000, y: 100_000 }, false, { width: 8, height: 8 });
 		expect(points).toHaveLength(13);
