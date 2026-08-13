@@ -55,7 +55,8 @@ export function floodFill(
 	tolerance = 0,
 	contiguous = true,
 	secondaryValue?: number,
-	ditherSize: 0 | 2 | 4 = 0
+	ditherSize: 0 | 2 | 4 = 0,
+	tiled = false
 ): PixelDiffCommand | null {
 	const { width, height } = doc.meta;
 	if (x < 0 || y < 0 || x >= width || y >= height) return null;
@@ -66,7 +67,7 @@ export function floodFill(
 	for (let candidate = 0; candidate < match.length; candidate++) match[candidate] = Number(tolerance <= 0 ? candidate === target : colorDistance(doc, target, candidate) <= tolerance);
 	const matches = (candidate: number) => !!match[candidate];
 	const hits = (contiguous
-		? connectedRegion(pixels, width, height, x, y, matches)
+		? connectedRegion(pixels, width, height, x, y, matches, tiled)
 		: Array.from(pixels.keys()).filter((index) => matches(pixels[index])));
 	const changes = hits
 		.map((index) => ({ index, after: ditherValue(index % width, (index / width) | 0, value, secondaryValue, ditherSize) }))
@@ -84,7 +85,8 @@ function connectedRegion(
 	height: number,
 	x: number,
 	y: number,
-	matches: (value: number) => boolean
+	matches: (value: number) => boolean,
+	tiled: boolean
 ): number[] {
 	const hits: number[] = [];
 	const visited = new Uint8Array(pixels.length);
@@ -95,7 +97,12 @@ function connectedRegion(
 		if (!matches(pixels[index])) continue;
 		hits.push(index);
 		const px = index % width;
-		for (const next of [px > 0 ? index - 1 : -1, px < width - 1 ? index + 1 : -1, index - width, index + width]) {
+		for (const next of [
+			px > 0 ? index - 1 : tiled ? index + width - 1 : -1,
+			px < width - 1 ? index + 1 : tiled ? index - width + 1 : -1,
+			index >= width ? index - width : tiled ? index + width * (height - 1) : -1,
+			index < pixels.length - width ? index + width : tiled ? px : -1
+		]) {
 			if (next >= 0 && next < pixels.length && !visited[next]) {
 				visited[next] = 1;
 				stack.push(next);
