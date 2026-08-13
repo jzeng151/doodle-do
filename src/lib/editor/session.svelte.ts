@@ -261,6 +261,10 @@ export class EditorSession {
 	}
 
 	selectFrame(index: number): void {
+		if (index === this.currentFrame) {
+			this.bulkFrames = [];
+			return;
+		}
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating(); // B5: frame change commits
@@ -324,6 +328,7 @@ export class EditorSession {
 	}
 
 	selectLayer(index: number): void {
+		this.lineEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
@@ -360,6 +365,8 @@ export class EditorSession {
 	}
 
 	deselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (!this.selectionMask && !this.floating && !pending) return;
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
@@ -371,6 +378,8 @@ export class EditorSession {
 	}
 
 	invertSelection(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
 		this.clearGestures();
@@ -383,6 +392,8 @@ export class EditorSession {
 	}
 
 	reselect(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
 		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		this.commitFloating();
@@ -745,7 +756,7 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = this.doc.meta;
+		const bounds = { ...this.doc.meta, padding: this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
@@ -1125,14 +1136,22 @@ export class EditorSession {
 		if (scope === 'selection' && !this.hasSelection) return;
 		this.lineEnd();
 		this.shapeEnd();
-		const mainCoverage = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
-		const twinCoverage = this.floatingTwin?.coverageMask() ?? null;
-		const selection = twinCoverage ? combineMasks(mainCoverage, twinCoverage, 'add') : mainCoverage;
+		const selectionTargets = scope === 'selection'
+			? this.editTargets().map((frame) => {
+				const floating = this.floatingSelections(frame);
+				const mask = floating.length
+					? floating.reduce<Uint8Array | null>(
+						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
+						null
+					)
+					: this.selectionMask?.slice() ?? null;
+				return { frame, layer: this.currentLayer, mask };
+			}).filter((target) => target.mask)
+			: [];
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
-			if (!selection) return;
-			targets.push({ frame: this.currentFrame, layer: this.currentLayer, mask: selection });
+			targets.push(...selectionTargets);
 		} else if (scope === 'layer') {
 			targets.push({ frame: this.currentFrame, layer: this.currentLayer });
 		} else {
