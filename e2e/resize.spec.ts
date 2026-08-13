@@ -90,6 +90,23 @@ test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	await expect(axis).toHaveAttribute('max', '47');
 });
 
+test('mirror axis edits survive lossy scaled resize history', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Mirror X' }).click();
+	const axis = page.getByLabel('X axis');
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.locator('input[type=number]').first().fill('64');
+	await dialog.locator('input[type=number]').nth(1).fill('64');
+	await dialog.getByLabel('Scale art to fit').check();
+	await dialog.getByRole('button', { name: 'Resize' }).click();
+	await axis.fill('10');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('5');
+	await page.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('10');
+});
+
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {
 	await gotoApp(page);
 
