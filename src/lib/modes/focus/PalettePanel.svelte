@@ -130,7 +130,7 @@
 				<option value="frames">Selected frames</option>
 				<option value="animation">Entire animation</option>
 			</select></label>
-			<button disabled={replaceFrom === replaceTo || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
+			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={() => session.replaceColor(replaceFrom, replaceTo, replaceScope)}>Apply replacement</button>
 		</div>
 	{/if}
 

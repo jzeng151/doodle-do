@@ -1018,7 +1018,9 @@ export class EditorSession {
 		if (scope === 'selection' && !this.hasSelection) return;
 		this.lineEnd();
 		this.shapeEnd();
-		const selection = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const mainCoverage = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const twinCoverage = this.floatingTwin?.coverageMask() ?? null;
+		const selection = twinCoverage ? combineMasks(mainCoverage, twinCoverage, 'add') : mainCoverage;
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
