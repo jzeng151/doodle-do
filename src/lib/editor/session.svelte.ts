@@ -1030,14 +1030,22 @@ export class EditorSession {
 		if (scope === 'selection' && !this.hasSelection) return;
 		this.lineEnd();
 		this.shapeEnd();
-		const mainCoverage = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
-		const twinCoverage = this.floatingTwin?.coverageMask() ?? null;
-		const selection = twinCoverage ? combineMasks(mainCoverage, twinCoverage, 'add') : mainCoverage;
+		const selectionTargets = scope === 'selection'
+			? this.editTargets().map((frame) => {
+				const floating = this.floatingSelections(frame);
+				const mask = floating.length
+					? floating.reduce<Uint8Array | null>(
+						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
+						null
+					)
+					: this.selectionMask?.slice() ?? null;
+				return { frame, layer: this.currentLayer, mask };
+			}).filter((target) => target.mask)
+			: [];
 		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
-			if (!selection) return;
-			targets.push({ frame: this.currentFrame, layer: this.currentLayer, mask: selection });
+			targets.push(...selectionTargets);
 		} else if (scope === 'layer') {
 			targets.push({ frame: this.currentFrame, layer: this.currentLayer });
 		} else {
