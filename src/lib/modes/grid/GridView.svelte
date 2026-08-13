@@ -22,11 +22,11 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const tileW = $derived((session.version, session.doc.meta.width * session.gridZoom));
 	const tileH = $derived((session.version, session.doc.meta.height * session.gridZoom));
-	const floatCache = new WeakMap<object, { version: number; canvas: HTMLCanvasElement }>();
+	const floatCache = new WeakMap<object, { version: number; documentVersion: number; canvas: HTMLCanvasElement }>();
 
 	function floatingCanvas(selection: NonNullable<typeof session.floating>) {
 		const cached = floatCache.get(selection);
-		if (cached?.version === selection.version) return cached.canvas;
+		if (cached?.version === selection.version && cached.documentVersion === session.version) return cached.canvas;
 		const canvas = document.createElement('canvas');
 		canvas.width = selection.renderRect.w;
 		canvas.height = selection.renderRect.h;
@@ -36,7 +36,7 @@
 		const lut = buildLut(session.doc.palette);
 		for (let j = 0; j < selection.buffer.length; j++) rgba[j] = lut[selection.buffer[j]];
 		ctx.putImageData(image, 0, 0);
-		floatCache.set(selection, { version: selection.version, canvas });
+		floatCache.set(selection, { version: selection.version, documentVersion: session.version, canvas });
 		return canvas;
 	}
 
@@ -153,7 +153,11 @@
 		}
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
+		if (strokeTile >= 0 && session.tool === 'line') {
+			const { x, y } = pixelFromEvent(e, tiles[strokeTile]!);
+			session.lineMove(x, y, e.shiftKey);
+		}
 		strokeTile = -1;
 		if (moveTile !== -1) session.endLayerMove();
 		moveTile = -1;
@@ -163,7 +167,7 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent, i: number) {
-		if (e.key === 'Escape' && session.lineActive) {
+		if (e.key === 'Escape' && (session.lineActive || session.shapeActive)) {
 			e.preventDefault();
 			e.stopPropagation();
 			session.cancelLine();
@@ -253,7 +257,7 @@
 						width={tileW}
 						height={tileH}
 						style={`--checker-size:${session.gridZoom * 2}px`}
-						onfocus={() => ((focusedTile = i), session.selectFrame(i))}
+						onfocus={() => { focusedTile = i; if (session.currentFrame !== i) session.selectFrame(i); }}
 						onblur={() => focusedTile === i && (focusedTile = -1)}
 						onkeydown={(e) => onKeyDown(e, i)}
 						onpointerdown={(e) => onPointerDown(e, i)}
