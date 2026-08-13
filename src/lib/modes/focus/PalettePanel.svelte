@@ -29,7 +29,6 @@
 		if (signature !== paletteSignature) {
 			if (paletteSignature) {
 				removePending = null;
-				session.paletteImportGeneration++;
 			}
 			paletteSignature = signature;
 			resetReplaceEndpoints();

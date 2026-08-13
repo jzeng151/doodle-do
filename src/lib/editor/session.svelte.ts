@@ -154,6 +154,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
+			if (command.dirty().palette) this.paletteImportGeneration++;
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
