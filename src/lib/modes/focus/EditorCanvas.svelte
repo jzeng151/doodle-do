@@ -300,6 +300,7 @@
 
 	function onPointerDown(e: PointerEvent) {
 		if (e.button !== 0) return;
+		if (session.tool === 'move' && layerPointer !== null) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		keyboardX = x;
@@ -383,7 +384,7 @@
 				}
 				// 4) otherwise start this tool's gesture; without shift it
 				// replaces the selection (committing any pending float, B5)
-				const additive = e.shiftKey && !session.floating;
+				const additive = e.shiftKey;
 				switch (session.tool) {
 					case 'select':
 						session.beginMarquee(x, y, additive);
