@@ -4,6 +4,7 @@ import { DEFAULT_PALETTE } from './palette';
 import { CommandBus } from './commands';
 import {
 	FpsCommand,
+	DocumentReplaceCommand,
 	FrameAddCommand,
 	FrameDeleteCommand,
 	FrameDurationCommand,
@@ -93,6 +94,14 @@ describe('frame commands', () => {
 		expect(add.byteSize).toBeGreaterThan(200);
 		expect(reorder.byteSize).toBeGreaterThan(200);
 		expect(new FrameDeleteCommand(doc, 0).byteSize).toBeGreaterThan(200);
+	});
+
+	it('counts animation tags retained by document replacement', () => {
+		const before = createDoc({ width: 1, height: 1, palette: [], frameCount: 1 });
+		const after = structuredClone(before);
+		before.meta.tags = [{ name: 'a'.repeat(200), from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		after.meta.tags = [{ name: 'b'.repeat(200), from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		expect(new DocumentReplaceCommand(before, after).byteSize).toBeGreaterThan(500);
 	});
 
 	it('per-frame duration and fps commands undo cleanly', () => {
