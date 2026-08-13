@@ -126,6 +126,10 @@ describe('samplePixel', () => {
 		expect(samplePixel(doc, 0, 1, 1)).toBe(2);
 		doc.frames[0].layers[1].opacity = 0;
 		expect(samplePixel(doc, 0, 1, 1)).toBe(2);
+		doc.frames[0].layers[0].pixels[10] = 0;
+		doc.frames[0].layers[1].pixels[10] = 7;
+		doc.frames[0].layers[1].opacity = .05;
+		expect(samplePixel(doc, 0, 2, 1)).toBe(7);
 		expect(samplePixel(doc, 0, 0, 0)).toBe(0);
 		expect(samplePixel(doc, 0, -1, 0)).toBe(0);
 	});

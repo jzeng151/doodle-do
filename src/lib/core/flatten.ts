@@ -6,14 +6,14 @@ import type { Doc, Layer } from './document';
 import { buildLut } from './palette';
 import { blendPacked } from '../render/compositor';
 
-export function compositePixelIndex(layers: Layer[], index: number, palette: string[], lut = buildLut(palette)): number {
+export function compositePixelIndex(layers: Layer[], index: number, palette: string[], lut = buildLut(palette), alphaThreshold = 128): number {
 	let color = 0;
 	for (const layer of layers) {
 		if (!layer.visible) continue;
 		const value = layer.pixels[index];
 		if (value) color = blendPacked(color, lut[value], layer.opacity ?? 1);
 	}
-	if ((color >>> 24) < 128) return 0;
+	if ((color >>> 24) < alphaThreshold) return 0;
 	let nearest = 1, distance = Infinity;
 	for (let value = 1; value <= palette.length; value++) {
 		const red = (color & 255) - (lut[value] & 255);
