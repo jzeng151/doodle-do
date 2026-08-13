@@ -74,5 +74,10 @@ export function paletteFromArtwork(doc: Doc): { palette: string[]; map: Map<numb
 	if (!used.size) return null;
 	const values = [...used].sort((a, b) => a - b);
 	const map = new Map(values.map((value, index) => [value, index + 1]));
-	return { palette: values.map((value) => doc.palette[value - 1]), map };
+	const palette = values.map((value) => doc.palette[value - 1]);
+	for (let value = 1; value <= doc.palette.length; value++) {
+		const duplicate = palette.indexOf(doc.palette[value - 1]);
+		if (!map.has(value) && duplicate >= 0) map.set(value, duplicate + 1);
+	}
+	return { palette, map };
 }
