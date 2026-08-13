@@ -289,6 +289,28 @@ test('comparison fork keeps its saved clip playback settings', async ({ page }) 
 	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', forkPaused!);
 });
 
+test('comparison replacement preserves lossy mirror axis round trips', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Mirror X' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: '16×16' }).click();
+	await dialog.getByLabel('Scale art to fit').check();
+	await dialog.getByRole('button', { name: 'Resize' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const current = page.locator('.editor-pane').first();
+	page.once('dialog', (confirmation) => confirmation.accept());
+	await page.locator('.editor-pane').last().getByRole('button', { name: 'Apply as current' }).click();
+	const axis = current.getByLabel('X axis');
+	await axis.fill('10');
+	await current.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('5');
+	await current.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('10');
+});
+
 test('preview background setting is shared with Loop mode', async ({ page }) => {
 	await gotoApp(page);
 	const sidePanel = page.locator('.loop-panel');

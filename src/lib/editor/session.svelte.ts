@@ -66,6 +66,18 @@ export function createDefaultDoc(): Doc {
 	return createDoc({ width: 32, height: 32, fps: 8, palette: DEFAULT_PALETTE });
 }
 
+type AxisHistory = {
+	before: [number, number];
+	after: [number, number];
+	beforeSize: [number, number];
+	afterSize: [number, number];
+	scaled: boolean;
+	exactBefore?: (number | undefined)[];
+	projectedAfter?: (number | undefined)[];
+	exactAfter?: (number | undefined)[];
+	projectedBefore?: (number | undefined)[];
+};
+
 export class EditorSession {
 	readonly doc: Doc;
 	readonly bus: CommandBus;
@@ -147,8 +159,8 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
-	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean; roundTripAfter?: (number | undefined)[]; roundTripBefore?: (number | undefined)[] }>();
-	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number] }>();
+	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, AxisHistory>();
+	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, AxisHistory>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
@@ -195,33 +207,9 @@ export class EditorSession {
 				this.overlayVersion++;
 			}
 			const axes = command instanceof ResizeCanvasCommand ? this.resizeMirrorAxes.get(command) : undefined;
-			if (axes) {
-				const before = action === 'undo' ? axes.after : axes.before;
-				const after = action === 'undo' ? axes.before : axes.after;
-				const fromSize = action === 'undo' ? axes.afterSize : axes.beforeSize;
-				const toSize = action === 'undo' ? axes.beforeSize : axes.afterSize;
-				const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
-				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => {
-					if (action === 'redo' && axes.scaled && axes.roundTripBefore?.[index] === current[index]) return axes.roundTripAfter![index]!;
-					const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
-					if (action === 'undo' && axes.scaled && current[index] !== before[index]) {
-						(axes.roundTripAfter ??= [])[index] = current[index];
-						(axes.roundTripBefore ??= [])[index] = next;
-					}
-					return next;
-				}) as [number, number];
-			}
+			if (axes) [this.mirrorAxisX, this.mirrorAxisY] = this.restoreHistoryAxes(axes, action);
 			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
-			if (replacementAxes) {
-				const before = action === 'undo' ? replacementAxes.after : replacementAxes.before;
-				const after = action === 'undo' ? replacementAxes.before : replacementAxes.after;
-				const fromSize = action === 'undo' ? replacementAxes.afterSize : replacementAxes.beforeSize;
-				const toSize = action === 'undo' ? replacementAxes.beforeSize : replacementAxes.afterSize;
-				const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
-				[this.mirrorAxisX, this.mirrorAxisY] = [0, 1].map((index) => this.historyAxis(
-					current[index], before[index], after[index], fromSize[index], toSize[index], true, action === 'dispatch'
-				)) as [number, number];
-			}
+			if (replacementAxes) [this.mirrorAxisX, this.mirrorAxisY] = this.restoreHistoryAxes(replacementAxes, action);
 			if (command instanceof DocumentReplaceCommand) {
 				this.colorValue = Math.min(this.colorValue, doc.palette.length);
 				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
@@ -319,7 +307,8 @@ export class EditorSession {
 			before: [this.mirrorAxisX, this.mirrorAxisY],
 			after: [this.comparisonSession.mirrorAxisX, this.comparisonSession.mirrorAxisY],
 			beforeSize: [this.doc.meta.width, this.doc.meta.height],
-			afterSize: [this.comparisonSession.doc.meta.width, this.comparisonSession.doc.meta.height]
+			afterSize: [this.comparisonSession.doc.meta.width, this.comparisonSession.doc.meta.height],
+			scaled: true
 		});
 		this.bus.dispatch(command);
 	}
@@ -346,8 +335,8 @@ export class EditorSession {
 		fork.overlayVersion++;
 		const currentCommand = new DocumentReplaceCommand(this.doc, forkDoc);
 		const forkCommand = new DocumentReplaceCommand(fork.doc, currentDoc);
-		this.replaceMirrorAxes.set(currentCommand, { before: [this.mirrorAxisX, this.mirrorAxisY], after: [fork.mirrorAxisX, fork.mirrorAxisY], beforeSize: [this.doc.meta.width, this.doc.meta.height], afterSize: [fork.doc.meta.width, fork.doc.meta.height] });
-		fork.replaceMirrorAxes.set(forkCommand, { before: [fork.mirrorAxisX, fork.mirrorAxisY], after: [this.mirrorAxisX, this.mirrorAxisY], beforeSize: [fork.doc.meta.width, fork.doc.meta.height], afterSize: [this.doc.meta.width, this.doc.meta.height] });
+		this.replaceMirrorAxes.set(currentCommand, { before: [this.mirrorAxisX, this.mirrorAxisY], after: [fork.mirrorAxisX, fork.mirrorAxisY], beforeSize: [this.doc.meta.width, this.doc.meta.height], afterSize: [fork.doc.meta.width, fork.doc.meta.height], scaled: true });
+		fork.replaceMirrorAxes.set(forkCommand, { before: [fork.mirrorAxisX, fork.mirrorAxisY], after: [this.mirrorAxisX, this.mirrorAxisY], beforeSize: [fork.doc.meta.width, fork.doc.meta.height], afterSize: [this.doc.meta.width, this.doc.meta.height], scaled: true });
 		this.bus.dispatch(currentCommand);
 		fork.bus.dispatch(forkCommand);
 	}
@@ -449,6 +438,28 @@ export class EditorSession {
 	private historyAxis(current: number, before: number, after: number, fromSize: number, toSize: number, scaled: boolean, force: boolean): number {
 		if (force || current === before) return after;
 		return this.normalizeAxis(scaled ? (current + .5) * toSize / fromSize - .5 : current, toSize - 1);
+	}
+
+	private restoreHistoryAxes(axes: AxisHistory, action: 'dispatch' | 'undo' | 'redo'): [number, number] {
+		const undo = action === 'undo';
+		const before = undo ? axes.after : axes.before;
+		const after = undo ? axes.before : axes.after;
+		const fromSize = undo ? axes.afterSize : axes.beforeSize;
+		const toSize = undo ? axes.beforeSize : axes.afterSize;
+		const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
+		return [0, 1].map((index) => {
+			if (action === 'undo' && axes.projectedAfter?.[index] === current[index]) return axes.exactBefore![index]!;
+			if (action === 'redo' && axes.projectedBefore?.[index] === current[index]) return axes.exactAfter![index]!;
+			const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
+			if (axes.scaled && action === 'undo' && current[index] !== before[index]) {
+				(axes.exactAfter ??= [])[index] = current[index];
+				(axes.projectedBefore ??= [])[index] = next;
+			} else if (axes.scaled && action === 'redo' && current[index] !== before[index]) {
+				(axes.exactBefore ??= [])[index] = current[index];
+				(axes.projectedAfter ??= [])[index] = next;
+			}
+			return next;
+		}) as [number, number];
 	}
 
 	togglePaletteLock(): void {
