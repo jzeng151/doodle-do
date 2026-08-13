@@ -92,4 +92,12 @@ describe('agent operation adapter', () => {
 		expect(editor.doc.frames[0].layers[0].pixels[0]).toBe(1);
 		expect(editor.doc.frames[0].layers[0].pixels[12]).toBe(1);
 	});
+
+	it('rejects symmetry axes outside half-pixel steps', () => {
+		const editor = session();
+		expect(() => executeAgentOperation(editor, 'draw_stroke', {
+			expectedVersion: 0, frame: 0, layer: 0, value: 1, brushSize: 1,
+			mirrorX: true, mirrorAxisX: 1.25, points: [{ x: 0, y: 0 }]
+		})).toThrow(/half-pixel/);
+	});
 });

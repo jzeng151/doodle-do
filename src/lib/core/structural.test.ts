@@ -17,6 +17,7 @@ import {
 	DocumentReplaceCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
+	PaletteRemapCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	UnlinkFrameCommand
@@ -98,6 +99,15 @@ describe('frame commands', () => {
 		expect(doc.frames[1].layers[0].pixels).toBe(doc.frames[0].layers[0].pixels);
 	});
 
+	it('does not charge a deleted frame for buffers retained by linked peers', () => {
+		const doc = createDoc({ width: 512, height: 512, palette: [], frameCount: 2, layerCount: 8 });
+		for (let i = 0; i < 8; i++) {
+			doc.frames[1].layers[i].pixels = doc.frames[0].layers[i].pixels;
+			doc.frames[0].layers[i].linkId = doc.frames[1].layers[i].linkId = `linked-${i}`;
+		}
+		expect(new FrameDeleteCommand(doc, 0).byteSize).toBe(64);
+	});
+
 	it('keeps a clip range when reordering within it', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
 		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];
@@ -168,6 +178,19 @@ describe('layer commands', () => {
 });
 
 describe('palette commands', () => {
+	it('remaps palette indices in place and preserves linked buffer identity', () => {
+		const doc = testDoc();
+		const pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[1].layers[0].pixels = pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, [doc.palette[0], doc.palette[2]], new Map([[1, 1], [3, 2]]));
+		command.do(doc);
+		expect(pixels[0]).toBe(2);
+		expect(doc.frames[1].layers[0].pixels).toBe(pixels);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
 	it('replaces only the palette and undoes compactly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);
