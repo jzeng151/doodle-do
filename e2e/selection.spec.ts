@@ -12,6 +12,14 @@ function pixelOpaque([x, y]: [number, number]) {
 	return d[3] > 0;
 }
 
+function pixelAlpha([x, y]: [number, number]) {
+	const canvas = document.querySelector('canvas.editor') as HTMLCanvasElement;
+	const zoom = canvas.width / 32;
+	return canvas
+		.getContext('2d')!
+		.getImageData(Math.floor((x + 0.5) * zoom), Math.floor((y + 0.5) * zoom), 1, 1).data[3];
+}
+
 async function mouseOnPixel(page: Page, x: number, y: number) {
 	const box = (await page.locator('canvas.editor').boundingBox())!;
 	await page.mouse.move(box.x + (x + 0.5) * ZOOM, box.y + (y + 0.5) * ZOOM);
@@ -75,6 +83,31 @@ test('escape cancels a floating move', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled(); // the pencil dot
 	await page.keyboard.press('Control+z');
 	await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+});
+
+test('selection previews apply layer opacity once', async ({ page }) => {
+	await page.goto('/canvas');
+	const canvas = page.locator('canvas.editor');
+	await canvas.waitFor();
+	for (const x of [8, 9]) {
+		await mouseOnPixel(page, x, 8);
+		await page.mouse.down();
+		await page.mouse.up();
+	}
+	await page.getByLabel('Layer 1 opacity').fill('0.5');
+	await page.getByLabel('Layer 1 opacity').dispatchEvent('change');
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 8, 8);
+	await page.mouse.down();
+	await page.mouse.up();
+	await canvas.focus();
+	await page.keyboard.press('ArrowRight');
+	const previewAlpha = await page.evaluate(pixelAlpha, [9, 8] as [number, number]);
+	await page.keyboard.press('Enter');
+	const committedAlpha = await page.evaluate(pixelAlpha, [9, 8] as [number, number]);
+	expect(previewAlpha).toBe(committedAlpha);
+	expect(committedAlpha).toBeGreaterThanOrEqual(127);
+	expect(committedAlpha).toBeLessThanOrEqual(128);
 });
 
 test('shift adds a second marquee; both regions move as one undo step', async ({ page }) => {

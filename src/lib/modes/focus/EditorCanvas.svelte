@@ -2,7 +2,7 @@
 	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { combinedOnionSequence, drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
-	import { brushBounds, canvasPoint, floatingCanvas, floatingFrameCanvas } from '../canvas';
+	import { brushBounds, canvasPoint, floatingFrameCanvas } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
 
@@ -77,7 +77,7 @@
 				drawMovedFrame(ctx, bf, 0.35);
 			}
 		}
-		const moved = session.tool === 'move' ? session.floatingSelections(f) : [];
+		const moved = session.floatingSelections(f);
 		if (!moved.length) ctx.drawImage(session.compositor.frameCanvas(f), 0, 0, canvasEl.width, canvasEl.height);
 		else drawMovedFrame(ctx, f, 1);
 
@@ -97,7 +97,7 @@
 			ctx.stroke();
 		}
 
-		drawSelectionOverlay(ctx, !moved.length);
+		drawSelectionOverlay(ctx);
 		if (keyboardFocused) drawKeyboardCursor(ctx);
 	}
 
@@ -128,19 +128,13 @@
 		ctx.restore();
 	}
 
-	function drawSelectionOverlay(ctx: CanvasRenderingContext2D, drawPixels = true) {
+	function drawSelectionOverlay(ctx: CanvasRenderingContext2D) {
 		const z = renderZoom;
 		const sel = session.floating;
 		if (sel) {
 			ctx.imageSmoothingEnabled = false;
 			for (const s of [session.floatingTwin, sel]) {
 				if (!s) continue;
-				const r = s.renderRect;
-				if (drawPixels) {
-					ctx.globalAlpha = session.doc.frames[s.frameIndex].layers[s.layerIndex].opacity ?? 1;
-					ctx.drawImage(floatingCanvas(s, session.doc.palette, session.version), r.x * z, r.y * z, r.w * z, r.h * z);
-					ctx.globalAlpha = 1;
-				}
 				// rotated group outline
 				dashedStroke(ctx, () => {
 					ctx.beginPath();
