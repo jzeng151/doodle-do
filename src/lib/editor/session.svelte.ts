@@ -793,7 +793,8 @@ export class EditorSession {
 		if (this.currentLayerLocked) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (!this.floating) return;
-		const quarter = Math.round(this.floating.angle / (Math.PI / 2)) + direction;
+		const turns = this.floating.angle / (Math.PI / 2);
+		const quarter = direction > 0 ? Math.floor(turns + Number.EPSILON) + 1 : Math.ceil(turns - Number.EPSILON) - 1;
 		this.rotateFloating(quarter * Math.PI / 2);
 		if (this.floatingTwin) {
 			const desiredX = this.doc.meta.width - this.floating.renderRect.x - this.floatingTwin.renderRect.w;
