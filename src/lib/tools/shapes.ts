@@ -83,38 +83,74 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 			if (hi - lo + 1 >= wrap.width) hi = lo + wrap.width - 1;
 			for (let x = lo; x <= hi; x++) add(x, y);
 		};
-		const rows: number[] = [];
-		if (iy1 - iy0 + 1 <= wrap.height * 4) {
-			for (let y = iy0; y <= iy1; y++) rows.push(y);
-		} else {
-			// ponytail: sample edge/middle tile bands; use analytic torus rasterization if billion-row ellipses need exact intermediate rows.
-			const middle = Math.floor((iy0 + iy1) / 2);
-			const sampled = new Set<number>();
-			for (let offset = 0; offset < wrap.height; offset++) {
-				sampled.add(iy0 + offset);
-				sampled.add(iy1 - offset);
-				sampled.add(middle - offset);
-				sampled.add(middle + offset);
-			}
-			rows.push(...[...sampled].filter((y) => y >= iy0 && y <= iy1).sort((a, b) => a - b));
-		}
-		for (const y of rows) {
-			const span = rowSpan(y);
-			if (!span) continue;
-			const [lo, hi] = span;
-			if (filled) addRange(lo, hi, y);
-			else {
-				add(lo, y);
-				add(hi, y);
-				for (const adjacent of [rowSpan(y - 1), rowSpan(y + 1)]) {
-					if (!adjacent) addRange(lo, hi, y);
-					else {
-						addRange(lo, Math.min(hi, adjacent[0] - 1), y);
-						addRange(Math.max(lo, adjacent[1] + 1), hi, y);
+		const columnSpan = (x: number): [number, number] | null => {
+			const term = 1 - ((x - cx) / rx) ** 2;
+			if (term < 0) return null;
+			const reach = ry * Math.sqrt(term);
+			let lo = Math.max(iy0, Math.ceil(cy - reach));
+			let hi = Math.min(iy1, Math.floor(cy + reach));
+			while (lo <= hi && !inside(x, lo)) lo++;
+			while (hi >= lo && !inside(x, hi)) hi--;
+			return lo <= hi ? [lo, hi] : null;
+		};
+		const addColumnRange = (lo: number, hi: number, x: number) => {
+			if (lo > hi) return;
+			if (hi - lo + 1 >= wrap.height) hi = lo + wrap.height - 1;
+			for (let y = lo; y <= hi; y++) add(x, y);
+		};
+		if (iy1 - iy0 + 1 > wrap.height * 4 && ix1 - ix0 + 1 <= wrap.width * 4) {
+			for (let x = ix0; x <= ix1; x++) {
+				const span = columnSpan(x);
+				if (!span) continue;
+				const [lo, hi] = span;
+				if (filled) addColumnRange(lo, hi, x);
+				else {
+					add(x, lo);
+					add(x, hi);
+					for (const adjacent of [columnSpan(x - 1), columnSpan(x + 1)]) {
+						if (!adjacent) addColumnRange(lo, hi, x);
+						else {
+							addColumnRange(lo, Math.min(hi, adjacent[0] - 1), x);
+							addColumnRange(Math.max(lo, adjacent[1] + 1), hi, x);
+						}
 					}
 				}
+				if (points.length === wrap.width * wrap.height) break;
 			}
-			if (points.length === wrap.width * wrap.height) break;
+		} else {
+			const rows: number[] = [];
+			if (iy1 - iy0 + 1 <= wrap.height * 4) {
+				for (let y = iy0; y <= iy1; y++) rows.push(y);
+			} else {
+				// ponytail: sample edge/middle tile bands; use analytic torus rasterization if billion-row ellipses need exact intermediate rows.
+				const middle = Math.floor((iy0 + iy1) / 2);
+				const sampled = new Set<number>();
+				for (let offset = 0; offset < wrap.height; offset++) {
+					sampled.add(iy0 + offset);
+					sampled.add(iy1 - offset);
+					sampled.add(middle - offset);
+					sampled.add(middle + offset);
+				}
+				rows.push(...[...sampled].filter((y) => y >= iy0 && y <= iy1).sort((a, b) => a - b));
+			}
+			for (const y of rows) {
+				const span = rowSpan(y);
+				if (!span) continue;
+				const [lo, hi] = span;
+				if (filled) addRange(lo, hi, y);
+				else {
+					add(lo, y);
+					add(hi, y);
+					for (const adjacent of [rowSpan(y - 1), rowSpan(y + 1)]) {
+						if (!adjacent) addRange(lo, hi, y);
+						else {
+							addRange(lo, Math.min(hi, adjacent[0] - 1), y);
+							addRange(Math.max(lo, adjacent[1] + 1), hi, y);
+						}
+					}
+				}
+				if (points.length === wrap.width * wrap.height) break;
+			}
 		}
 	} else {
 		for (let y = iy0; y <= iy1; y++) {
