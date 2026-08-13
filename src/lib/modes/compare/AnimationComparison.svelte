@@ -31,7 +31,10 @@
 
 	function playbackRange(target: EditorSession) {
 		const last = target.doc.frames.length - 1;
-		const range = session.effectiveLoopRange();
+		const activeTag = target.doc.meta.tags?.find(
+			(tag) => tag.name === session.activeAnimationTagName
+		);
+		const range = activeTag ? { start: activeTag.from, end: activeTag.to } : session.effectiveLoopRange();
 		const start = Math.min(range.start, last);
 		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
