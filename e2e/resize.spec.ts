@@ -57,6 +57,28 @@ test('resize supports 512×512 and fits it to the viewport', async ({ page }) =>
 	expect(fit).toEqual({ fits: true, fillsAxis: true });
 });
 
+test('mirror axes stay valid and follow resize history', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Mirror X' }).click();
+	const axis = page.getByLabel('X axis');
+	await axis.fill('20');
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: '16×16' }).click();
+	await dialog.getByRole('button', { name: 'Resize' }).click();
+	await expect(axis).toHaveValue('15');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('20');
+	await page.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('15');
+
+	await axis.fill('');
+	const box = await page.locator('canvas.editor').boundingBox();
+	if (!box) throw new Error('no editor canvas');
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+	await expect(axis).toHaveValue('7.5');
+});
+
 test('New warns before discarding unsaved work, but not on a clean doc', async ({ page }) => {
 	await gotoApp(page);
 

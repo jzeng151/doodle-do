@@ -85,6 +85,14 @@ export class StrokeBuilder {
 		);
 	}
 
+	cancel(): Rect | null {
+		const rect = this.dirtyRect();
+		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
+		for (const [index, value] of this.dirty) pixels[index] = value;
+		this.dirty.clear();
+		return rect;
+	}
+
 	private dirtyRect(): Rect | null {
 		if (!this.dirty.size) return null;
 		const { width } = this.doc.meta;
@@ -132,10 +140,15 @@ export class StrokeBuilder {
 			}
 			if (x >= 0 && y >= 0 && x < width && y < height) endpoints.add(y * width + x);
 		};
-		protect(c.x, c.y);
-		if (this.mirrorX) protect(mx, c.y);
-		if (this.mirrorY) protect(c.x, my);
-		if (this.mirrorX && this.mirrorY) protect(mx, my);
+		for (const [index, point] of this.centers.entries()) {
+			if (index === this.centers.length - 2) continue;
+			const pmx = Math.round(2 * this.mirrorAxisX - point.x);
+			const pmy = Math.round(2 * this.mirrorAxisY - point.y);
+			protect(point.x, point.y);
+			if (this.mirrorX) protect(pmx, point.y);
+			if (this.mirrorY) protect(point.x, pmy);
+			if (this.mirrorX && this.mirrorY) protect(pmx, pmy);
+		}
 		const bmx = Math.round(2 * this.mirrorAxisX - b.x);
 		const bmy = Math.round(2 * this.mirrorAxisY - b.y);
 		const corners = [{ x: b.x, y: b.y }];
@@ -143,24 +156,25 @@ export class StrokeBuilder {
 		if (this.mirrorY) corners.push({ x: b.x, y: bmy });
 		if (this.mirrorX && this.mirrorY) corners.push({ x: bmx, y: bmy });
 		for (const point of corners) {
-			this.restorePixel(point.x, point.y, endpoints);
-			rect = unionRect(rect, { ...point, w: 1, h: 1 });
+			if (this.restorePixel(point.x, point.y, endpoints)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
 	}
 
-	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): void {
+	private restorePixel(x: number, y: number, protectedIndices = new Set<number>()): boolean {
 		const { width, height } = this.doc.meta;
 		if (this.tiled) {
 			x = (x % width + width) % width;
 			y = (y % height + height) % height;
 		}
-		if (x < 0 || y < 0 || x >= width || y >= height) return;
+		if (x < 0 || y < 0 || x >= width || y >= height) return false;
 		const index = y * width + x;
-		if (protectedIndices.has(index)) return;
+		if (protectedIndices.has(index)) return false;
 		const before = this.dirty.get(index);
-		if (before !== undefined) this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		if (before === undefined) return false;
+		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		return true;
 	}
 
 	private stampOne(cx: number, cy: number): Rect | null {
@@ -168,13 +182,22 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
 		if (this.tiled) {
-			for (let y = cy - r; y <= cy - r + this.size - 1; y++) for (let x = cx - r; x <= cx - r + this.size - 1; x++) {
+			const x0 = cx - r, y0 = cy - r;
+			const x1 = x0 + this.size - 1, y1 = y0 + this.size - 1;
+			for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
 				const tx = (x % width + width) % width, ty = (y % height + height) % height;
 				const i = ty * width + tx;
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
 				pixels[i] = ditherValue(tx, ty, this.value, this.secondaryValue, this.ditherSize);
 			}
-			return { x: 0, y: 0, w: width, h: height };
+			const wrapsX = x0 < 0 || x1 >= width;
+			const wrapsY = y0 < 0 || y1 >= height;
+			return {
+				x: wrapsX ? 0 : x0,
+				y: wrapsY ? 0 : y0,
+				w: wrapsX ? width : this.size,
+				h: wrapsY ? height : this.size
+			};
 		}
 		const x0 = Math.max(0, cx - r);
 		const y0 = Math.max(0, cy - r);
