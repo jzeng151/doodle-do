@@ -164,6 +164,7 @@ export class EditorSession {
 	}
 
 	resetComparisonFork(): void {
+		this.lineEnd();
 		this.commitFloating();
 		this.comparisonSession = new EditorSession(structuredClone(this.doc));
 		this.comparisonVersion++;
@@ -171,6 +172,8 @@ export class EditorSession {
 
 	applyComparisonFork(): void {
 		if (!this.comparisonSession) return;
+		this.lineEnd();
+		this.comparisonSession.lineEnd();
 		this.commitFloating();
 		this.comparisonSession.commitFloating();
 		this.selectionMask = null;
@@ -183,6 +186,8 @@ export class EditorSession {
 	swapComparisonFork(): void {
 		const fork = this.comparisonSession;
 		if (!fork) return;
+		this.lineEnd();
+		fork.lineEnd();
 		this.commitFloating();
 		fork.commitFloating();
 		const currentDoc = structuredClone(this.doc);
@@ -595,6 +600,7 @@ export class EditorSession {
 	// --- other tools ---
 
 	fill(x: number, y: number): void {
+		this.lineEnd();
 		if (this.floating) return; // B5: drawing disabled while floating
 		const cmds = this.editTargets()
 			.map((f) => floodFill(this.doc, f, this.currentLayer, x, y, this.colorValue))
@@ -617,6 +623,7 @@ export class EditorSession {
 	// (a bare marquee lifts first, keeping the one-command guarantee),
 	// else to the whole active layer.
 	flip(axis: 'horizontal' | 'vertical'): void {
+		this.lineEnd();
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -815,6 +822,7 @@ export class EditorSession {
 
 	removePaletteColor(index: number, remapTo?: number): boolean {
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		this.lineEnd();
 		const value = index + 1;
 		const inUse = this.doc.frames.some((frame) =>
 			frame.layers.some((layer) => layer.pixels.includes(value))

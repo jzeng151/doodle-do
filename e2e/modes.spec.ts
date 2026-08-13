@@ -94,6 +94,16 @@ test('keyboard lines commit on tool changes and work in Grid', async ({ page }) 
 	await page.keyboard.press('Control+z');
 
 	await page.getByRole('button', { name: 'Line' }).click();
+	await editor.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.getByRole('button', { name: 'Flip H' }).click();
+	await page.keyboard.press('Control+z');
+	expect(await locatorHasInk(editor)).toBe(true);
+	await page.keyboard.press('Control+z');
+	expect(await locatorHasInk(editor)).toBe(false);
+
+	await page.getByRole('button', { name: 'Line' }).click();
 	await switcher(page).getByRole('button', { name: 'Grid' }).click();
 	const tile = page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first();
 	await tile.focus();
