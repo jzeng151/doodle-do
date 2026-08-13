@@ -176,6 +176,14 @@ describe('mirror-draw', () => {
 		expect(pixels[4 * 8 + 4]).toBe(0);
 	});
 
+	it('samples even mirrored brushes from the source footprint', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 2, true, 'pencil-stroke', false, 4, 2, 3.5).begin(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 5]).toBe(pixels[2 * 8 + 2]);
+		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
+
 	it('center column with mirror does not double-record', () => {
 		const doc = testDoc(7, 7); // odd width, center x = 3 mirrors to itself
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
