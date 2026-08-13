@@ -360,7 +360,8 @@
 				const hp = handleScreenPos();
 				if (hp && Math.hypot(ex - hp.x, ey - hp.y) <= HANDLE_R) {
 					session.liftSelection(); // no-op when already floating
-					const sel = session.floating!;
+					const sel = session.floating;
+					if (!sel) break;
 					const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
 					const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
 					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx) };

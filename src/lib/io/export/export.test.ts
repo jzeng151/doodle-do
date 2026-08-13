@@ -13,6 +13,15 @@ describe('flattenFrameIndices', () => {
 		doc.frames[0].layers[1].visible = false;
 		expect(Array.from(flattenFrameIndices(doc, 0))).toEqual([1, 3]);
 	});
+
+	it('accumulates translucent layers before applying GIF transparency', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, layerCount: 2 });
+		for (const layer of doc.frames[0].layers) {
+			layer.pixels[0] = 1;
+			layer.opacity = .4;
+		}
+		expect(flattenFrameIndices(doc, 0)[0]).toBe(1);
+	});
 });
 
 describe('sheetLayout', () => {
