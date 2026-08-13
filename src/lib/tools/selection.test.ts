@@ -371,6 +371,17 @@ describe('pixel-safe quarter turns', () => {
 		expect(sel.renderRect.x).toBe(1);
 	});
 
+	it('moves outward after an edge-clamped rotation consumes the nudge', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 0, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect(sel.renderRect.y).toBe(0);
+		sel.moveBy(0, -1);
+		expect(sel.renderRect.y).toBe(-1);
+		sel.moveBy(0, -1);
+		expect(sel.renderRect.y).toBe(-2);
+	});
+
 	it('keeps the snapped center when returning to free rotation', () => {
 		const doc = testDoc();
 		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 1 }], 8, 8));

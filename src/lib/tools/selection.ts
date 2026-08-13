@@ -203,7 +203,7 @@ export class FloatingSelection {
 	moveBy(dx: number, dy: number): void {
 		this.dx += dx + (dx ? this.snapDx : 0);
 		this.dy += dy + (dy ? this.snapDy : 0);
-		this.rerasterize();
+		this.rerasterize(dx === 0, dy === 0);
 	}
 
 	alignRenderX(x: number): void {
@@ -267,7 +267,7 @@ export class FloatingSelection {
 	// Rebuild renderRect/buffer from the pristine pixels with the current
 	// transform: inverse-mapped nearest neighbor, sampling pixel centers.
 	// At angle 0 this degenerates to an exact integer copy (lossless moves).
-	private rerasterize(): void {
+	private rerasterize(clampX = true, clampY = true): void {
 		const { x: bx, y: by, w: bw, h: bh } = this.bbox;
 		this.snapDx = this.snapDy = 0;
 		const quarter = this.quarterTurn();
@@ -276,12 +276,12 @@ export class FloatingSelection {
 			const rh = quarter % 2 ? bw : bh;
 			let x = Math.floor(bx + bw / 2 - rw / 2 + this.dx);
 			let y = Math.floor(by + bh / 2 - rh / 2 + this.dy);
-			if (this.dx === 0) {
+			if (clampX && this.dx === 0) {
 				const clamped = Math.max(0, Math.min(this.doc.meta.width - rw, x));
 				this.snapDx = clamped - x;
 				x = clamped;
 			}
-			if (this.dy === 0) {
+			if (clampY && this.dy === 0) {
 				const clamped = Math.max(0, Math.min(this.doc.meta.height - rh, y));
 				this.snapDy = clamped - y;
 				y = clamped;
