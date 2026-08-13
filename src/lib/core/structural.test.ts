@@ -66,6 +66,16 @@ describe('frame commands', () => {
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
 	});
 
+	it('removes a one-frame clip when that frame is deleted', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
+		doc.meta.tags = [{ name: 'idle', from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		const remove = new FrameDeleteCommand(doc, 0);
+		remove.do(doc);
+		expect(doc.meta.tags).toEqual([]);
+		remove.undo(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ name: 'idle', from: 0, to: 0 });
+	});
+
 	it('keeps a clip range when reordering within it', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
 		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];

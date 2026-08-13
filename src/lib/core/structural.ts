@@ -38,7 +38,7 @@ function addFrameTags(tags: AnimationTag[] | undefined, index: number) {
 }
 
 function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: number) {
-	return tags?.map((tag) => {
+	return tags?.filter((tag) => tag.from !== index || tag.to !== index).map((tag) => {
 		const from = tag.from > index ? tag.from - 1 : Math.min(tag.from, last);
 		const to = tag.to >= index ? tag.to - 1 : tag.to;
 		const safeFrom = Math.max(0, Math.min(from, last));
