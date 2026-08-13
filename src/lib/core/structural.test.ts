@@ -107,6 +107,13 @@ describe('frame commands', () => {
 		expect(new FrameDeleteCommand(doc, 0).byteSize).toBe(64);
 	});
 
+	it('extends a clip when duplicating its final frame', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 2, direction: 'forward', repeats: 0 }];
+		new FrameAddCommand(3, { layers: [createLayer(doc, 'Layer 1')] }, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
 	it('removes a one-frame clip when that frame is deleted', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
 		doc.meta.tags = [{ name: 'idle', from: 0, to: 0, direction: 'forward', repeats: 0 }];
