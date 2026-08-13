@@ -16,8 +16,15 @@
 
 	onMount(() => {
 		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		player = new LoopPlayer(session.doc, session.compositor, loopEl, undefined, () =>
-			session.effectiveLoopRange()
+		player = new LoopPlayer(
+			session.doc,
+			session.compositor,
+			loopEl,
+			undefined,
+			() => session.effectiveLoopRange(),
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount
 		);
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
 		paused = media.matches;
