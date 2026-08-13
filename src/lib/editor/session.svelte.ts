@@ -240,6 +240,7 @@ export class EditorSession {
 		this.commitFloating(); // B5: frame change commits
 		this.bulkFrames = []; // plain select exits bulk editing
 		this.currentFrame = index;
+		this.currentLayer = Math.min(this.currentLayer, this.frame.layers.length - 1);
 		if (index === 1) tips.fire('T02');
 		if (this.doc.frames.length >= 3) tips.fire('T25'); // bulk-edit discovery
 	}
@@ -500,7 +501,7 @@ export class EditorSession {
 	}
 
 	beginLayerMove(): void {
-		if (this.floating) return;
+		if (this.floating || !this.frame.layers[this.currentLayer]) return;
 		this.selectionMask = new Uint8Array(this.doc.meta.width * this.doc.meta.height).fill(1);
 		this.liftSelection(false);
 	}
@@ -990,6 +991,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (this.paletteLocked || this.doc.palette.length <= 1 || index === remapTo) return false;
+		this.commitFloating();
 		const value = index + 1;
 		const inUse = this.doc.frames.some((frame) =>
 			frame.layers.some((layer) => layer.pixels.includes(value))
