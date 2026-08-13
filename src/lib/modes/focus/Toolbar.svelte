@@ -184,7 +184,7 @@
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
-		<button aria-pressed={session.tiledDrawing} class:active={session.tiledDrawing} title="Wrap drawing at canvas edges and show a repeat preview" onclick={() => (session.tiledDrawing = !session.tiledDrawing)}>Tile</button>
+		<button aria-pressed={session.tiledDrawing} class:active={session.tiledDrawing} title="Wrap drawing at canvas edges and show a repeat preview" onclick={() => { session.lineEnd(); session.shapeEnd(); session.tiledDrawing = !session.tiledDrawing; }}>Tile</button>
 		<button aria-label="Zoom out" title="Zoom out" onclick={zoomOut}>−</button>
 		<span class="zoom">{zoomLabel}</span>
 		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
