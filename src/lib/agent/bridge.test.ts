@@ -61,4 +61,15 @@ describe('agent operation adapter', () => {
 			edits: [{ x: 0, y: 0, value: 1 }]
 		})).toThrow('unlink it');
 	});
+
+	it('rejects edits while a whole-layer move is floating', () => {
+		const editor = session();
+		editor.floating = {} as EditorSession['floating'];
+		expect(() => executeAgentOperation(editor, 'apply_pixel_patch', {
+			expectedVersion: 0,
+			frame: 0,
+			layer: 0,
+			edits: [{ x: 0, y: 0, value: 1 }]
+		})).toThrow(/finish the active user/);
+	});
 });
