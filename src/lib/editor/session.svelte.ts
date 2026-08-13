@@ -183,10 +183,11 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
-			if (command instanceof AnimationTagsCommand && this.activeAnimationTagName) {
+			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand) && this.activeAnimationTagName) {
 				const active = this.doc.meta.tags?.find((tag) => tag.name === this.activeAnimationTagName);
 				this.selectAnimationTag(active ? active.name : '');
 			}
+			if (command.dirty().palette) this.paletteImportGeneration++;
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
@@ -207,7 +208,7 @@ export class EditorSession {
 				this.colorValue = command.mapActiveColor(this.colorValue, action);
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
-			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand) this.invalidateStamp();
+			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand || command instanceof PaletteReplaceCommand) this.invalidateStamp();
 			else if (this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
@@ -1189,6 +1190,7 @@ export class EditorSession {
 		const active = this.activeAnimationTagName;
 		if (active && active !== name && before?.some((item) => item.name === name)) return;
 		const after = [...(before ?? []).filter((item) => item.name !== name && item.name !== active), { ...tag, name, repeats }];
+		if (before && JSON.stringify(after) === JSON.stringify(before)) return;
 		this.bus.dispatch(new AnimationTagsCommand(before, after));
 		this.selectAnimationTag(name);
 	}
@@ -1460,25 +1462,26 @@ export class EditorSession {
 				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
 			}
 		}
-		const source = this.floating ? structuredClone(this.doc) : this.doc;
+		const staged = new Map<string, Uint8Array>();
 		if (this.floating) {
 			for (const { main, twin } of [
 				{ main: this.floating, twin: this.floatingTwin },
 				...this.floatingPeers
 			]) {
 				const layerPixels = (twin ? main.extractPair(twin) : main.extract()).layerPixels;
-				const pixels = source.frames[main.frameIndex].layers[main.layerIndex].pixels;
+				const pixels = this.doc.frames[main.frameIndex].layers[main.layerIndex].pixels.slice();
 				for (let i = 0; i < pixels.length; i++) if (layerPixels[i]) pixels[i] = layerPixels[i];
+				staged.set(`${main.frameIndex}:${main.layerIndex}`, pixels);
 			}
 		}
 		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
 		const seenPixels = new WeakSet<Uint8Array>();
 		let byteSize = 0;
 		for (const { frame, layer, mask } of targets) {
-			const pixels = source.frames[frame].layers[layer].pixels;
+			const pixels = this.doc.frames[frame].layers[layer].pixels;
 			if (scope !== 'selection' && seenPixels.has(pixels)) continue;
 			seenPixels.add(pixels);
-			const cmd = replaceColorCommand(source, frame, layer, from, to, mask);
+			const cmd = replaceColorCommand(this.doc, frame, layer, from, to, mask, staged.get(`${frame}:${layer}`));
 			if (!cmd) continue;
 			byteSize += cmd.byteSize;
 			if (byteSize + (cmds.length ? 64 : 0) > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
