@@ -41,6 +41,14 @@
 		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
 
+	function seekStart(player: LoopPlayer, target: EditorSession) {
+		const range = playbackRange(target);
+		const mode = target === session
+			? session.loopPlaybackMode
+			: activeTag(fork)?.direction ?? fork.loopPlaybackMode;
+		player.seek(mode === 'reverse' ? range.end : range.start);
+	}
+
 	function start() {
 		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
 		if (!currentComplete) currentPlayer.start();
@@ -97,8 +105,8 @@
 		playing = !media.matches;
 		if (playing) start();
 		else {
-			currentPlayer.blit();
-			forkPlayer.blit();
+			seekStart(currentPlayer, session);
+			seekStart(forkPlayer, fork);
 		}
 		const pauseForPreference = () => {
 			if (!media.matches) return;

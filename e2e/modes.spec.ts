@@ -312,17 +312,40 @@ test('comparison fork starts with the active clip', async ({ page }) => {
 });
 
 test('comparison playback preserves an unsaved current clip range', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range end').fill('1');
 	await page.getByLabel('Name', { exact: true }).fill('idle');
 	await page.getByRole('button', { name: 'Save clip' }).click();
-	await page.getByLabel('Loop range start').fill('2');
 	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Loop range start').fill('2');
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
 	await page.getByRole('button', { name: 'Compare animations' }).click();
 	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 2 of 2/);
 	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 1 of 2/);
+});
+
+test('reused comparison forks follow the current clip selection', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range end').fill('1');
+	await page.getByLabel('Name', { exact: true }).fill('first');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Clip').selectOption('');
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('second');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Clip').selectOption('first');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Clip').selectOption('second');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 2 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 2 of 2/);
 });
 
 test('preview background setting is shared with Loop mode', async ({ page }) => {
