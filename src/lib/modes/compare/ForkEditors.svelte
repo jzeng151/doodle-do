@@ -22,6 +22,7 @@
 	async function run(label: string, action: () => Promise<void>) {
 		busy = true;
 		error = '';
+		fork.lineEnd();
 		fork.commitFloating();
 		try {
 			await action();
