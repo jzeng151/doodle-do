@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { mergeDownCommand, sendLayerCommand } from './layers';
+import { mergeDownBlockedReason, mergeDownCommand, sendLayerCommand } from './layers';
 
 function testDoc(layerCount = 2) {
 	const doc = createDoc({
@@ -63,6 +63,7 @@ describe('mergeDownCommand', () => {
 		doc.frames[0].layers[0].locked = false;
 		doc.frames[0].layers[0].opacity = .5;
 		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+		expect(mergeDownBlockedReason(doc, 0, 1)).toMatch(/opacities/);
 	});
 
 	it('refuses when there is no layer below', () => {

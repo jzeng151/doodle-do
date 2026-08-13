@@ -36,7 +36,7 @@ import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from '../tools/sh
 import { replaceColorCommand } from '../tools/replace';
 import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
-import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
+import { mergeDownBlockedReason, mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
@@ -1297,6 +1297,10 @@ export class EditorSession {
 	}
 
 	// Flatten the active layer into the one below it, as ONE composite command.
+	get mergeLayerDownBlockedReason(): string | null {
+		return mergeDownBlockedReason(this.doc, this.currentFrame, this.currentLayer);
+	}
+
 	mergeLayerDown(): void {
 		this.lineEnd();
 		this.shapeEnd();

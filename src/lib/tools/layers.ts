@@ -5,6 +5,16 @@ import { MAX_LAYERS, type Doc } from '../core/document';
 import { CompositeCommand, PixelDiffCommand, type Command } from '../core/commands';
 import { LayerAddCommand, LayerDeleteCommand, UnlinkFrameCommand } from '../core/structural';
 
+export function mergeDownBlockedReason(doc: Doc, frameIndex: number, layerIndex: number): string | null {
+	if (layerIndex <= 0) return 'No layer below to merge into';
+	const layers = doc.frames[frameIndex].layers;
+	const upper = layers[layerIndex];
+	const lower = layers[layerIndex - 1];
+	if (doc.frames.some((frame) => frame.layers.some((layer) => layer.pixels === lower.pixels && layer.locked))) return 'Unlock the layer below before merging';
+	if ((upper.opacity ?? 1) !== 1 || (lower.opacity ?? 1) !== 1) return 'Set both layer opacities to 100% before merging';
+	return null;
+}
+
 // Composite the layer's nonzero pixels onto the layer below (matching how
 // the compositor flattens), then delete it. Null when nothing is below.
 export function mergeDownCommand(
@@ -12,12 +22,10 @@ export function mergeDownCommand(
 	frameIndex: number,
 	layerIndex: number
 ): CompositeCommand | null {
-	if (layerIndex <= 0) return null;
+	if (mergeDownBlockedReason(doc, frameIndex, layerIndex)) return null;
 	const layers = doc.frames[frameIndex].layers;
 	const upperLayer = layers[layerIndex];
 	const lowerLayer = layers[layerIndex - 1];
-	const lowerLocked = doc.frames.some((frame) => frame.layers.some((layer) => layer.pixels === lowerLayer.pixels && layer.locked));
-	if (lowerLocked || (upperLayer.opacity ?? 1) !== 1 || (lowerLayer.opacity ?? 1) !== 1) return null;
 	const upper = upperLayer.pixels;
 	const lower = lowerLayer.pixels;
 	const indices: number[] = [];

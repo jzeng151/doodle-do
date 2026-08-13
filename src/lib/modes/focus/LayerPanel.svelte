@@ -11,6 +11,7 @@
 	const layers = $derived((session.version, session.currentFrame, [...session.frame.layers].reverse()));
 	const layerCount = $derived(layers.length);
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	const mergeBlocked = $derived((session.version, session.currentFrame, session.currentLayer, session.mergeLayerDownBlockedReason));
 
 	function realIndex(displayIndex: number): number {
 		return layerCount - 1 - displayIndex;
@@ -45,8 +46,8 @@
 			</button>
 			<button
 				aria-label="Merge into layer below"
-				title="Merge into layer below"
-				disabled={session.currentLayer === 0}
+				title={mergeBlocked ?? 'Merge into layer below'}
+				disabled={!!mergeBlocked}
 				onclick={() => session.mergeLayerDown()}
 			>
 				⤵
