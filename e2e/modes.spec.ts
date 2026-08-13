@@ -312,13 +312,21 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 	await editors.nth(1).getByRole('button', { name: 'Save project' }).click();
 	await expect.poll(() => page.evaluate(() => (window as typeof window & { savedForkName?: string }).savedForkName))
 		.toBe('Untitled-fork.doodledo');
+	await editors.nth(0).getByRole('button', { name: 'Mirror X' }).click();
+	await editors.nth(1).getByRole('button', { name: 'Mirror X' }).click();
+	const currentAxis = editors.nth(0).getByLabel('X axis');
+	await currentAxis.fill('2');
+	await editors.nth(1).getByLabel('X axis').fill('10');
 
 	page.once('dialog', (dialog) => dialog.accept());
 	await editors.nth(1).getByRole('button', { name: 'Apply as current' }).click();
 	await expect(editors.nth(0).getByText('3 frames · Save/export target')).toBeVisible();
+	await expect(currentAxis).toHaveValue('10');
 	expect(await locatorHasInk(currentCanvas)).toBe(true);
+	await currentAxis.fill('5');
 	await editors.nth(0).getByRole('button', { name: 'Undo' }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
+	await expect(currentAxis).toHaveValue('5');
 	expect(await locatorHasInk(currentCanvas)).toBe(false);
 
 	await page.getByRole('button', { name: 'Compare animations' }).click();
