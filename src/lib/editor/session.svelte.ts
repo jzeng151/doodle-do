@@ -140,8 +140,10 @@ export class EditorSession {
 				this.currentLayer,
 				doc.frames[this.currentFrame].layers.length - 1
 			);
-			this.colorValue = Math.min(this.colorValue, doc.palette.length);
-			this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			if (!region.palette) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
@@ -302,6 +304,8 @@ export class EditorSession {
 	}
 
 	toggleMirror(): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.mirrorX = !this.mirrorX;
 		if (this.mirrorX) tips.fire('T13');
 	}
@@ -313,15 +317,23 @@ export class EditorSession {
 
 	selectLayer(index: number): void {
 		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating(); // selection lives on the active layer
 		this.currentLayer = index;
 	}
 
 	// --- selection (B5) ---
+	private effectiveSelectionMask(): Uint8Array | null {
+		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const twin = this.floatingTwin?.coverageMask()
+			?? (this.mirrorX && mask ? mirrorMaskX(mask, this.doc.meta.width, this.doc.meta.height) : null);
+		if (twin) mask = combineMasks(mask, twin, 'add');
+		return mask;
+	}
 
 	// Shift temporarily selects Add; otherwise the explicit toolbar mode wins.
 	private startGesture(additive: boolean): void {
-		const base = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const base = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.gestureSelectionMode = additive ? 'add' : this.selectionMode;
 		this.selectionMask = base?.some(Boolean) ? base : null;
@@ -330,6 +342,7 @@ export class EditorSession {
 
 	// Compose a gesture with the current selection using the active mode.
 	private bakeMask(add: Uint8Array): void {
+		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
 		this.selectionMask = combineMasks(this.selectionMask, add, this.gestureSelectionMode);
 		this.previousSelectionMask = this.gestureBaseMask;
 		this.gestureBaseMask = null;
@@ -340,7 +353,7 @@ export class EditorSession {
 	selectAll(): void {
 		this.lineEnd();
 		this.shapeEnd();
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		this.previousSelectionMask = before?.some(Boolean) ? before : null;
@@ -353,9 +366,9 @@ export class EditorSession {
 		this.shapeEnd();
 		const pending = !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 		if (!this.selectionMask && !this.floating && !pending) return;
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
-		this.previousSelectionMask = before?.some(Boolean) ? before : null;
+		if (before?.some(Boolean)) this.previousSelectionMask = before;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -364,7 +377,7 @@ export class EditorSession {
 	invertSelection(): void {
 		this.lineEnd();
 		this.shapeEnd();
-		const before = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const before = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		const length = this.doc.meta.width * this.doc.meta.height;
@@ -379,7 +392,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (!this.previousSelectionMask) return;
-		const current = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
+		const current = this.effectiveSelectionMask();
 		this.commitFloating();
 		this.clearGestures();
 		this.selectionMask = this.previousSelectionMask;
@@ -608,7 +621,10 @@ export class EditorSession {
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
-		} else this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+		} else {
+			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, rect: null });
+		}
 	}
 
 	cancelFloating(): void {
@@ -722,7 +738,7 @@ export class EditorSession {
 				frame,
 				this.currentLayer,
 				colorValue,
-				this.brushSize,
+				this.shapeFilled ? 1 : this.brushSize,
 				this.mirrorX,
 				this.tool
 			)
@@ -732,7 +748,7 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = { ...this.doc.meta, padding: this.brushSize >> 1 };
+		const bounds = { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
 		const points = this.tool === 'ellipse'
 			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
