@@ -201,8 +201,8 @@ export class FloatingSelection {
 	}
 
 	moveBy(dx: number, dy: number): void {
-		this.dx += dx + this.snapDx;
-		this.dy += dy + this.snapDy;
+		this.dx += dx + (dx ? this.snapDx : 0);
+		this.dy += dy + (dy ? this.snapDy : 0);
 		this.rerasterize();
 	}
 
