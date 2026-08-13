@@ -11,10 +11,10 @@
 	let currentPlayer: LoopPlayer;
 	let forkPlayer: LoopPlayer;
 	let playing = $state(false);
-	let currentFrame = $state(0);
-	let forkFrame = $state(0);
 	let currentComplete = false;
 	let forkComplete = false;
+	let currentFrame = $state(0);
+	let forkFrame = $state(0);
 
 	const currentCount = $derived((session.version, session.doc.frames.length));
 	const currentScale = $derived((session.version, previewScale(session.doc)));
