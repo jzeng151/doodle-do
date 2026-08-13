@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
-import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
+import { CommandBus, CompositeCommand, UNDO_MAX_BYTES, type Rect } from '../core/commands';
 import {
 	DocumentReplaceCommand,
 	FpsCommand,
@@ -1170,8 +1170,10 @@ export class EditorSession {
 		const cmds = targets
 			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
 			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
-		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
-		else if (cmds.length) this.bus.dispatch(new CompositeCommand('replace-color-scope', cmds));
+		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
+		if (!command) return;
+		if (command.byteSize > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+		this.bus.dispatch(command);
 	}
 
 	// --- canvas ---
