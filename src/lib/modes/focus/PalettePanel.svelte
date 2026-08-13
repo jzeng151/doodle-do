@@ -15,8 +15,18 @@
 	let replaceTo = $state(2);
 	let replaceScope = $state<ReplaceScope>('layer');
 	const replaceControlsId = $props.id();
+	let paletteSignature = '';
+	function resetReplaceEndpoints() {
+		replaceFrom = Math.min(Math.max(1, session.colorValue), palette.length);
+		replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+	}
 	$effect(() => {
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
+		const signature = palette.join('\0');
+		if (signature !== paletteSignature) {
+			paletteSignature = signature;
+			resetReplaceEndpoints();
+		}
 	});
 
 	function onSwatchClick(i: number) {
@@ -112,8 +122,7 @@
 			aria-expanded={replaceOpen}
 			aria-controls={replaceControlsId}
 			onclick={() => {
-				replaceFrom = Math.max(1, session.colorValue);
-				replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+				resetReplaceEndpoints();
 				replaceOpen = !replaceOpen;
 			}}
 		>
