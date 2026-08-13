@@ -135,6 +135,7 @@ export class EditorSession {
 	// bulk edit: the same selection lifted on every other set frame; driven
 	// in lockstep with the active frame's floats, committed in one composite
 	private floatingPeers: { main: FloatingSelection; twin: FloatingSelection | null }[] = [];
+	private wholeLayerMove = false;
 	overlayVersion = $state(0); // bumps on selection/floating changes only
 
 	// for the T15 save-to-disk reminder
@@ -694,6 +695,7 @@ export class EditorSession {
 		if (!mask.some(Boolean)) return;
 		this.selectionMask = mask;
 		this.liftSelection(false);
+		this.wholeLayerMove = this.floating !== null;
 	}
 
 	floatingSelections(frame: number): FloatingSelection[] {
@@ -795,13 +797,17 @@ export class EditorSession {
 	}
 
 	commitFloating(): void {
-		if (!this.floating) return;
+		if (!this.floating) {
+			this.wholeLayerMove = false;
+			return;
+		}
 		const sel = this.floating;
 		const twin = this.floatingTwin;
 		const peers = this.floatingPeers;
 		this.floating = null;
 		this.floatingTwin = null;
 		this.floatingPeers = [];
+		this.wholeLayerMove = false;
 		this.selectionMask = null;
 		this.clearGestures();
 		this.overlayVersion++;
@@ -834,6 +840,7 @@ export class EditorSession {
 			this.floatingPeers = [];
 		}
 		this.selectionMask = restoreGesture ? gestureBase : null;
+		this.wholeLayerMove = false;
 		this.clearGestures();
 		this.overlayVersion++;
 	}
@@ -1054,6 +1061,7 @@ export class EditorSession {
 	flip(axis: 'horizontal' | 'vertical'): void {
 		this.lineEnd();
 		this.shapeEnd();
+		if (this.wholeLayerMove) this.commitFloating();
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -1347,6 +1355,7 @@ export class EditorSession {
 
 	importPalette(colors: string[]): boolean {
 		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return false;
+		if (colors.length === this.doc.palette.length && colors.every((color, index) => color === this.doc.palette[index])) return true;
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating();

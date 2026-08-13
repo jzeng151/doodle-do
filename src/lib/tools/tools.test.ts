@@ -176,6 +176,14 @@ describe('mirror-draw', () => {
 		expect(pixels[4 * 8 + 4]).toBe(0);
 	});
 
+	it('samples even mirrored brushes from the source footprint', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 2, true, 'pencil-stroke', false, 4, 2, 3.5).begin(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 5]).toBe(pixels[2 * 8 + 2]);
+		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
+
 	it('center column with mirror does not double-record', () => {
 		const doc = testDoc(7, 7); // odd width, center x = 3 mirrors to itself
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
@@ -206,6 +214,15 @@ describe('mirror-draw', () => {
 		stroke.begin(3, 2);
 		expect(doc.frames[0].layers[0].pixels[2 * 8 + 4]).toBe(ditherValue(4, 2, 3, 4, 2));
 	});
+
+	it('preserves mirrored dither colors across successive brush centers', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(2, 2);
+		stroke.moveTo(3, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 3]).toBe(pixels[2 * 8 + 4]);
+	});
 });
 
 describe('tiled drawing', () => {
@@ -227,6 +244,21 @@ describe('tiled drawing', () => {
 		const doc = testDoc(8, 8);
 		new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 3.5, false, 3.5, true).begin(1, 2);
 		expect(doc.frames[0].layers[0].pixels[2 * 8 + 6]).toBe(doc.frames[0].layers[0].pixels[2 * 8 + 1]);
+	});
+
+	it('normalizes custom-axis dither samples back into the tile', () => {
+		const doc = testDoc(5, 5);
+		new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 0.5, false, 2, true).begin(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 5 + 2]).toBe(pixels[2 * 5 + 4]);
+	});
+
+	it('deduplicates line centers after they wrap', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line', false, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(0, 0);
+		stroke.previewLineTo(100_000, 0);
+		expect(stroke.end()!.pixelCount).toBe(4);
 	});
 
 	it('deduplicates filled tiled geometry before stamping', () => {

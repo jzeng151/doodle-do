@@ -94,4 +94,22 @@ describe('LoopPlayer playback speed', () => {
 		now.mockRestore();
 		vi.unstubAllGlobals();
 	});
+
+	it('clamps a deleted sought frame before reading its duration', () => {
+		let tick: FrameRequestCallback = () => {};
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => ((tick = callback), 1));
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
+		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'], frameCount: 4 });
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, () => ({ start: 0, end: 1 }));
+		player.start();
+		player.seek(3);
+		doc.frames.pop();
+		expect(() => tick(1)).not.toThrow();
+		expect(player.currentFrame).toBe(0);
+		player.stop();
+		now.mockRestore();
+		vi.unstubAllGlobals();
+	});
 });

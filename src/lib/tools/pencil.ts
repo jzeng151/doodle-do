@@ -13,6 +13,7 @@ export class StrokeBuilder {
 	private origin: { x: number; y: number } | null = null;
 	private centers: { x: number; y: number }[] = [];
 	private readonly centerCounts = new Map<number, number>();
+	private readonly occupied = new Set<number>();
 
 	constructor(
 		private readonly doc: Doc,
@@ -52,6 +53,7 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return unionRect(previous, this.line(this.origin.x, this.origin.y, x, y));
 	}
 
@@ -91,6 +93,7 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return rect;
 	}
 
@@ -114,15 +117,15 @@ export class StrokeBuilder {
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (const [index, value] of this.dirty) pixels[index] = value;
 		this.dirty.clear();
+		this.occupied.clear();
 		return previous;
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
 		const evenOffset = this.size % 2 === 0 ? 1 : 0;
-		const occupied = new Set<number>();
 		let rect: Rect | null = null;
 		for (const point of this.symmetryPoints(cx, cy, evenOffset)) {
-			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, evenOffset, occupied));
+			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, this.occupied));
 		}
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
@@ -180,10 +183,11 @@ export class StrokeBuilder {
 		const before = this.dirty.get(index);
 		if (before === undefined) return null;
 		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
+		this.occupied.delete(index);
 		return { x, y };
 	}
 
-	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, offset = 0, occupied?: Set<number>): Rect | null {
+	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, occupied?: Set<number>): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
@@ -196,8 +200,8 @@ export class StrokeBuilder {
 				if (occupied?.has(i)) continue;
 				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - tx + offset) : tx;
-				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - ty + offset) : ty;
+				const sampleX = reflectX ? (Math.round(2 * this.mirrorAxisX - tx) % width + width) % width : tx;
+				const sampleY = reflectY ? (Math.round(2 * this.mirrorAxisY - ty) % height + height) % height : ty;
 				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
 			}
 			const wrapsX = x0 < 0 || x1 >= width;
@@ -220,8 +224,8 @@ export class StrokeBuilder {
 				if (occupied?.has(i)) continue;
 				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - x + offset) : x;
-				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - y + offset) : y;
+				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - x) : x;
+				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - y) : y;
 				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
 			}
 		}
@@ -231,6 +235,8 @@ export class StrokeBuilder {
 	private line(x0: number, y0: number, x1: number, y1: number): Rect | null {
 		// Bresenham; stamps the brush at every cell so fast drags leave no gaps.
 		let rect: Rect | null = null;
+		const seen = this.tiled ? new Set<number>() : null;
+		const { width, height } = this.doc.meta;
 		const dx = Math.abs(x1 - x0);
 		const dy = -Math.abs(y1 - y0);
 		const sx = x0 < x1 ? 1 : -1;
@@ -239,8 +245,13 @@ export class StrokeBuilder {
 		let x = x0;
 		let y = y0;
 		for (;;) {
-			rect = unionRect(rect, this.stamp(x, y));
+			const center = seen ? ((y % height + height) % height) * width + (x % width + width) % width : -1;
+			if (!seen?.has(center)) {
+				seen?.add(center);
+				rect = unionRect(rect, this.stamp(x, y));
+			}
 			if (x === x1 && y === y1) break;
+			if (seen?.size === width * height) break;
 			const e2 = 2 * err;
 			if (e2 >= dy) {
 				err += dy;
