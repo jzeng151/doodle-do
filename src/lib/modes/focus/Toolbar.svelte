@@ -66,7 +66,7 @@
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
 			Size
-			<select bind:value={session.brushSize}>
+			<select bind:value={session.brushSize} onchange={() => { session.lineEnd(); session.shapeEnd(); }}>
 				{#each [1, 2, 3, 4] as s (s)}
 					<option value={s}>{s}px</option>
 				{/each}
