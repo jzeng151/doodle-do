@@ -70,11 +70,14 @@
 	}
 
 	function onPointerDown(e: PointerEvent, i: number) {
-		if (e.button !== 0) return;
+		if (e.button !== 0 && e.button !== 2) return;
+		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
+		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
 		if (session.tool === 'move' && movePointer !== null) return;
 		const el = tiles[i]!;
 		el.focus();
 		const { x, y } = pixelFromEvent(e, el);
+		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
 		keyboardX = x;
 		keyboardY = y;
 		session.selectFrame(i);
@@ -83,20 +86,20 @@
 			case 'eraser':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
-				session.strokeBegin(x, y);
+				session.strokeBegin(x, y, colorValue);
 				break;
 			case 'line':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
 				linePointer = e.pointerId;
-				session.lineBegin(x, y);
+				session.lineBegin(x, y, colorValue);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				el.setPointerCapture(e.pointerId);
 				strokeTile = i;
 				shapePointer = e.pointerId;
-				session.shapeBegin(x, y);
+				session.shapeBegin(x, y, colorValue);
 				break;
 			case 'move':
 				el.setPointerCapture(e.pointerId);
@@ -106,10 +109,10 @@
 				session.beginLayerMove();
 				break;
 			case 'fill':
-				session.fill(x, y);
+				session.fill(x, y, colorValue);
 				break;
 			case 'eyedropper':
-				session.eyedrop(x, y);
+				session.eyedrop(x, y, backgroundAction);
 				break;
 		}
 	}
@@ -264,6 +267,7 @@
 						onpointermove={(e) => onPointerMove(e, i)}
 						onpointerup={onPointerUp}
 						onpointercancel={onPointerUp}
+						oncontextmenu={(e) => e.preventDefault()}
 					></canvas>
 				</div>
 			{/each}

@@ -30,7 +30,8 @@
 		}
 	});
 
-	function onSwatchClick(i: number) {
+	function onSwatchClick(e: MouseEvent, i: number) {
+		if (e.ctrlKey) return;
 		if (removePending !== null) {
 			if (removePending !== i) session.removePaletteColor(removePending, i);
 			removePending = null;
@@ -39,6 +40,14 @@
 		session.lineEnd();
 		session.shapeEnd();
 		session.colorValue = i + 1;
+	}
+
+	function onSwatchSecondary(e: MouseEvent, i: number) {
+		e.preventDefault();
+		removePending = null;
+		session.lineEnd();
+		session.shapeEnd();
+		session.backgroundColorValue = i + 1;
 	}
 
 	function startSwap(i: number) {
@@ -79,26 +88,35 @@
 			{session.paletteLocked ? 'Locked' : 'Lock'}
 		</button>
 	</header>
+	<div class="active-colors" aria-label="Active colors">
+		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
+		<span class="active-color background" class:transparent={session.backgroundColorValue === 0} style={session.backgroundColorValue ? `background:${palette[session.backgroundColorValue - 1]}` : ''} title="Background color"></span>
+		<button title="Swap foreground and background colors (X)" onclick={() => session.swapActiveColors()}>Swap</button>
+	</div>
 
 	<div class="swatches">
 		<button
 			class="swatch eraser"
 			class:selected={session.colorValue === 0}
+			class:background-selected={session.backgroundColorValue === 0}
 			title="Transparent (eraser)"
 			aria-label="Transparent"
 			aria-pressed={session.colorValue === 0}
-			onclick={() => { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; }}
+			onclick={(e) => { if (!e.ctrlKey) { session.lineEnd(); session.shapeEnd(); session.colorValue = 0; } }}
+			oncontextmenu={(e) => { e.preventDefault(); removePending = null; session.lineEnd(); session.shapeEnd(); session.backgroundColorValue = 0; }}
 		></button>
 		{#each palette as hex, i (i)}
 			<button
 				class="swatch"
 				class:selected={session.colorValue === i + 1}
+				class:background-selected={session.backgroundColorValue === i + 1}
 				class:doomed={removePending === i}
 				style="background: {hex}"
-				title="{hex}. Double-click to edit"
-				aria-label="Color {hex}"
+				title="{hex}. Click for foreground; secondary click for background; double-click to edit"
+				aria-label="Color {hex}{session.backgroundColorValue === i + 1 ? ', background' : ''}"
 				aria-pressed={session.colorValue === i + 1}
-				onclick={() => onSwatchClick(i)}
+				onclick={(e) => onSwatchClick(e, i)}
+				oncontextmenu={(e) => onSwatchSecondary(e, i)}
 				ondblclick={() => startSwap(i)}
 			></button>
 		{/each}
@@ -187,6 +205,11 @@
 		gap: 3px;
 		margin: 0.4rem 0;
 	}
+	.active-colors { display: flex; align-items: center; gap: .35rem; margin-top: .4rem; }
+	.active-color { width: 28px; height: 28px; border: 2px solid var(--ink); }
+	.active-color.transparent { background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px; }
+	.active-color.background { margin-left: -14px; margin-top: 12px; }
+	.active-colors button { margin-left: auto; }
 	.swatch {
 		width: 22px;
 		height: 22px;
@@ -201,6 +224,7 @@
 	.swatch.doomed {
 		outline: 2px dashed var(--spot);
 	}
+	.swatch.background-selected { box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 4px var(--ink); }
 	.eraser {
 		background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px;
 	}

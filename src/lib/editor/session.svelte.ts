@@ -75,6 +75,7 @@ export class EditorSession {
 	selectionMode = $state<SelectionMode>('replace');
 	mirrorX = $state(false);
 	colorValue = $state(1);
+	backgroundColorValue = $state(2);
 	zoom = $state(12);
 	fitCheckedDimensions = '';
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
@@ -125,12 +126,14 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
+	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 
 	constructor(doc: Doc) {
 		this.doc = doc;
 		this.bus = new CommandBus(doc);
 		this.compositor = new Compositor(doc);
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
+		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(region);
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
@@ -138,15 +141,32 @@ export class EditorSession {
 				this.currentLayer,
 				doc.frames[this.currentFrame].layers.length - 1
 			);
-			this.colorValue = Math.min(this.colorValue, doc.palette.length);
+			if (!region.palette) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
 			this.version++;
 		});
-		this.bus.onCommit((command) => {
+		this.bus.onCommit((command, action) => {
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
 				this.previousSelectionMask = null;
 				this.clearGestures();
 				this.overlayVersion++;
+			}
+			if (command instanceof DocumentReplaceCommand) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
+			const colors = command instanceof PaletteRemoveCommand ? this.paletteRemovalColors.get(command) : undefined;
+			if (colors && action === 'dispatch') [this.colorValue, this.backgroundColorValue] = colors.after;
+			else if (command instanceof PaletteRemoveCommand && action !== 'dispatch') {
+				this.colorValue = command.mapActiveColor(this.colorValue, action);
+				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
+			}
+			if (command instanceof PaletteAddCommand) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			}
 			this.unsavedCommits++;
 		});
@@ -693,9 +713,9 @@ export class EditorSession {
 
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
-	strokeBegin(x: number, y: number): void {
+	strokeBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
-		const value = this.tool === 'eraser' ? 0 : this.colorValue;
+		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -733,7 +753,7 @@ export class EditorSession {
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
 	}
 
-	lineBegin(x: number, y: number): void {
+	lineBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating) return;
 		this.lineEnd();
 		this.lineOrigin = { x, y };
@@ -743,7 +763,7 @@ export class EditorSession {
 				this.doc,
 				frame,
 				this.currentLayer,
-				this.colorValue,
+				colorValue,
 				this.brushSize,
 				this.mirrorX,
 				'line'
@@ -771,7 +791,7 @@ export class EditorSession {
 		this.strokeEnd();
 	}
 
-	shapeBegin(x: number, y: number): void {
+	shapeBegin(x: number, y: number, colorValue = this.colorValue): void {
 		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeEnd();
 		this.shapeOrigin = { x, y };
@@ -781,7 +801,7 @@ export class EditorSession {
 				this.doc,
 				frame,
 				this.currentLayer,
-				this.colorValue,
+				colorValue,
 				this.shapeFilled ? 1 : this.brushSize,
 				this.mirrorX,
 				this.tool
@@ -831,7 +851,7 @@ export class EditorSession {
 
 	// --- other tools ---
 
-	fill(x: number, y: number): void {
+	fill(x: number, y: number, colorValue = this.colorValue): void {
 		this.lineEnd();
 		this.shapeEnd();
 		if (this.floating) return; // B5: drawing disabled while floating
@@ -842,7 +862,7 @@ export class EditorSession {
 				this.currentLayer,
 				x,
 				y,
-				this.colorValue,
+				colorValue,
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
 				this.fillContiguous
 			))
@@ -856,9 +876,18 @@ export class EditorSession {
 		}
 	}
 
-	eyedrop(x: number, y: number): void {
+	eyedrop(x: number, y: number, background = false): void {
 		const value = samplePixel(this.doc, this.currentFrame, x, y);
-		if (value !== 0) this.colorValue = value;
+		if (value !== 0) {
+			if (background) this.backgroundColorValue = value;
+			else this.colorValue = value;
+		}
+	}
+
+	swapActiveColors(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		[this.colorValue, this.backgroundColorValue] = [this.backgroundColorValue, this.colorValue];
 	}
 
 	// B5: flips apply to the floating buffer when a selection is active
@@ -1095,8 +1124,13 @@ export class EditorSession {
 		);
 		if (inUse && remapTo === undefined) return false;
 		const target = remapTo ?? (index === 0 ? 1 : index - 1);
-		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
-		this.colorValue = target < index ? target + 1 : target;
+		const before: [number, number] = [this.colorValue, this.backgroundColorValue];
+		const removedValue = index + 1;
+		const remapped = target < index ? target + 1 : target;
+		const after: [number, number] = [remapped, before[1] === removedValue ? remapped : before[1] > removedValue ? before[1] - 1 : before[1]];
+		const command = new PaletteRemoveCommand(this.doc, index, target);
+		this.paletteRemovalColors.set(command, { before, after });
+		this.bus.dispatch(command);
 		return true;
 	}
 
