@@ -75,6 +75,17 @@ describe('floodFill (B3)', () => {
 		expect([...pixels]).toEqual([3, 2, 3, 2]);
 	});
 
+	it('connects contiguous fill across tile seams', () => {
+		const doc = testDoc(3, 3);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.fill(2);
+		pixels[3] = pixels[5] = 1;
+		const cmd = floodFill(doc, 0, 0, 0, 1, 3, 0, true, undefined, 0, true)!;
+		expect(cmd.pixelCount).toBe(2);
+		cmd.do(doc);
+		expect([pixels[3], pixels[5]]).toEqual([3, 3]);
+	});
+
 	it('normalizes nearby colors to the clicked replacement without recording unchanged pixels', () => {
 		const doc = testDoc(3, 1);
 		doc.palette[0] = '#101010';

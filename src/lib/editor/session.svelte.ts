@@ -1086,7 +1086,8 @@ export class EditorSession {
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
 				this.fillContiguous,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.tiledDrawing
 			))
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		if (!cmds.length) return;
