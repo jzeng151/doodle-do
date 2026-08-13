@@ -1415,8 +1415,12 @@ export class EditorSession {
 			}
 		}
 		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
+		const seenPixels = new WeakSet<Uint8Array>();
 		let byteSize = 0;
 		for (const { frame, layer, mask } of targets) {
+			const pixels = source.frames[frame].layers[layer].pixels;
+			if (scope !== 'selection' && seenPixels.has(pixels)) continue;
+			seenPixels.add(pixels);
 			const cmd = replaceColorCommand(source, frame, layer, from, to, mask);
 			if (!cmd) continue;
 			byteSize += cmd.byteSize;
