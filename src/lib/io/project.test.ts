@@ -34,6 +34,8 @@ describe('project file round-trip', () => {
 		const legacy = JSON.parse(serializeProject(doc));
 		delete legacy.meta.tags;
 		expect(parseProject(JSON.stringify(legacy)).meta.tags).toBeUndefined();
+		legacy.meta.tags = 'walk';
+		expect(() => parseProject(JSON.stringify(legacy))).toThrow(/bad animation tags/);
 	});
 
 	it('restores linked cel buffers as shared references', () => {

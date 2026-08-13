@@ -33,7 +33,10 @@
 	$effect(() => {
 		const signature = palette.join('\0');
 		if (signature !== paletteSignature) {
-			if (paletteSignature) removePending = null;
+			if (paletteSignature) {
+				removePending = null;
+				importGeneration++;
+			}
 			paletteSignature = signature;
 			resetReplaceEndpoints();
 		}

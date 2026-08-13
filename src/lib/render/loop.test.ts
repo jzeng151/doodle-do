@@ -25,6 +25,8 @@ describe('playback modes', () => {
 		expect(nextPlaybackFrame(1, 1, 3, 'reverse')).toEqual({ frame: 3, direction: -1, wrapped: true });
 		expect(nextPlaybackFrame(3, 1, 3, 'ping-pong', 1)).toEqual({ frame: 2, direction: -1, wrapped: false });
 		expect(nextPlaybackFrame(1, 1, 3, 'ping-pong', -1)).toEqual({ frame: 2, direction: 1, wrapped: true });
+		expect(nextPlaybackFrame(0, 2, 4, 'ping-pong', 1)).toEqual({ frame: 2, direction: 1, wrapped: false });
+		expect(nextPlaybackFrame(5, 2, 4, 'ping-pong', -1)).toEqual({ frame: 2, direction: 1, wrapped: false });
 	});
 });
 
