@@ -240,7 +240,7 @@ export class StrokeBuilder {
 	private line(x0: number, y0: number, x1: number, y1: number): Rect | null {
 		// Bresenham; stamps the brush at every cell so fast drags leave no gaps.
 		let rect: Rect | null = null;
-		const seen = this.tiled ? new Set<number>() : null;
+		const seen = this.tiled && (!this.pixelPerfect || this.size !== 1) ? new Set<number>() : null;
 		const { width, height } = this.doc.meta;
 		const dx = Math.abs(x1 - x0);
 		const dy = -Math.abs(y1 - y0);
