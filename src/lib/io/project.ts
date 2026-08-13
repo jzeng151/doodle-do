@@ -5,7 +5,7 @@
 import { MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
 
 export const PROJECT_FORMAT = 'doodledo-project';
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 export const PROJECT_EXTENSION = '.doodledo';
 
 export function encodeBase64(bytes: Uint8Array): string {
@@ -64,7 +64,7 @@ export function parseProject(text: string): Doc {
 	}
 	const p = raw as Record<string, unknown>;
 	if (p.format !== PROJECT_FORMAT) fail('unknown format');
-	if (p.version !== PROJECT_VERSION) fail(`unsupported version ${p.version}`);
+	if (p.version !== 1 && p.version !== PROJECT_VERSION) fail(`unsupported version ${p.version}`);
 	const meta = p.meta as Record<string, unknown>;
 	const width = meta?.width as number;
 	const height = meta?.height as number;
@@ -88,10 +88,9 @@ export function parseProject(text: string): Doc {
 		const names = new Set<string>();
 		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {
 			const name = typeof tag.name === 'string' ? tag.name.trim() : '';
-			const from = Number(tag.from), to = Number(tag.to);
-			const repeats = Number(tag.repeats);
+			const { from, to, repeats } = tag;
 			const direction = tag.direction;
-			if (!name || names.has(name) || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
+			if (!name || names.has(name) || typeof from !== 'number' || typeof to !== 'number' || typeof repeats !== 'number' || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
 			names.add(name);
 			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats };
 		});
@@ -103,7 +102,7 @@ export function parseProject(text: string): Doc {
 			width,
 			height,
 			fps: typeof meta.fps === 'number' && meta.fps >= 1 && meta.fps <= 24 ? meta.fps : 8,
-			version: PROJECT_VERSION,
+			version: 1,
 			syncMeta: null,
 			...(tags && { tags })
 		},

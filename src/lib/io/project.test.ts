@@ -52,8 +52,13 @@ describe('project file round-trip', () => {
 		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE });
 		doc.frames[0].layers[0].locked = true;
 		doc.frames[0].layers[0].opacity = .4;
-		const restored = parseProject(serializeProject(doc));
+		const serialized = serializeProject(doc);
+		expect(JSON.parse(serialized).version).toBe(2);
+		const restored = parseProject(serialized);
 		expect(restored.frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
+		const legacy = JSON.parse(serialized);
+		legacy.version = 1;
+		expect(parseProject(JSON.stringify(legacy)).frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
 	});
 
 	it('rejects conflicting payloads in a linked cel group', () => {
@@ -82,6 +87,10 @@ describe('project file round-trip', () => {
 		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
 		for (const repeats of [-1, 1.5, 100]) {
 			raw.meta.tags = [{ name: 'walk', from: 0, to: 0, direction: 'forward', repeats }];
+			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
+		}
+		for (const value of [null, '', '0']) {
+			raw.meta.tags = [{ name: 'walk', from: value, to: 0, direction: 'forward', repeats: 0 }];
 			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad animation tags/);
 		}
 	});
