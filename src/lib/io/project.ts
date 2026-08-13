@@ -80,6 +80,18 @@ export function parseProject(text: string): Doc {
 	if (!Array.isArray(palette) || palette.length > MAX_PALETTE) fail('bad palette');
 	const rawFrames = p.frames as Record<string, unknown>[];
 	if (!Array.isArray(rawFrames) || rawFrames.length < 1) fail('no frames');
+	let tags: Doc['meta']['tags'];
+	if (Array.isArray(meta.tags)) {
+		const names = new Set<string>();
+		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {
+			const name = typeof tag.name === 'string' ? tag.name.trim() : '';
+			const from = Number(tag.from), to = Number(tag.to);
+			const direction = tag.direction;
+			if (!name || names.has(name) || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
+			names.add(name);
+			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats: Math.max(0, Math.min(99, Math.round(Number(tag.repeats) || 0))) };
+		});
+	}
 
 	const doc: Doc = {
 		meta: {
@@ -89,15 +101,7 @@ export function parseProject(text: string): Doc {
 			fps: typeof meta.fps === 'number' && meta.fps >= 1 && meta.fps <= 24 ? meta.fps : 8,
 			version: PROJECT_VERSION,
 			syncMeta: null,
-			...(Array.isArray(meta.tags) && {
-				tags: (meta.tags as Record<string, unknown>[]).flatMap((tag) => {
-					const from = Number(tag.from), to = Number(tag.to);
-					const direction = tag.direction;
-					return typeof tag.name === 'string' && Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to >= from && to < rawFrames.length && ['forward', 'reverse', 'ping-pong'].includes(direction as string)
-						? [{ name: tag.name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats: Math.max(0, Number(tag.repeats) || 0) }]
-						: [];
-				})
-			})
+			...(tags && { tags })
 		},
 		palette,
 		frames: rawFrames.map((rawFrame, f) => {

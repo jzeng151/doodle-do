@@ -20,7 +20,7 @@ export function parseTextPalette(text: string): string[] {
 }
 
 export async function readPalette(file: File): Promise<string[]> {
-	if (!file.name.toLowerCase().endsWith('.png')) return parseTextPalette(await file.text());
+	if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) return parseTextPalette(await file.text());
 	const bitmap = await createImageBitmap(file);
 	const canvas = document.createElement('canvas');
 	canvas.width = bitmap.width;
@@ -50,21 +50,11 @@ export function hexPalette(colors: string[]): string {
 	return `${colors.join('\n')}\n`;
 }
 
-export function paletteFromArtwork(doc: Doc): { doc: Doc; map: Map<number, number> } | null {
+export function paletteFromArtwork(doc: Doc): { palette: string[]; map: Map<number, number> } | null {
 	const used = new Set<number>();
 	for (const frame of doc.frames) for (const layer of frame.layers) for (const value of layer.pixels) if (value) used.add(value);
 	if (!used.size) return null;
 	const values = [...used].sort((a, b) => a - b);
 	const map = new Map(values.map((value, index) => [value, index + 1]));
-	const next = structuredClone(doc);
-	next.palette = values.map((value) => doc.palette[value - 1]);
-	const remapped = new Set<Uint8Array>();
-	for (const frame of next.frames) {
-		for (const layer of frame.layers) {
-			if (remapped.has(layer.pixels)) continue;
-			remapped.add(layer.pixels);
-			for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i]) layer.pixels[i] = map.get(layer.pixels[i])!;
-		}
-	}
-	return { doc: next, map };
+	return { palette: values.map((value) => doc.palette[value - 1]), map };
 }

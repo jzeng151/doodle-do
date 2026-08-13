@@ -182,6 +182,14 @@ describe('mirror-draw', () => {
 		stroke.begin(3, 3);
 		expect(stroke.end()!.pixelCount).toBe(1);
 	});
+
+	it('mirrors dither colors with the stroke geometry', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2);
+		stroke.begin(1, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
 });
 
 describe('tiled drawing', () => {
