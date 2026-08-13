@@ -407,3 +407,15 @@ test('Make stamp is hidden after a selection becomes floating', async ({ page })
 	await page.keyboard.press('Alt+ArrowRight');
 	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
 });
+
+test('Make stamp is hidden during a pending polygon gesture', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await page.getByRole('button', { name: 'Polygon', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toBeVisible();
+	await mouseOnPixel(page, 4, 4);
+	await page.mouse.down();
+	await page.mouse.up();
+	await expect(page.getByRole('button', { name: 'Make stamp' })).toHaveCount(0);
+});
