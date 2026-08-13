@@ -62,7 +62,10 @@
 
 	function togglePlay() {
 		playing = !playing;
-		if (playing) start();
+		if (playing) {
+			currentComplete = forkComplete = false;
+			start();
+		}
 		else stop();
 	}
 
