@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { MAX_PALETTE } from '$lib/core/document';
-	import type { EditorSession } from '$lib/editor/session.svelte';
+	import type { EditorSession, ReplaceScope } from '$lib/editor/session.svelte';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -10,8 +10,24 @@
 	let removePending = $state<number | null>(null);
 	let swapInput: HTMLInputElement;
 	let swapIndex = -1;
+	let replaceOpen = $state(false);
+	let replaceFrom = $state(1);
+	let replaceTo = $state(2);
+	let replaceScope = $state<ReplaceScope>('layer');
+	let replaceStatus = $state('');
+	const replaceControlsId = $props.id();
+	let paletteSignature = '';
+	function resetReplaceEndpoints() {
+		replaceFrom = Math.min(Math.max(1, session.colorValue), palette.length);
+		replaceTo = replaceFrom === palette.length ? Math.max(1, replaceFrom - 1) : replaceFrom + 1;
+	}
 	$effect(() => {
 		if (removePending !== null && session.colorValue !== removePending + 1) removePending = null;
+		const signature = palette.join('\0');
+		if (signature !== paletteSignature) {
+			paletteSignature = signature;
+			resetReplaceEndpoints();
+		}
 	});
 
 	function onSwatchClick(i: number) {
@@ -36,6 +52,15 @@
 	function removeSelected() {
 		const index = session.colorValue - 1;
 		removePending = session.removePaletteColor(index) ? null : index;
+	}
+
+	function applyReplacement() {
+		replaceStatus = '';
+		try {
+			session.replaceColor(replaceFrom, replaceTo, replaceScope);
+		} catch (error) {
+			replaceStatus = error instanceof Error ? error.message : 'Replacement failed.';
+		}
 	}
 </script>
 
@@ -103,7 +128,33 @@
 		>
 			Remove
 		</button>
+		<button
+			aria-expanded={replaceOpen}
+			aria-controls={replaceControlsId}
+			onclick={() => {
+				resetReplaceEndpoints();
+				replaceOpen = !replaceOpen;
+			}}
+		>
+			Replace
+		</button>
 	</div>
+
+	{#if replaceOpen}
+		<div id={replaceControlsId} class="replace-options">
+			<label>From<select bind:value={replaceFrom}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
+			<label>To<select bind:value={replaceTo}>{#each palette as hex, i}<option value={i + 1}>{hex}</option>{/each}</select></label>
+			<label>Scope<select bind:value={replaceScope}>
+				<option value="selection" disabled={!session.hasSelection}>Selection</option>
+				<option value="layer">Current layer</option>
+				<option value="frame">Current frame</option>
+				<option value="frames">Selected frames</option>
+				<option value="animation">Entire animation</option>
+			</select></label>
+			<button disabled={replaceFrom === replaceTo || replaceFrom > palette.length || replaceTo > palette.length || (replaceScope === 'selection' && !session.hasSelection)} onclick={applyReplacement}>Apply replacement</button>
+			{#if replaceStatus}<p class="hint" aria-live="polite">{replaceStatus}</p>{/if}
+		</div>
+	{/if}
 
 	<!-- hidden native color input drives palette swap (§4.2: every pixel updates instantly) -->
 	<input
@@ -155,8 +206,12 @@
 	}
 	.actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 4px;
 	}
+	.replace-options { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .5rem; border-top: 2px solid var(--ink); }
+	.replace-options label { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: .35rem; font-size: .75rem; }
+	.replace-options select { min-width: 0; }
 	.hint {
 		font-size: 0.75rem;
 		margin: 0 0 0.4rem;

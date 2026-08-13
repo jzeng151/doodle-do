@@ -6,6 +6,7 @@ import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
 import { ellipsePoints, rectanglePoints } from './shapes';
+import { replaceColorCommand } from './replace';
 
 function testDoc(width = 8, height = 8) {
 	return createDoc({ width, height, palette: DEFAULT_PALETTE, frameCount: 1, layerCount: 2 });
@@ -303,5 +304,36 @@ describe('pixel-perfect pencil', () => {
 			else stroke.moveTo(...point as [number, number]);
 		}
 		expect(doc.frames[0].layers[0].pixels[7]).toBe(0);
+	});
+});
+
+describe('replace color', () => {
+	it('replaces matching pixels within an optional selection mask', () => {
+		const doc = testDoc(4, 1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.set([1, 2, 1, 1]);
+		const mask = new Uint8Array([1, 1, 0, 1]);
+		const cmd = replaceColorCommand(doc, 0, 0, 1, 3, mask)!;
+		cmd.do(doc);
+		expect([...pixels]).toEqual([3, 2, 1, 3]);
+		cmd.undo(doc);
+		expect([...pixels]).toEqual([1, 2, 1, 1]);
+	});
+
+	it('stores whole-layer replacement history as a compact bitset', () => {
+		const doc = testDoc(512, 512);
+		doc.frames[0].layers[0].pixels.fill(1);
+		const cmd = replaceColorCommand(doc, 0, 0, 1, 3)!;
+		expect(cmd.byteSize).toBeLessThan(33_000);
+		expect(cmd.pixelCount).toBe(512 * 512);
+	});
+
+	it('stores sparse replacement history as indices', () => {
+		const doc = testDoc(512, 512);
+		doc.frames[0].layers[0].pixels[123] = 1;
+		const cmd = replaceColorCommand(doc, 0, 0, 1, 3)!;
+		expect(cmd.byteSize).toBeLessThan(100);
+		cmd.do(doc);
+		expect(doc.frames[0].layers[0].pixels[123]).toBe(3);
 	});
 });

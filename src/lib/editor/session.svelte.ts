@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
-import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
+import { CommandBus, CompositeCommand, UNDO_MAX_BYTES, type Rect } from '../core/commands';
 import {
 	DocumentReplaceCommand,
 	FpsCommand,
@@ -27,6 +27,7 @@ import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
 import { ellipsePoints, rectanglePoints } from '../tools/shapes';
+import { replaceColorCommand } from '../tools/replace';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
 import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { DEFAULT_PALETTE } from '../core/palette';
@@ -46,6 +47,7 @@ export type Tool =
 	| 'wand'
 	| 'polygon';
 export type Mode = 'focus' | 'grid' | 'loop' | 'compare';
+export type ReplaceScope = 'selection' | 'layer' | 'frame' | 'frames' | 'animation';
 
 // selection gestures stay in the editable single-canvas views (B5)
 export const SELECT_TOOLS: readonly Tool[] = ['select', 'lasso', 'wand', 'polygon'];
@@ -1096,6 +1098,65 @@ export class EditorSession {
 		this.bus.dispatch(new PaletteRemoveCommand(this.doc, index, target));
 		this.colorValue = target < index ? target + 1 : target;
 		return true;
+	}
+
+	replaceColor(from: number, to: number, scope: ReplaceScope): void {
+		if (from === to || from < 1 || to < 1 || from > this.doc.palette.length || to > this.doc.palette.length) return;
+		if (scope === 'selection' && !this.hasSelection) return;
+		this.lineEnd();
+		this.shapeEnd();
+		const selectionTargets = scope === 'selection'
+			? this.editTargets().map((frame) => {
+				const floating = this.floatingSelections(frame);
+				const mask = floating.length
+					? floating.reduce<Uint8Array | null>(
+						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
+						null
+					)
+					: this.effectiveSelectionMask();
+				return { frame, layer: this.currentLayer, mask };
+			}).filter((target) => target.mask)
+			: [];
+		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
+		if (scope === 'selection') {
+			targets.push(...selectionTargets);
+		} else if (scope === 'layer') {
+			targets.push({ frame: this.currentFrame, layer: this.currentLayer });
+		} else {
+			const frames = scope === 'frame'
+				? [this.currentFrame]
+				: scope === 'frames'
+					? (this.bulkFrames.length ? this.bulkFrames : [this.currentFrame])
+					: this.doc.frames.map((_, index) => index);
+			for (const frame of frames) {
+				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
+			}
+		}
+		const staged = new Map<string, Uint8Array>();
+		if (this.floating) {
+			for (const { main, twin } of [
+				{ main: this.floating, twin: this.floatingTwin },
+				...this.floatingPeers
+			]) {
+				const layerPixels = (twin ? main.extractPair(twin) : main.extract()).layerPixels;
+				const pixels = this.doc.frames[main.frameIndex].layers[main.layerIndex].pixels.slice();
+				for (let i = 0; i < pixels.length; i++) if (layerPixels[i]) pixels[i] = layerPixels[i];
+				staged.set(`${main.frameIndex}:${main.layerIndex}`, pixels);
+			}
+		}
+		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
+		let byteSize = 0;
+		for (const { frame, layer, mask } of targets) {
+			const cmd = replaceColorCommand(this.doc, frame, layer, from, to, mask, staged.get(`${frame}:${layer}`));
+			if (!cmd) continue;
+			byteSize += cmd.byteSize;
+			if (byteSize + (cmds.length ? 64 : 0) > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+			cmds.push(cmd);
+		}
+		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
+		if (!command) return;
+		this.commitFloating();
+		this.bus.dispatch(command);
 	}
 
 	// --- canvas ---
