@@ -149,7 +149,7 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
-	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number] }>();
+	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, { before: [number, number]; after: [number, number]; beforeSize: [number, number]; afterSize: [number, number]; scaled: boolean }>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
@@ -197,7 +197,18 @@ export class EditorSession {
 				this.overlayVersion++;
 			}
 			const axes = command instanceof ResizeCanvasCommand ? this.resizeMirrorAxes.get(command) : undefined;
-			if (axes) [this.mirrorAxisX, this.mirrorAxisY] = action === 'undo' ? axes.before : axes.after;
+			if (axes) {
+				const before = action === 'undo' ? axes.after : axes.before;
+				const after = action === 'undo' ? axes.before : axes.after;
+				const fromSize = action === 'undo' ? axes.afterSize : axes.beforeSize;
+				const toSize = action === 'undo' ? axes.beforeSize : axes.afterSize;
+				const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
+				[this.mirrorAxisX, this.mirrorAxisY] = action === 'dispatch' || current.every((value, index) => value === before[index])
+					? after
+					: axes.scaled
+						? [this.normalizeAxis((current[0] + .5) * toSize[0] / fromSize[0] - .5, toSize[0] - 1), this.normalizeAxis((current[1] + .5) * toSize[1] / fromSize[1] - .5, toSize[1] - 1)]
+						: [this.normalizeAxis(current[0], toSize[0] - 1), this.normalizeAxis(current[1], toSize[1] - 1)];
+			}
 			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
 			if (replacementAxes) [this.mirrorAxisX, this.mirrorAxisY] = action === 'undo' ? replacementAxes.before : replacementAxes.after;
 			if (command instanceof DocumentReplaceCommand) {
@@ -1595,7 +1606,7 @@ export class EditorSession {
 			? (this.mirrorAxisY + 0.5) * h / oldH - 0.5
 			: this.mirrorAxisY, h - 1)];
 		const command = new ResizeCanvasCommand(this.doc, oldW, oldH, w, h, mode);
-		this.resizeMirrorAxes.set(command, { before, after });
+		this.resizeMirrorAxes.set(command, { before, after, beforeSize: [oldW, oldH], afterSize: [w, h], scaled: mode !== 'crop' });
 		this.bus.dispatch(command);
 		this.selectionMask = null;
 		this.previousSelectionMask = null;
