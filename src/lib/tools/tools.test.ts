@@ -352,6 +352,15 @@ describe('replace color', () => {
 		expect(cmd.byteSize).toBeLessThan(33_000);
 		expect(cmd.pixelCount).toBe(512 * 512);
 	});
+
+	it('stores sparse replacement history as indices', () => {
+		const doc = testDoc(512, 512);
+		doc.frames[0].layers[0].pixels[123] = 1;
+		const cmd = replaceColorCommand(doc, 0, 0, 1, 3)!;
+		expect(cmd.byteSize).toBeLessThan(100);
+		cmd.do(doc);
+		expect(doc.frames[0].layers[0].pixels[123]).toBe(3);
+	});
 });
 
 describe('dithering', () => {
