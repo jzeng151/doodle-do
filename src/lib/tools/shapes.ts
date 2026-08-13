@@ -44,10 +44,12 @@ function shapeBounds(a: Point, b: Point, bounds?: { width: number; height: numbe
 export function rectanglePoints(a: Point, b: Point, filled: boolean, bounds?: { width: number; height: number; padding?: number }, wrap?: { width: number; height: number }): Point[] {
 	const { x0, y0, x1, y1, ix0, iy0, ix1, iy1 } = shapeBounds(a, b, bounds);
 	const { points, add } = pointCollector(wrap);
-	for (let y = iy0; y <= iy1; y++) {
-		for (let x = ix0; x <= ix1; x++) {
-			if (filled || x === x0 || x === x1 || y === y0 || y === y1) add(x, y);
-		}
+	if (filled) for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) add(x, y);
+	else {
+		if (y0 >= iy0 && y0 <= iy1) for (let x = ix0; x <= ix1; x++) add(x, y0);
+		if (y1 !== y0 && y1 >= iy0 && y1 <= iy1) for (let x = ix0; x <= ix1; x++) add(x, y1);
+		if (x0 >= ix0 && x0 <= ix1) for (let y = iy0; y <= iy1; y++) if (y !== y0 && y !== y1) add(x0, y);
+		if (x1 !== x0 && x1 >= ix0 && x1 <= ix1) for (let y = iy0; y <= iy1; y++) if (y !== y0 && y !== y1) add(x1, y);
 	}
 	return points;
 }
