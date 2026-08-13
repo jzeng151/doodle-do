@@ -67,7 +67,7 @@
 				session.onionNextEnabled ? session.onionNextRange : 0
 			)) {
 				const previous = ghost.direction === -1;
-				drawOnionGhost(ctx, session.compositor.frameCanvas(ghost.frame), previous ? ONION_PREV_COLOR : ONION_NEXT_COLOR, session.onionOpacity * (previous ? .55 : 1) * ghost.fade);
+				drawOnionGhost(ctx, floatingFrameCanvas(session, ghost.frame) ?? session.compositor.frameCanvas(ghost.frame), previous ? ONION_PREV_COLOR : ONION_NEXT_COLOR, session.onionOpacity * (previous ? .55 : 1) * ghost.fade);
 			}
 		}
 		if (session.bulkFrames.length > 1) {
@@ -462,6 +462,7 @@
 		if (selectDrag === 'layer') {
 			session.endLayerMove();
 			layerPointer = null;
+			selectDrag = null;
 		}
 		if (session.tool === 'line' && e.pointerId !== linePointer) return;
 		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;

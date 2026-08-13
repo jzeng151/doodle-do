@@ -4,7 +4,7 @@
 // mutations that live outside its reactivity (Uint8Arrays).
 
 import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
-import { CommandBus, CompositeCommand, type Rect } from '../core/commands';
+import { CommandBus, CompositeCommand, UNDO_MAX_BYTES, type Rect } from '../core/commands';
 import {
 	AnimationTagsCommand,
 	DocumentReplaceCommand,
@@ -90,6 +90,7 @@ export class EditorSession {
 	gridZoom: number; // grid-mode tile scale; separate so focus zoom persists across toggles (§4.4)
 	showGrid = $state(false);
 	paletteLocked = $state(false);
+	paletteImportGeneration = 0;
 	onionEnabled = $state(true); // on by default (§4.5)
 	onionPreviousEnabled = $state(true);
 	onionNextEnabled = $state(true);
@@ -185,7 +186,7 @@ export class EditorSession {
 				this.backgroundColorValue = command.mapActiveColor(this.backgroundColorValue, action);
 			}
 			if (command instanceof PaletteRemoveCommand || command instanceof PaletteRemapCommand) this.invalidateStamp();
-			if (command instanceof PaletteAddCommand && action === 'undo' && this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
+			else if (this.stamp?.pixels.some((value) => value > this.doc.palette.length)) this.invalidateStamp();
 			const importedColors = command instanceof PaletteReplaceCommand ? this.paletteReplaceColors.get(command) : undefined;
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
@@ -1357,8 +1358,10 @@ export class EditorSession {
 		const cmds = targets
 			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
 			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
-		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
-		else if (cmds.length) this.bus.dispatch(new CompositeCommand('replace-color-scope', cmds));
+		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
+		if (!command) return;
+		if (command.byteSize > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+		this.bus.dispatch(command);
 	}
 
 	// --- canvas ---
