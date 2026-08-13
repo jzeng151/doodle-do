@@ -342,6 +342,16 @@ describe('pixel-perfect pencil', () => {
 		}
 		expect(doc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(3);
 	});
+
+	it('does not let off-canvas centers protect aliased pixels', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true);
+		for (const [i, point] of [[0, 1], [-1, 1], [6, 0], [7, 0], [7, 1]].entries()) {
+			if (i === 0) stroke.begin(...point as [number, number]);
+			else stroke.moveTo(...point as [number, number]);
+		}
+		expect(doc.frames[0].layers[0].pixels[7]).toBe(0);
+	});
 });
 
 describe('replace color', () => {

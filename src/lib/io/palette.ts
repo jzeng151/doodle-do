@@ -43,7 +43,7 @@ export function gplPalette(colors: string[], name: string): string {
 		const value = parseInt(color.slice(1), 16);
 		return `${(value >> 16) & 255} ${(value >> 8) & 255} ${value & 255}\t${color}`;
 	});
-	return `GIMP Palette\nName: ${name}\nColumns: 8\n#\n${rows.join('\n')}\n`;
+	return `GIMP Palette\nName: ${name.replace(/[\r\n]+/g, ' ').trim()}\nColumns: 8\n#\n${rows.join('\n')}\n`;
 }
 
 export function hexPalette(colors: string[]): string {
