@@ -67,7 +67,7 @@
 				class:active={session.shapeFilled}
 				aria-pressed={session.shapeFilled}
 				title="Fill the shape"
-				onclick={() => (session.shapeFilled = !session.shapeFilled)}
+				onclick={() => { session.shapeEnd(); session.shapeFilled = !session.shapeFilled; }}
 			>
 				Filled
 			</button>

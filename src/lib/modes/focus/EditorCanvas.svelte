@@ -450,13 +450,19 @@
 		else if (cursorMoved) repaint();
 	}
 
-	function onPointerUp() {
+	function onPointerUp(e: PointerEvent) {
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
 		rotateStart = null;
 		dragMirrored = false;
-		if (session.tool === 'line') session.lineEnd();
+		if (session.tool === 'line') {
+			if (session.lineActive) {
+				const { x, y } = pixelFromEvent(e);
+				session.lineMove(x, y, e.shiftKey);
+			}
+			session.lineEnd();
+		}
 		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
 		else session.strokeEnd();
 	}
