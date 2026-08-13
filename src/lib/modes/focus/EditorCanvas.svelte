@@ -9,7 +9,7 @@
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
 	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | 'layer' | null = null;
-	let rotateStart: { angle0: number; grab: number } | null = null;
+	let rotateStart: { angle0: number; grab: number; x: number; y: number } | null = null;
 	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
 	let keyboardX = $state(0);
@@ -308,6 +308,7 @@
 		if (e.button !== 0 && e.button !== 2) return;
 		const backgroundAction = e.button === 2 || (e.button === 0 && e.ctrlKey);
 		if (backgroundAction && !['pencil', 'eraser', 'line', 'rectangle', 'ellipse', 'fill', 'eyedropper'].includes(session.tool)) return;
+		if (session.tool === 'move' && layerPointer !== null) return;
 		canvasEl.focus();
 		const { x, y } = pixelFromEvent(e);
 		const colorValue = backgroundAction ? session.backgroundColorValue : session.colorValue;
@@ -360,9 +361,9 @@
 				if (hp && Math.hypot(ex - hp.x, ey - hp.y) <= HANDLE_R) {
 					session.liftSelection(); // no-op when already floating
 					const sel = session.floating!;
-					const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
-					const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
-					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx) };
+					const gx = sel.renderRect.x + sel.renderRect.w / 2;
+					const gy = sel.renderRect.y + sel.renderRect.h / 2;
+					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx), x: gx, y: gy };
 					selectDrag = 'rotate';
 					break;
 				}
@@ -396,7 +397,7 @@
 				}
 				// 4) otherwise start this tool's gesture; without shift it
 				// replaces the selection (committing any pending float, B5)
-				const additive = e.shiftKey && !session.floating;
+				const additive = e.shiftKey;
 				switch (session.tool) {
 					case 'select':
 						session.beginMarquee(x, y, additive);
@@ -444,9 +445,7 @@
 			const sel = session.floating;
 			if (sel && rotateStart) {
 				const p = pixelFromEventF(e);
-				const gx = sel.renderRect.x + sel.renderRect.w / 2;
-				const gy = sel.renderRect.y + sel.renderRect.h / 2;
-				let a = rotateStart.angle0 + Math.atan2(p.y - gy, p.x - gx) - rotateStart.grab;
+				let a = rotateStart.angle0 + Math.atan2(p.y - rotateStart.y, p.x - rotateStart.x) - rotateStart.grab;
 				if (e.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12); // snap 15°
 				session.rotateFloating(a);
 			}

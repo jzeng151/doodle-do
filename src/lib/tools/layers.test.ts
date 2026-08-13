@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { mergeDownCommand, sendLayerCommand } from './layers';
+import { mergeDownBlockedReason, mergeDownCommand, sendLayerCommand } from './layers';
 
 function testDoc(layerCount = 2) {
 	const doc = createDoc({
@@ -63,10 +63,24 @@ describe('mergeDownCommand', () => {
 		doc.frames[0].layers[0].locked = false;
 		doc.frames[0].layers[0].opacity = .5;
 		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+		expect(mergeDownBlockedReason(doc, 0, 1)).toMatch(/opacities/);
 	});
 
 	it('refuses when there is no layer below', () => {
 		expect(mergeDownCommand(testDoc(), 0, 0)).toBeNull();
+	});
+
+	it('unlinks a shared destination before merging', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const peerBefore = doc.frames[1].layers[0].pixels.slice();
+		const bus = new CommandBus(doc);
+		bus.dispatch(mergeDownCommand(doc, 0, 1)!);
+		expect(doc.frames[1].layers[0].pixels).toEqual(peerBefore);
+		expect(doc.frames[0].layers[0].pixels).not.toBe(doc.frames[1].layers[0].pixels);
+		bus.undo();
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
 	});
 });
 
