@@ -120,4 +120,24 @@ describe('LoopPlayer playback speed', () => {
 		now.mockRestore();
 		vi.unstubAllGlobals();
 	});
+
+	it('notifies listeners when playback clamps a sought frame into range', () => {
+		let tick: FrameRequestCallback = () => {};
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => ((tick = callback), 1));
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
+		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'], frameCount: 3 });
+		const onFrame = vi.fn();
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, onFrame, () => ({ start: 1, end: 1 }));
+		player.start();
+		player.seek(2);
+		onFrame.mockClear();
+		tick(1);
+		expect(player.currentFrame).toBe(1);
+		expect(onFrame).toHaveBeenCalledWith(1);
+		player.stop();
+		now.mockRestore();
+		vi.unstubAllGlobals();
+	});
 });
