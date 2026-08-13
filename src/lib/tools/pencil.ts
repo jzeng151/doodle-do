@@ -122,7 +122,7 @@ export class StrokeBuilder {
 		const occupied = new Set<number>();
 		let rect: Rect | null = null;
 		for (const point of this.symmetryPoints(cx, cy, evenOffset)) {
-			rect = unionRect(rect, this.stampOne(point.x, point.y, point.x !== cx, occupied));
+			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, evenOffset, occupied));
 		}
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
@@ -142,13 +142,13 @@ export class StrokeBuilder {
 		return rect;
 	}
 
-	private symmetryPoints(x: number, y: number, offset = 0): { x: number; y: number }[] {
+	private symmetryPoints(x: number, y: number, offset = 0): { x: number; y: number; reflectX: boolean; reflectY: boolean }[] {
 		const mx = Math.round(2 * this.mirrorAxisX - x + offset);
 		const my = Math.round(2 * this.mirrorAxisY - y + offset);
-		const points = [{ x, y }];
-		if (this.mirrorX) points.push({ x: mx, y });
-		if (this.mirrorY) points.push({ x, y: my });
-		if (this.mirrorX && this.mirrorY) points.push({ x: mx, y: my });
+		const points = [{ x, y, reflectX: false, reflectY: false }];
+		if (this.mirrorX) points.push({ x: mx, y, reflectX: true, reflectY: false });
+		if (this.mirrorY) points.push({ x, y: my, reflectX: false, reflectY: true });
+		if (this.mirrorX && this.mirrorY) points.push({ x: mx, y: my, reflectX: true, reflectY: true });
 		return points;
 	}
 
@@ -183,7 +183,7 @@ export class StrokeBuilder {
 		return { x, y };
 	}
 
-	private stampOne(cx: number, cy: number, mirrored = false, occupied?: Set<number>): Rect | null {
+	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, offset = 0, occupied?: Set<number>): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
@@ -216,7 +216,9 @@ export class StrokeBuilder {
 				if (occupied?.has(i)) continue;
 				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				pixels[i] = ditherValue(mirrored ? width - 1 - x : x, y, this.value, this.secondaryValue, this.ditherSize);
+				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - x + offset) : x;
+				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - y + offset) : y;
+				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
 			}
 		}
 		return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };

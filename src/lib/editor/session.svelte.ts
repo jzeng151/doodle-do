@@ -212,6 +212,10 @@ export class EditorSession {
 			if (importedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? importedColors.before : importedColors.after;
 			const remappedColors = command instanceof PaletteRemapCommand ? this.paletteRemapColors.get(command) : undefined;
 			if (remappedColors) [this.colorValue, this.backgroundColorValue] = action === 'undo' ? remappedColors.before : remappedColors.after;
+			if (command instanceof PaletteAddCommand) {
+				this.colorValue = Math.min(this.colorValue, doc.palette.length);
+				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
+			}
 			this.unsavedCommits++;
 		});
 	}
@@ -392,7 +396,18 @@ export class EditorSession {
 		if (this.mirrorX) tips.fire('T13');
 	}
 
-	toggleMirrorY(): void { this.mirrorY = !this.mirrorY; }
+	toggleMirrorY(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.mirrorY = !this.mirrorY;
+	}
+
+	setMirrorAxis(axis: 'x' | 'y', value: number): void {
+		this.lineEnd();
+		this.shapeEnd();
+		if (axis === 'x') this.mirrorAxisX = this.normalizeAxis(value, this.doc.meta.width - 1);
+		else this.mirrorAxisY = this.normalizeAxis(value, this.doc.meta.height - 1);
+	}
 
 	private normalizeMirrorAxes(): void {
 		this.mirrorAxisX = this.normalizeAxis(this.mirrorAxisX, this.doc.meta.width - 1);
@@ -431,6 +446,10 @@ export class EditorSession {
 		return !!(this.pendingRect || this.lassoPath || this.polygonVerts);
 	}
 
+	get selectionGestureActive(): boolean {
+		return this.selectionGesturePending();
+	}
+
 	private effectiveSelectionMask(): Uint8Array | null {
 		let mask = this.floating?.coverageMask() ?? this.selectionMask?.slice() ?? null;
 		const twin = this.floatingTwin?.coverageMask()
@@ -452,7 +471,8 @@ export class EditorSession {
 	private bakeMask(add: Uint8Array): void {
 		if (this.mirrorX) add = combineMasks(add, mirrorMaskX(add, this.doc.meta.width, this.doc.meta.height), 'add')!;
 		const next = this.canonicalSelectionMask(combineMasks(this.effectiveSelectionMask(), add, this.gestureSelectionMode));
-		const changed = !next || !this.gestureBaseMask || next.some((value, index) => value !== this.gestureBaseMask![index]);
+		const changed = !!next !== !!this.gestureBaseMask
+			|| !!next?.some((value, index) => value !== this.gestureBaseMask![index]);
 		this.selectionMask = next;
 		if (changed) this.previousSelectionMask = this.gestureBaseMask;
 		this.gestureBaseMask = null;
@@ -609,6 +629,7 @@ export class EditorSession {
 
 	// mask extents, for the rotate handle before the selection lifts
 	selectionBounds(): Rect | null {
+		if (this.selectionGesturePending()) return null;
 		const mask = this.selectionMask;
 		if (!mask) return null;
 		const { width, height } = this.doc.meta;
@@ -675,9 +696,10 @@ export class EditorSession {
 
 	autosaveSnapshot(): Doc {
 		const snapshot = structuredClone(this.doc);
-		for (let frame = 0; frame < snapshot.frames.length; frame++) {
-			for (const selection of this.floatingSelections(frame)) {
-				selection.stampPreviewInto(snapshot.frames[frame].layers[selection.layerIndex].pixels);
+		if (this.floating) {
+			this.floating.restoreSnapshotInto(snapshot.frames[this.floating.frameIndex].layers[this.floating.layerIndex].pixels);
+			for (const peer of this.floatingPeers) {
+				peer.main.restoreSnapshotInto(snapshot.frames[peer.main.frameIndex].layers[peer.main.layerIndex].pixels);
 			}
 		}
 		return snapshot;
@@ -1313,6 +1335,8 @@ export class EditorSession {
 
 	importPalette(colors: string[]): boolean {
 		if (this.paletteLocked || !colors.length || colors.length > MAX_PALETTE) return false;
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const highestUsed = this.doc.frames.reduce(
 			(max, frame) => Math.max(max, ...frame.layers.map((layer) => layer.pixels.reduce((a, b) => Math.max(a, b), 0))),
@@ -1336,6 +1360,7 @@ export class EditorSession {
 		this.commitFloating();
 		const compacted = paletteFromArtwork(this.doc);
 		if (!compacted) return;
+		if (compacted.palette.length === this.doc.palette.length && compacted.palette.every((color, index) => color === this.doc.palette[index])) return;
 		this.invalidateStamp();
 		const foreground = this.colorValue;
 		const background = this.backgroundColorValue;
@@ -1391,7 +1416,7 @@ export class EditorSession {
 						(result, item) => combineMasks(result, item.coverageMask(), 'add'),
 						null
 					)
-					: this.selectionMask?.slice() ?? null;
+					: this.effectiveSelectionMask();
 				return { frame, layer: this.currentLayer, mask };
 			}).filter((target) => target.mask)
 			: [];

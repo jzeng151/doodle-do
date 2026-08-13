@@ -191,6 +191,15 @@ describe('mirror-draw', () => {
 		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
 	});
 
+	it('preserves dither phase across custom X and Y axes', () => {
+		const xDoc = testDoc(8, 8);
+		new StrokeBuilder(xDoc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 2).begin(1, 2);
+		expect(xDoc.frames[0].layers[0].pixels[2 * 8 + 3]).toBe(xDoc.frames[0].layers[0].pixels[2 * 8 + 1]);
+		const yDoc = testDoc(8, 8);
+		new StrokeBuilder(yDoc, 0, 0, 3, 1, false, 'pencil-stroke', false, 4, 2, 3.5, true, 1.5).begin(2, 1);
+		expect(yDoc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(yDoc.frames[0].layers[0].pixels[1 * 8 + 2]);
+	});
+
 	it('does not repaint an overlapping mirrored dither stamp', () => {
 		const doc = testDoc(8, 8);
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, 4, 2);
