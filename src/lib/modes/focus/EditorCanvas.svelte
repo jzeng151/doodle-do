@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { flushSync } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import { buildLut } from '$lib/core/palette';
 	import { drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
-	import { brushBounds, canvasPoint } from '../canvas';
+	import { brushBounds, canvasPoint, floatingCanvas } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
 
@@ -16,9 +15,10 @@
 	let keyboardX = $state(0);
 	let keyboardY = $state(0);
 	let keyboardFocused = $state(false);
-	let keyboardMarquee = $state(false);
 	let keyboardStatus = $state('');
 	let cameraPan = $state<{ x: number; y: number; left: number; top: number } | null>(null);
+	let linePointer: number | null = null;
+	let shapePointer: number | null = null;
 
 	// rotate-handle geometry in CSS px; e2e/selection.spec.ts mirrors these
 	const HANDLE_OFFSET = 16;
@@ -75,6 +75,10 @@
 			for (const bf of session.bulkFrames) {
 				if (bf === f) continue;
 				ctx.drawImage(session.compositor.frameCanvas(bf), 0, 0, canvasEl.width, canvasEl.height);
+				for (const selection of session.floatingSelections(bf)) {
+					const r = selection.renderRect;
+					ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
+				}
 			}
 			ctx.globalAlpha = 1;
 		}
@@ -86,7 +90,7 @@
 			if (layerIndex !== session.currentLayer) continue;
 			for (const selection of moved) {
 				const r = selection.renderRect;
-				ctx.drawImage(floatingCanvas(selection), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
+				ctx.drawImage(floatingCanvas(selection, session.doc.palette, session.version), r.x * renderZoom, r.y * renderZoom, r.w * renderZoom, r.h * renderZoom);
 			}
 		}
 
@@ -138,7 +142,7 @@
 			for (const s of [session.floatingTwin, sel]) {
 				if (!s) continue;
 				const r = s.renderRect;
-				if (drawPixels) ctx.drawImage(floatingCanvas(s), r.x * z, r.y * z, r.w * z, r.h * z);
+				if (drawPixels) ctx.drawImage(floatingCanvas(s, session.doc.palette, session.version), r.x * z, r.y * z, r.w * z, r.h * z);
 				// rotated group outline
 				dashedStroke(ctx, () => {
 					ctx.beginPath();
@@ -272,26 +276,6 @@
 		};
 	}
 
-	// floating buffers rendered as RGBA, rebuilt when the content re-rasterizes
-	// (keyed per selection: a mirror twin renders alongside the main)
-	const floatCache = new WeakMap<object, { version: number; canvas: HTMLCanvasElement }>();
-	function floatingCanvas(sel: NonNullable<typeof session.floating>): HTMLCanvasElement {
-		const cached = floatCache.get(sel);
-		if (cached && cached.version === sel.version) return cached.canvas;
-		const canvas = document.createElement('canvas');
-		const { w, h } = sel.renderRect;
-		canvas.width = w;
-		canvas.height = h;
-		const ctx = canvas.getContext('2d')!;
-		const img = ctx.createImageData(w, h);
-		const u32 = new Uint32Array(img.data.buffer);
-		const lut = buildLut(session.doc.palette);
-		for (let i = 0; i < sel.buffer.length; i++) u32[i] = lut[sel.buffer[i]];
-		ctx.putImageData(img, 0, 0);
-		floatCache.set(sel, { version: sel.version, canvas });
-		return canvas;
-	}
-
 	$effect(() => {
 		// repaint on any document change or relevant view-state change
 		void session.version;
@@ -338,11 +322,13 @@
 				break;
 			case 'line':
 				canvasEl.setPointerCapture(e.pointerId);
+				linePointer = e.pointerId;
 				session.lineBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'rectangle':
 			case 'ellipse':
 				canvasEl.setPointerCapture(e.pointerId);
+				shapePointer = e.pointerId;
 				session.shapeBegin(x, y, colorValue, secondaryColorValue);
 				break;
 			case 'move':
@@ -475,6 +461,8 @@
 
 	function onPointerUp(e: PointerEvent) {
 		if (selectDrag === 'layer') session.endLayerMove();
+		if (session.tool === 'line' && e.pointerId !== linePointer) return;
+		if ((session.tool === 'rectangle' || session.tool === 'ellipse') && e.pointerId !== shapePointer) return;
 		if (selectDrag === 'marquee') session.endMarquee();
 		if (selectDrag === 'lasso') session.endLasso();
 		selectDrag = null;
@@ -486,8 +474,16 @@
 				session.lineMove(x, y, e.shiftKey);
 			}
 			session.lineEnd();
+			linePointer = null;
 		}
-		else if (session.tool === 'rectangle' || session.tool === 'ellipse') session.shapeEnd();
+		else if (session.tool === 'rectangle' || session.tool === 'ellipse') {
+			if (session.shapeActive) {
+				const { x, y } = pixelFromEvent(e);
+				session.shapeMove(x, y);
+			}
+			session.shapeEnd();
+			shapePointer = null;
+		}
 		else session.strokeEnd();
 	}
 
@@ -548,7 +544,7 @@
 			else {
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
-				if (keyboardMarquee) session.updateMarquee(keyboardX, keyboardY);
+				if (session.pendingRect) session.updateMarquee(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 				if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
@@ -559,7 +555,6 @@
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			e.stopPropagation();
-			keyboardMarquee = false;
 			session.cancelLine();
 			session.cancelFloating();
 			return;
@@ -578,12 +573,18 @@
 				session.strokeEnd();
 				break;
 			case 'line':
-				if (session.lineActive) session.lineEnd();
+				if (session.lineActive) {
+					session.lineMove(keyboardX, keyboardY, e.shiftKey);
+					session.lineEnd();
+				}
 				else session.lineBegin(keyboardX, keyboardY);
 				break;
 			case 'rectangle':
 			case 'ellipse':
-				if (session.shapeActive) session.shapeEnd();
+				if (session.shapeActive) {
+					session.shapeMove(keyboardX, keyboardY);
+					session.shapeEnd();
+				}
 				else session.shapeBegin(keyboardX, keyboardY);
 				break;
 			case 'move':
@@ -603,9 +604,8 @@
 				session.wandSelect(keyboardX, keyboardY, e.shiftKey);
 				break;
 			case 'select':
-				if (keyboardMarquee) session.endMarquee();
+				if (session.pendingRect) session.endMarquee();
 				else session.beginMarquee(keyboardX, keyboardY, e.shiftKey);
-				keyboardMarquee = !keyboardMarquee;
 				break;
 			case 'polygon':
 				if (e.key === 'Enter' && session.polygonVerts) session.closePolygon();
