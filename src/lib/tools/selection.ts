@@ -414,7 +414,9 @@ export class FloatingSelection {
 		const layerPixels = new Uint8Array(width * height);
 		this.stampInto(layerPixels);
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
-		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', pixels) };
+		const cleared = pixels.slice();
+		for (let i = 0; i < cleared.length; i++) if (layerPixels[i]) cleared[i] = 0;
+		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', cleared) };
 	}
 
 	// extract() for a mirror pair: both halves land on the new layer, one
@@ -428,7 +430,9 @@ export class FloatingSelection {
 		twin.stampInto(layerPixels);
 		this.stampInto(layerPixels);
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
-		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', pixels) };
+		const cleared = pixels.slice();
+		for (let i = 0; i < cleared.length; i++) if (layerPixels[i]) cleared[i] = 0;
+		return { layerPixels, sourceDiff: this.diffVsSnapshot('extract-clear', cleared) };
 	}
 
 	// Escape: restore the layer exactly as it was before the lift.

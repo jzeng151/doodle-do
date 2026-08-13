@@ -452,6 +452,16 @@ describe('mirrored twin selection', () => {
 		expect(pixels[1 * 8 + 6]).toBe(0);
 	});
 
+	it('extraction clears retained pixels covered by moved artwork', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 1, h: 1 }], 8, 8));
+		sel.moveBy(4, 4);
+		const { sourceDiff } = sel.extract();
+		sel.cancel();
+		sourceDiff!.do(doc);
+		expect(doc.frames[0].layers[0].pixels[5 * 8 + 5]).toBe(0);
+	});
+
 	it('a selection crossing the centerline lifts overlap pixels exactly once', () => {
 		const doc = createDoc({ width: 8, height: 8, palette: DEFAULT_PALETTE, frameCount: 1 });
 		const pixels = doc.frames[0].layers[0].pixels;

@@ -376,6 +376,16 @@ describe('shape tools', () => {
 	});
 });
 
+describe('adjustable symmetry', () => {
+	it('reflects only the in-bounds source brush footprint', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, undefined, 0, 1.5);
+		stroke.begin(0, 3);
+		const row = [...doc.frames[0].layers[0].pixels.slice(3 * 8, 4 * 8)];
+		expect(row).toEqual([3, 3, 3, 3, 0, 0, 0, 0]);
+	});
+});
+
 describe('pixel-perfect pencil', () => {
 	it('removes the redundant middle pixel from an L-shaped corner', () => {
 		const doc = testDoc();

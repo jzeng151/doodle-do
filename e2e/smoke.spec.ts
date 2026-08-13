@@ -206,6 +206,9 @@ test('swapping active colors finalizes a keyboard line preview', async ({ page }
 test('transparent background color remains visible after swapping', async ({ page }) => {
 	await gotoApp(page);
 	const palette = page.locator('.palette-panel');
+	await palette.getByRole('button', { name: 'Transparent' }).click({ button: 'right' });
+	await expect(palette.getByRole('button', { name: 'Transparent' })).toHaveClass(/background-selected/);
+	await expect(palette.locator('.active-color.background')).toHaveClass(/transparent/);
 	await palette.getByRole('button', { name: 'Transparent' }).click();
 	await palette.getByTitle('Swap foreground and background colors (X)').click();
 	await expect(palette.getByRole('button', { name: 'Transparent' })).toHaveClass(/background-selected/);

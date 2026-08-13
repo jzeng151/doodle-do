@@ -1215,6 +1215,7 @@ export class EditorSession {
 		const s = Math.max(0, Math.min(Math.min(start, end), last));
 		const e = Math.max(s, Math.min(Math.max(start, end), last));
 		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
+		this.activeAnimationTagName = '';
 	}
 
 	addAnimationTag(tag: AnimationTag): void {
@@ -1238,8 +1239,8 @@ export class EditorSession {
 	}
 
 	selectAnimationTag(name: string): void {
-		this.activeAnimationTagName = name;
 		if (!name) {
+			this.activeAnimationTagName = '';
 			this.loopRange = null;
 			this.loopPlaybackMode = 'forward';
 			this.loopRepeatCount = 0;
@@ -1248,9 +1249,10 @@ export class EditorSession {
 		const tag = this.doc.meta.tags?.find((item) => item.name === name);
 		if (tag) {
 			this.setLoopRange(tag.from, tag.to);
+			this.activeAnimationTagName = name;
 			this.loopPlaybackMode = tag.direction;
 			this.loopRepeatCount = tag.repeats;
-		}
+		} else this.activeAnimationTagName = '';
 	}
 
 	// --- layers (per-frame, cap 8) ---
@@ -1280,6 +1282,7 @@ export class EditorSession {
 		delete copy.linkId;
 		this.bus.dispatch(new LayerAddCommand(this.currentFrame, this.currentLayer + 1, copy));
 		this.currentLayer++;
+		this.bulkFrames = [];
 	}
 
 	setLayerLocked(index: number, locked: boolean): void {
@@ -1292,6 +1295,8 @@ export class EditorSession {
 	}
 
 	setLayerOpacity(index: number, opacity: number): void {
+		this.lineEnd();
+		this.shapeEnd();
 		this.commitFloating();
 		const layer = this.frame.layers[index];
 		const next = Math.max(0, Math.min(1, opacity));
@@ -1516,7 +1521,6 @@ export class EditorSession {
 				return { frame, layer: this.currentLayer, mask };
 			}).filter((target) => target.mask)
 			: [];
-		this.commitFloating();
 		const targets: { frame: number; layer: number; mask?: Uint8Array | null }[] = [];
 		if (scope === 'selection') {
 			targets.push(...selectionTargets);
@@ -1532,13 +1536,34 @@ export class EditorSession {
 				for (let layer = 0; layer < this.doc.frames[frame].layers.length; layer++) targets.push({ frame, layer });
 			}
 		}
-		const cmds = targets
-			.filter(({ frame, layer }) => !this.layerLocked(frame, layer))
-			.map(({ frame, layer, mask }) => replaceColorCommand(this.doc, frame, layer, from, to, mask))
-			.filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		const source = this.floating ? structuredClone(this.doc) : this.doc;
+		if (this.floating) {
+			for (const { main, twin } of [
+				{ main: this.floating, twin: this.floatingTwin },
+				...this.floatingPeers
+			]) {
+				const layerPixels = (twin ? main.extractPair(twin) : main.extract()).layerPixels;
+				const pixels = source.frames[main.frameIndex].layers[main.layerIndex].pixels;
+				for (let i = 0; i < pixels.length; i++) if (layerPixels[i]) pixels[i] = layerPixels[i];
+			}
+		}
+		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
+		const seenPixels = new WeakSet<Uint8Array>();
+		let byteSize = 0;
+		for (const { frame, layer, mask } of targets) {
+			if (this.layerLocked(frame, layer)) continue;
+			const pixels = source.frames[frame].layers[layer].pixels;
+			if (scope !== 'selection' && seenPixels.has(pixels)) continue;
+			seenPixels.add(pixels);
+			const cmd = replaceColorCommand(source, frame, layer, from, to, mask);
+			if (!cmd) continue;
+			byteSize += cmd.byteSize;
+			if (byteSize + (cmds.length ? 64 : 0) > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+			cmds.push(cmd);
+		}
 		const command = cmds.length === 1 ? cmds[0] : cmds.length ? new CompositeCommand('replace-color-scope', cmds) : null;
 		if (!command) return;
-		if (command.byteSize > UNDO_MAX_BYTES) throw new Error('That replacement is too large to undo. Choose a smaller scope.');
+		this.commitFloating();
 		this.bus.dispatch(command);
 	}
 
