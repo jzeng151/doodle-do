@@ -113,6 +113,16 @@ describe('palette commands', () => {
 		expect(pixels[0]).toBe(3);
 	});
 
+	it('undoes duplicate-color remaps to the used slot', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#111111', '#222222', '#111111'] });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, ['#111111'], new Map([[3, 1], [1, 1]]));
+		command.do(doc);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
 	it('replaces only the palette and undoes compactly', () => {
 		const doc = testDoc();
 		const bus = new CommandBus(doc);

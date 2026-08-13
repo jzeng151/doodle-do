@@ -373,7 +373,8 @@ export class PaletteRemapCommand implements Command {
 		private readonly after: string[],
 		private readonly forward: Map<number, number>
 	) {
-		this.reverse = new Map([...forward].map(([from, to]) => [to, from]));
+		this.reverse = new Map();
+		for (const [from, to] of forward) if (!this.reverse.has(to)) this.reverse.set(to, from);
 		this.byteSize = JSON.stringify([before, after, [...forward]]).length + 64;
 	}
 
