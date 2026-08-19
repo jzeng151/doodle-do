@@ -10,6 +10,9 @@
 	let heroEl: HTMLCanvasElement;
 	let filmEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	let player: LoopPlayer;
+	let tagName = $state('');
+	let tagDirection = $state<'forward' | 'reverse' | 'ping-pong'>('forward');
+	let tagRepeats = $state(0);
 	let playing = $state(false);
 	let playFrame = $state(0);
 	const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2] as const;
@@ -17,6 +20,7 @@
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const rangeStart = $derived((session.version, session.loopRange, session.effectiveLoopRange().start));
 	const rangeEnd = $derived((session.version, session.loopRange, session.effectiveLoopRange().end));
+	const tags = $derived((session.version, session.doc.meta.tags ?? []));
 	const heroScale = $derived(
 		(session.version,
 		Math.max(1, Math.floor(512 / Math.max(session.doc.meta.width, session.doc.meta.height))))
@@ -35,11 +39,17 @@
 			heroEl,
 			(f) => (playFrame = f),
 			() => session.effectiveLoopRange(),
-			() => session.loopPlaybackSpeed
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount,
+			() => (playing = false)
 		);
 		playing = !media.matches;
 		if (playing) player.start();
-		else player.blit();
+		else {
+			const range = session.effectiveLoopRange();
+			player.seek(session.loopPlaybackMode === 'reverse' ? range.end : range.start);
+		}
 		const pauseForPreference = () => {
 			if (!media.matches) return;
 			playing = false;
@@ -65,6 +75,25 @@
 		player.stop();
 		player.seek((e.currentTarget as HTMLInputElement).valueAsNumber);
 	}
+
+	function selectTag(name: string) {
+		session.selectAnimationTag(name);
+		const tag = tags.find((item) => item.name === name);
+		tagName = tag?.name ?? '';
+		tagDirection = tag?.direction ?? 'forward';
+		tagRepeats = tag?.repeats ?? 0;
+		if (player && !playing) {
+			const range = session.effectiveLoopRange();
+			player.seek(session.loopPlaybackMode === 'reverse' ? range.end : range.start);
+		}
+	}
+
+	$effect(() => {
+		const tag = tags.find((item) => item.name === session.activeAnimationTagName);
+		tagName = tag?.name ?? '';
+		tagDirection = tag?.direction ?? 'forward';
+		tagRepeats = tag?.repeats ?? 0;
+	});
 
 	$effect(() => {
 		// reflect edits/undo arriving from shortcuts while paused
@@ -128,6 +157,8 @@
 				{/each}
 			</select>
 		</label>
+		<label>Direction<select bind:value={session.loopPlaybackMode}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+		<label>Repeats<input type="number" min="0" max="99" bind:value={session.loopRepeatCount} title="0 repeats continuously" /></label>
 		<label>
 			From
 			<input
@@ -150,6 +181,17 @@
 				aria-label="Loop range end"
 			/>
 		</label>
+	</div>
+	<div class="tag-controls" aria-label="Animation tags">
+		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => selectTag(e.currentTarget.value)}>
+			<option value="">All frames</option>
+			{#each tags as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
+		</select></label>
+		<label>Name<input maxlength="32" bind:value={tagName} /></label>
+		<label>Direction<select bind:value={tagDirection}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+		<label>Repeats<input type="number" min="0" max="99" bind:value={tagRepeats} title="0 means continuous preview" /></label>
+		<button disabled={!tagName.trim()} onclick={() => session.addAnimationTag({ name: tagName, from: rangeStart, to: rangeEnd, direction: tagDirection, repeats: tagRepeats })}>Save clip</button>
+		<button disabled={!session.activeAnimationTagName} onclick={() => session.deleteAnimationTag(session.activeAnimationTagName)}>Delete clip</button>
 	</div>
 
 	<div class="filmstrip" role="group" aria-label="Filmstrip">
@@ -185,6 +227,7 @@
 		background-image: radial-gradient(rgba(17,17,17,.18) .7px, transparent .9px);
 		background-size: 6px 6px;
 	}
+	.loop-mode > :global(*) { flex-shrink: 0; }
 	.hero {
 		image-rendering: pixelated;
 		max-height: 60vh;
@@ -202,6 +245,9 @@
 		width: min(760px, 100%);
 		flex-wrap: wrap;
 	}
+	.tag-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-top: .5rem; }
+	.tag-controls label { display: grid; gap: .2rem; font-size: .6875rem; font-weight: 700; }
+	.tag-controls input { width: 7rem; }
 	.scrubber {
 		flex: 1 1 12rem;
 	}

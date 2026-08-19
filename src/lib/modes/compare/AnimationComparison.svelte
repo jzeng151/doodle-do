@@ -11,6 +11,8 @@
 	let currentPlayer: LoopPlayer;
 	let forkPlayer: LoopPlayer;
 	let playing = $state(false);
+	let currentComplete = false;
+	let forkComplete = false;
 	let currentFrame = $state(0);
 	let forkFrame = $state(0);
 
@@ -27,9 +29,39 @@
 		return Math.max(1, Math.floor(512 / Math.max(doc.meta.width, doc.meta.height)));
 	}
 
+	function activeTag(target: EditorSession) {
+		return target.doc.meta.tags?.find((tag) => tag.name === target.activeAnimationTagName);
+	}
+
+	function playbackRange(target: EditorSession) {
+		const last = target.doc.frames.length - 1;
+		const tag = target === fork ? activeTag(target) : undefined;
+		const range = tag ? { start: tag.from, end: tag.to } : target.effectiveLoopRange();
+		const start = Math.min(range.start, last);
+		return { start, end: Math.max(start, Math.min(range.end, last)) };
+	}
+
+	function seekStart(player: LoopPlayer, target: EditorSession) {
+		const range = playbackRange(target);
+		const mode = target === session
+			? session.loopPlaybackMode
+			: activeTag(fork)?.direction ?? fork.loopPlaybackMode;
+		player.seek(mode === 'reverse' ? range.end : range.start);
+	}
+
 	function start() {
-		currentPlayer.start();
-		forkPlayer.start();
+		if (currentComplete && forkComplete) currentComplete = forkComplete = false;
+		if (!currentComplete) currentPlayer.start();
+		if (!forkComplete) forkPlayer.start();
+	}
+
+	function complete(side: 'current' | 'fork') {
+		if (side === 'current') currentComplete = true;
+		else forkComplete = true;
+		if (currentComplete && forkComplete) {
+			playing = false;
+			stop();
+		}
 	}
 
 	function stop() {
@@ -39,7 +71,10 @@
 
 	function togglePlay() {
 		playing = !playing;
-		if (playing) start();
+		if (playing) {
+			currentComplete = forkComplete = false;
+			start();
+		}
 		else stop();
 	}
 
@@ -50,22 +85,28 @@
 			session.compositor,
 			currentEl,
 			(frame) => (currentFrame = frame),
-			undefined,
-			() => session.loopPlaybackSpeed
+			() => playbackRange(session),
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount,
+			() => complete('current')
 		);
 		forkPlayer = new LoopPlayer(
 			fork.doc,
 			fork.compositor,
 			forkEl,
 			(frame) => (forkFrame = frame),
-			undefined,
-			() => session.loopPlaybackSpeed
+			() => playbackRange(fork),
+			() => session.loopPlaybackSpeed,
+			() => activeTag(fork)?.direction ?? fork.loopPlaybackMode,
+			() => activeTag(fork)?.repeats ?? fork.loopRepeatCount,
+			() => complete('fork')
 		);
 		playing = !media.matches;
 		if (playing) start();
 		else {
-			currentPlayer.blit();
-			forkPlayer.blit();
+			seekStart(currentPlayer, session);
+			seekStart(forkPlayer, fork);
 		}
 		const pauseForPreference = () => {
 			if (!media.matches) return;

@@ -13,6 +13,15 @@ export interface DocMeta {
 	fps: number; // 1–24, default 8
 	version: 1;
 	syncMeta: null; // reserved for future cloud sync (§4.7)
+	tags?: AnimationTag[];
+}
+
+export interface AnimationTag {
+	name: string;
+	from: number;
+	to: number;
+	direction: 'forward' | 'reverse' | 'ping-pong';
+	repeats: number;
 }
 
 export interface Layer {

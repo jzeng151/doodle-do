@@ -19,6 +19,7 @@ export interface DirtyRegion {
 	frame: number | null;
 	rect: Rect | null;
 	palette?: boolean;
+	metadata?: boolean;
 }
 
 export interface Command {

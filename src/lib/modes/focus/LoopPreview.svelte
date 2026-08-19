@@ -23,7 +23,10 @@
 			loopEl,
 			undefined,
 			() => session.effectiveLoopRange(),
-			undefined,
+			() => session.loopPlaybackSpeed,
+			() => session.loopPlaybackMode,
+			() => session.loopRepeatCount,
+			() => (paused = true),
 			(ctx, frame) => {
 				const canvas = floatingFrameCanvas(session, frame);
 				if (!canvas) return false;
@@ -34,6 +37,10 @@
 		// prefers-reduced-motion pauses the auto-loop; manual play still works (§5)
 		paused = media.matches;
 		if (!paused) player.start();
+		else {
+			const range = session.effectiveLoopRange();
+			player.seek(session.loopPlaybackMode === 'reverse' ? range.end : range.start);
+		}
 		const pauseForPreference = () => {
 			if (!media.matches) return;
 			paused = true;

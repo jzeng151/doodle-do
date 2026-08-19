@@ -33,7 +33,8 @@ export function serializeProject(doc: Doc): string {
 			width: doc.meta.width,
 			height: doc.meta.height,
 			fps: doc.meta.fps,
-			syncMeta: doc.meta.syncMeta
+			syncMeta: doc.meta.syncMeta,
+			...(doc.meta.tags?.length && { tags: doc.meta.tags })
 		},
 		palette: doc.palette,
 		frames: doc.frames.map((frame) => ({
@@ -78,6 +79,19 @@ export function parseProject(text: string): Doc {
 	if (!Array.isArray(palette) || palette.length > MAX_PALETTE) fail('bad palette');
 	const rawFrames = p.frames as Record<string, unknown>[];
 	if (!Array.isArray(rawFrames) || rawFrames.length < 1) fail('no frames');
+	let tags: Doc['meta']['tags'];
+	if (Object.prototype.hasOwnProperty.call(meta, 'tags') && !Array.isArray(meta.tags)) fail('bad animation tags');
+	if (Array.isArray(meta.tags)) {
+		const names = new Set<string>();
+		tags = (meta.tags as Record<string, unknown>[]).map((tag) => {
+			const name = typeof tag.name === 'string' ? tag.name.trim() : '';
+			const { from, to, repeats } = tag;
+			const direction = tag.direction;
+			if (!name || names.has(name) || typeof from !== 'number' || typeof to !== 'number' || typeof repeats !== 'number' || !Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(repeats) || repeats < 0 || repeats > 99 || from < 0 || to < from || to >= rawFrames.length || !['forward', 'reverse', 'ping-pong'].includes(direction as string)) fail('bad animation tags');
+			names.add(name);
+			return { name, from, to, direction: direction as 'forward' | 'reverse' | 'ping-pong', repeats };
+		});
+	}
 
 	const doc: Doc = {
 		meta: {
@@ -86,7 +100,8 @@ export function parseProject(text: string): Doc {
 			height,
 			fps: typeof meta.fps === 'number' && meta.fps >= 1 && meta.fps <= 24 ? meta.fps : 8,
 			version: PROJECT_VERSION,
-			syncMeta: null
+			syncMeta: null,
+			...(tags && { tags })
 		},
 		palette,
 		frames: rawFrames.map((rawFrame, f) => {

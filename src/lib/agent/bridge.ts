@@ -53,7 +53,7 @@ export function executeAgentOperation(
 	if (operation === 'get_document') {
 		return {
 			version: session.version,
-			meta: { name: doc.meta.name, width: doc.meta.width, height: doc.meta.height, fps: doc.meta.fps },
+			meta: { name: doc.meta.name, width: doc.meta.width, height: doc.meta.height, fps: doc.meta.fps, tags: doc.meta.tags ?? [] },
 			palette: [{ value: 0, hex: null, name: 'transparent' }, ...doc.palette.map((hex, i) => ({ value: i + 1, hex }))],
 			current: { frame: session.currentFrame, layer: session.currentLayer, mode: session.mode },
 			editing: { strokeActive: session.strokeActive, hasSelection: session.hasSelection || session.selectionGestureActive },

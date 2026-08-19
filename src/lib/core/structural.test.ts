@@ -4,6 +4,7 @@ import { DEFAULT_PALETTE } from './palette';
 import { CommandBus } from './commands';
 import {
 	FpsCommand,
+	DocumentReplaceCommand,
 	FrameAddCommand,
 	FrameDeleteCommand,
 	FrameDurationCommand,
@@ -50,6 +51,71 @@ describe('frame commands', () => {
 	it('refuses to delete the last frame', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: [], frameCount: 1 });
 		expect(() => new FrameDeleteCommand(doc, 0)).toThrow();
+	});
+
+	it('keeps animation tag ranges valid across frame edits and undo', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#000000'], frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 2, direction: 'forward', repeats: 0 }];
+		const add = new FrameAddCommand(1, { layers: [createLayer(doc, 'Layer 1')] });
+		add.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 2, to: 3 });
+		add.undo(doc);
+		const remove = new FrameDeleteCommand(doc, 2);
+		remove.do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 1 });
+		remove.undo(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
+	});
+
+	it('extends a clip when duplicating its final frame', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 3 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 2, direction: 'forward', repeats: 0 }];
+		new FrameAddCommand(3, { layers: [createLayer(doc, 'Layer 1')] }, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
+	it('removes a one-frame clip when that frame is deleted', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
+		doc.meta.tags = [{ name: 'idle', from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		const remove = new FrameDeleteCommand(doc, 0);
+		remove.do(doc);
+		expect(doc.meta.tags).toEqual([]);
+		remove.undo(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ name: 'idle', from: 0, to: 0 });
+	});
+
+	it('keeps a clip range when reordering within it', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
+		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(1, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
+	it('does not enumerate every frame in a clip during reorder', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 3 });
+		doc.meta.tags = [{ name: 'long', from: 0, to: 200_000, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(1, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 0, to: 200_000 });
+	});
+
+	it('counts retained animation tags in frame command history', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
+		doc.meta.tags = [{ name: 'a'.repeat(200), from: 0, to: 1, direction: 'forward', repeats: 0 }];
+		const add = new FrameAddCommand(1, { layers: [createLayer(doc, 'Layer 1')] });
+		add.do(doc);
+		const reorder = new FrameReorderCommand(0, 1);
+		reorder.do(doc);
+		expect(add.byteSize).toBeGreaterThan(200);
+		expect(reorder.byteSize).toBeGreaterThan(200);
+		expect(new FrameDeleteCommand(doc, 0).byteSize).toBeGreaterThan(200);
+	});
+
+	it('counts animation tags retained by document replacement', () => {
+		const before = createDoc({ width: 1, height: 1, palette: [], frameCount: 1 });
+		const after = structuredClone(before);
+		before.meta.tags = [{ name: 'a'.repeat(200), from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		after.meta.tags = [{ name: 'b'.repeat(200), from: 0, to: 0, direction: 'forward', repeats: 0 }];
+		expect(new DocumentReplaceCommand(before, after).byteSize).toBeGreaterThan(500);
 	});
 
 	it('per-frame duration and fps commands undo cleanly', () => {

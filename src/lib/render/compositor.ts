@@ -25,6 +25,7 @@ export class Compositor {
 	}
 
 	invalidate(region: DirtyRegion): void {
+		if (region.metadata) return;
 		this.layerCache = new WeakMap();
 		if (region.palette) {
 			this.invalidatePalette();

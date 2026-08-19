@@ -3,9 +3,10 @@
 // bumps on every committed change so Svelte views can react to document
 // mutations that live outside its reactivity (Uint8Arrays).
 
-import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
+import { createDoc, createLayer, frameDurationMs, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type AnimationTag, type Doc } from '../core/document';
 import { CommandBus, CompositeCommand, UNDO_MAX_BYTES, type Rect } from '../core/commands';
 import {
+	AnimationTagsCommand,
 	DocumentReplaceCommand,
 	FpsCommand,
 	FrameAddCommand,
@@ -98,6 +99,9 @@ export class EditorSession {
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
+	loopPlaybackMode = $state<'forward' | 'reverse' | 'ping-pong'>('forward');
+	loopRepeatCount = $state(0);
+	activeAnimationTagName = $state('');
 	showPreviewBackground = $state(true);
 	comparisonSession: EditorSession | null = null;
 	comparisonVersion = $state(0);
@@ -159,6 +163,10 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
+			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand || command instanceof FrameAddCommand || command instanceof FrameDeleteCommand || command instanceof FrameReorderCommand) && this.activeAnimationTagName) {
+				const active = this.doc.meta.tags?.find((tag) => tag.name === this.activeAnimationTagName);
+				this.selectAnimationTag(active ? active.name : '');
+			}
 			if (command.dirty().palette) this.paletteImportGeneration++;
 			if (command instanceof ResizeCanvasCommand || command instanceof DocumentReplaceCommand) {
 				this.selectionMask = null;
@@ -228,7 +236,15 @@ export class EditorSession {
 		if (mode !== 'grid' || this.tool !== 'stamp') this.bulkFrames = [];
 		this.overlayVersion++;
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
-		if (mode === 'compare' && !this.comparisonSession) this.resetComparisonFork();
+		if (mode === 'compare') {
+			if (!this.comparisonSession) this.resetComparisonFork();
+			else {
+				const name = this.activeAnimationTagName;
+				this.comparisonSession.selectAnimationTag(
+					name && this.comparisonSession.doc.meta.tags?.some((tag) => tag.name === name) ? name : ''
+				);
+			}
+		}
 		this.mode = mode;
 		if (mode === 'loop') tips.fire('T21'); // playback range
 		if (mode === 'compare') tips.fire('T27'); // independent editable fork
@@ -238,7 +254,13 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating();
-		this.comparisonSession = new EditorSession(structuredClone(this.doc));
+		const fork = new EditorSession(structuredClone(this.doc));
+		fork.loopRange = this.loopRange ? { ...this.loopRange } : null;
+		fork.loopPlaybackSpeed = this.loopPlaybackSpeed;
+		fork.loopPlaybackMode = this.loopPlaybackMode;
+		fork.loopRepeatCount = this.loopRepeatCount;
+		if (this.activeAnimationTagName) fork.selectAnimationTag(this.activeAnimationTagName);
+		this.comparisonSession = fork;
 		this.comparisonVersion++;
 	}
 
@@ -1000,7 +1022,7 @@ export class EditorSession {
 			new FrameAddCommand(index, {
 				layers,
 				...(duplicate && src.durationMs !== undefined && { durationMs: src.durationMs })
-			})
+			}, duplicate ? this.currentFrame : undefined)
 		);
 		this.currentFrame = index;
 		if (duplicate) tips.fire('T03');
@@ -1056,16 +1078,66 @@ export class EditorSession {
 	// inclusive, clamped against the current frame count
 	effectiveLoopRange(): { start: number; end: number } {
 		const last = this.doc.frames.length - 1;
-		if (!this.loopRange) return { start: 0, end: last };
-		const start = Math.max(0, Math.min(this.loopRange.start, last));
-		return { start, end: Math.max(start, Math.min(this.loopRange.end, last)) };
+		const range = this.loopRange;
+		if (!range) return { start: 0, end: last };
+		const start = Math.max(0, Math.min(range.start, last));
+		return { start, end: Math.max(start, Math.min(range.end, last)) };
 	}
 
 	setLoopRange(start: number, end: number): void {
+		if (!Number.isFinite(start) || !Number.isFinite(end)) return;
 		const last = this.doc.frames.length - 1;
-		const s = Math.max(0, Math.min(Math.min(start, end), last));
-		const e = Math.max(s, Math.min(Math.max(start, end), last));
+		const s = Math.max(0, Math.min(Math.round(Math.min(start, end)), last));
+		const e = Math.max(s, Math.min(Math.round(Math.max(start, end)), last));
 		this.loopRange = s === 0 && e === last ? null : { start: s, end: e };
+	}
+
+	addAnimationTag(tag: AnimationTag): void {
+		const name = tag.name.trim();
+		if (!name) return;
+		const last = this.doc.frames.length - 1;
+		const current = this.effectiveLoopRange();
+		const rawFrom = Number.isFinite(tag.from) ? tag.from : current.start;
+		const rawTo = Number.isFinite(tag.to) ? tag.to : current.end;
+		const from = Math.max(0, Math.min(Math.round(Math.min(rawFrom, rawTo)), last));
+		const to = Math.max(from, Math.min(Math.round(Math.max(rawFrom, rawTo)), last));
+		const repeats = Math.max(0, Math.min(99, Math.round(tag.repeats || 0)));
+		const before = this.doc.meta.tags;
+		const active = this.activeAnimationTagName;
+		if (active && active !== name && before?.some((item) => item.name === name)) return;
+		const normalized = { ...tag, name, from, to, repeats };
+		const index = before?.findIndex((item) => item.name === (active || name)) ?? -1;
+		const after = index < 0
+			? [...(before ?? []), normalized]
+			: (before ?? []).map((item, itemIndex) => itemIndex === index ? normalized : item);
+		if (before && JSON.stringify(after) === JSON.stringify(before)) return;
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		this.selectAnimationTag(name);
+	}
+
+	deleteAnimationTag(name: string): void {
+		const before = this.doc.meta.tags;
+		const after = (before ?? []).filter((tag) => tag.name !== name);
+		if (after.length === before?.length) return;
+		this.bus.dispatch(new AnimationTagsCommand(before, after));
+		if (this.activeAnimationTagName === name) this.selectAnimationTag('');
+	}
+
+	selectAnimationTag(name: string): void {
+		if (!name) {
+			this.activeAnimationTagName = '';
+			this.loopRange = null;
+			this.loopPlaybackMode = 'forward';
+			this.loopRepeatCount = 0;
+			return;
+		}
+		const tag = this.doc.meta.tags?.find((item) => item.name === name);
+		if (tag) {
+			this.setLoopRange(tag.from, tag.to);
+			this.activeAnimationTagName = name;
+			this.loopPlaybackMode = tag.direction;
+			this.loopRepeatCount = tag.repeats;
+		} else this.activeAnimationTagName = '';
 	}
 
 	// --- layers (per-frame, cap 8) ---

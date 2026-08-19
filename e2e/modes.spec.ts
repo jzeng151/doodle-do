@@ -213,6 +213,141 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 	await expect(page.getByLabel('Playback speed')).toHaveValue('0.25');
 });
 
+test('saving a renamed clip replaces the selected clip', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	const name = page.getByLabel('Name', { exact: true });
+	await name.fill('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await name.fill('run');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'run (1–2)']);
+	await page.getByLabel('Loop range start').fill('');
+	await name.fill('safe');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'safe (1–2)']);
+});
+
+test('editing a selected clip preserves its identity and integer range', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Loop range start').evaluate((input: HTMLInputElement) => {
+		input.value = '1.5';
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+	});
+	await expect(page.getByLabel('Clip')).toHaveValue('walk');
+	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('walk');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await expect(page.getByLabel('Clip').locator('option')).toHaveText(['All frames', 'walk (2–2)']);
+	await page.locator('.film-frame').first().click();
+	await page.getByLabel('Clip').selectOption('');
+	await page.getByLabel('Clip').selectOption('walk');
+	await expect(page.locator('.counter')).toHaveText('2 / 2');
+});
+
+test('reduced-motion reverse clips initialize at their end frame', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
+	await drawOn(page, page.locator('canvas.editor'));
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('reverse');
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	expect(await locatorHasInk(page.locator('.loop-panel canvas.loop'))).toBe(true);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await expect(page.locator('.counter')).toHaveText('2 / 2');
+});
+
+test('active clips follow frame structure changes', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.locator('.film-frame').first().click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await expect(page.getByLabel('Clip')).toHaveValue('idle');
+	await expect(page.getByLabel('Loop range start')).toHaveValue('3');
+	await expect(page.getByLabel('Loop range end')).toHaveValue('3');
+});
+
+test('comparison fork keeps its saved clip playback settings', async ({ page }) => {
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Name', { exact: true }).fill('walk');
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('forward');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 1 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 2 of 2/);
+});
+
+test('comparison fork starts with the active clip', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
+	await drawOn(page, page.locator('canvas.editor'));
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const previews = page.locator('.loop-panel canvas.loop');
+	await expect(previews).toHaveCount(2);
+	expect(await locatorHasInk(previews.first())).toBe(true);
+	expect(await locatorHasInk(previews.last())).toBe(true);
+});
+
+test('comparison playback preserves an unsaved current clip range', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range end').fill('1');
+	await page.getByLabel('Name', { exact: true }).fill('idle');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Loop range start').fill('2');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 2 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 1 of 2/);
+});
+
+test('reused comparison forks follow the current clip selection', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoApp(page);
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Loop range end').fill('1');
+	await page.getByLabel('Name', { exact: true }).fill('first');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Clip').selectOption('');
+	await page.getByLabel('Loop range start').fill('2');
+	await page.getByLabel('Loop range end').fill('2');
+	await page.getByLabel('Name', { exact: true }).fill('second');
+	await page.getByRole('button', { name: 'Save clip' }).click();
+	await page.getByLabel('Clip').selectOption('first');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await page.getByLabel('Clip').selectOption('second');
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await page.getByRole('button', { name: 'Compare animations' }).click();
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 2 of 2/);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 2 of 2/);
+});
+
 test('preview background setting is shared with Loop mode', async ({ page }) => {
 	await gotoApp(page);
 	const sidePanel = page.locator('.loop-panel');
