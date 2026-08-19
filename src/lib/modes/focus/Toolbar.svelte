@@ -24,6 +24,7 @@
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
 	const zoomLabel = $derived(`${Number(session.zoom.toFixed(2))}×`);
+	const clampOnionRange = (value: number) => Math.max(1, Math.min(8, Math.round(value) || 1));
 
 	function zoomOut() {
 		session.zoom = Math.max(0.25, session.zoom - (session.zoom <= 1 ? 0.25 : 2));
@@ -209,7 +210,7 @@
 		>
 			<i class="onion-swatch previous" aria-hidden="true"></i>Previous
 		</button>
-		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={session.onionPreviousRange} oninput={(e) => (session.onionPreviousRange = Math.max(1, Math.min(8, Math.round(e.currentTarget.valueAsNumber) || 1)))} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
+		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={() => session.onionPreviousRange, (value) => (session.onionPreviousRange = clampOnionRange(value))} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
 		<button
 			class:active={session.onionNextEnabled}
 			aria-pressed={session.onionNextEnabled}
@@ -219,7 +220,7 @@
 		>
 			<i class="onion-swatch next" aria-hidden="true"></i>Next
 		</button>
-		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={session.onionNextRange} oninput={(e) => (session.onionNextRange = Math.max(1, Math.min(8, Math.round(e.currentTarget.valueAsNumber) || 1)))} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
+		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={() => session.onionNextRange, (value) => (session.onionNextRange = clampOnionRange(value))} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
 	</div>
 </div>
 
