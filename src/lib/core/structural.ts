@@ -53,8 +53,12 @@ function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: 
 function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: number) {
 	const move = (index: number) => index === from ? to : from < to && index > from && index <= to ? index - 1 : from > to && index >= to && index < from ? index + 1 : index;
 	return tags?.map((tag) => {
-		const moved = Array.from({ length: tag.to - tag.from + 1 }, (_, index) => move(tag.from + index));
-		return { ...tag, from: Math.min(...moved), to: Math.max(...moved) };
+		const start = move(tag.from);
+		const end = move(tag.to);
+		const moved = from >= tag.from && from <= tag.to ? to : start;
+		const neighbor = from + Math.sign(to - from);
+		const shifted = neighbor >= tag.from && neighbor <= tag.to ? move(neighbor) : start;
+		return { ...tag, from: Math.min(start, end, moved, shifted), to: Math.max(start, end, moved, shifted) };
 	});
 }
 
@@ -424,7 +428,8 @@ export class PaletteRemapCommand implements Command {
 		private readonly after: string[],
 		private readonly forward: Map<number, number>
 	) {
-		this.reverse = new Map([...forward].map(([from, to]) => [to, from]));
+		this.reverse = new Map();
+		for (const [from, to] of forward) if (!this.reverse.has(to)) this.reverse.set(to, from);
 		this.byteSize = JSON.stringify([before, after, [...forward]]).length + 64;
 	}
 

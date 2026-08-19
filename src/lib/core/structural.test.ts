@@ -87,8 +87,15 @@ describe('frame commands', () => {
 	it('keeps a clip range when reordering within it', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 5 });
 		doc.meta.tags = [{ name: 'walk', from: 1, to: 3, direction: 'forward', repeats: 0 }];
-		new FrameReorderCommand(2, 3).do(doc);
+		new FrameReorderCommand(1, 2).do(doc);
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
+	});
+
+	it('does not enumerate every frame in a clip during reorder', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 3 });
+		doc.meta.tags = [{ name: 'long', from: 0, to: 200_000, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(1, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 0, to: 200_000 });
 	});
 
 	it('counts retained animation tags in frame command history', () => {
@@ -168,6 +175,16 @@ describe('palette commands', () => {
 		command.do(doc);
 		expect(pixels[0]).toBe(2);
 		expect(doc.frames[1].layers[0].pixels).toBe(pixels);
+		command.undo(doc);
+		expect(pixels[0]).toBe(3);
+	});
+
+	it('undoes duplicate-color remaps to the used slot', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#111111', '#222222', '#111111'] });
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels[0] = 3;
+		const command = new PaletteRemapCommand(doc.palette, ['#111111'], new Map([[3, 1], [1, 1]]));
+		command.do(doc);
 		command.undo(doc);
 		expect(pixels[0]).toBe(3);
 	});
