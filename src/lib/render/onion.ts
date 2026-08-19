@@ -5,6 +5,32 @@
 export const ONION_PREV_COLOR = '#e03131';
 export const ONION_NEXT_COLOR = '#2f9e44';
 
+export function onionSequence(current: number, frameCount: number, distance: number, direction: -1 | 1, seen = new Set([current])) {
+	distance = Math.max(1, Math.min(8, Math.round(distance || 1)));
+	const frames: { frame: number; fade: number }[] = [];
+	for (let step = 1; step <= distance; step++) {
+		const frame = ((current + direction * step) % frameCount + frameCount) % frameCount;
+		if (seen.has(frame)) continue;
+		seen.add(frame);
+		frames.push({ frame, fade: (distance - step + 1) / distance });
+	}
+	return frames.reverse();
+}
+
+export function combinedOnionSequence(current: number, frameCount: number, previous: number, next: number) {
+	const closest = new Map<number, { frame: number; fade: number; direction: -1 | 1; step: number }>();
+	for (const [distance, direction] of [[previous, -1], [next, 1]] as const) {
+		if (distance <= 0) continue;
+		const limit = Math.max(1, Math.min(8, Math.round(distance || 1)));
+		for (let step = 1; step <= limit; step++) {
+			const frame = ((current + direction * step) % frameCount + frameCount) % frameCount;
+			if (frame === current || (closest.get(frame)?.step ?? Infinity) <= step) continue;
+			closest.set(frame, { frame, fade: (limit - step + 1) / limit, direction, step });
+		}
+	}
+	return [...closest.values()].sort((a, b) => b.step - a.step);
+}
+
 let scratch: HTMLCanvasElement | null = null;
 
 export function drawOnionGhost(
