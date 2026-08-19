@@ -91,6 +91,13 @@ describe('frame commands', () => {
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 3 });
 	});
 
+	it('does not enumerate every frame in a clip during reorder', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 3 });
+		doc.meta.tags = [{ name: 'long', from: 0, to: 200_000, direction: 'forward', repeats: 0 }];
+		new FrameReorderCommand(1, 2).do(doc);
+		expect(doc.meta.tags?.[0]).toMatchObject({ from: 0, to: 200_000 });
+	});
+
 	it('counts retained animation tags in frame command history', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: [], frameCount: 2 });
 		doc.meta.tags = [{ name: 'a'.repeat(200), from: 0, to: 1, direction: 'forward', repeats: 0 }];

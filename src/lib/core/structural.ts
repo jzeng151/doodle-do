@@ -53,8 +53,10 @@ function deleteFrameTags(tags: AnimationTag[] | undefined, index: number, last: 
 function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: number) {
 	const move = (index: number) => index === from ? to : from < to && index > from && index <= to ? index - 1 : from > to && index >= to && index < from ? index + 1 : index;
 	return tags?.map((tag) => {
-		const moved = Array.from({ length: tag.to - tag.from + 1 }, (_, index) => move(tag.from + index));
-		return { ...tag, from: Math.min(...moved), to: Math.max(...moved) };
+		const start = move(tag.from);
+		const end = move(tag.to);
+		const moved = from >= tag.from && from <= tag.to ? to : start;
+		return { ...tag, from: Math.min(start, end, moved), to: Math.max(start, end, moved) };
 	});
 }
 
