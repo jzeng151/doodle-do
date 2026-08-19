@@ -56,7 +56,9 @@ function reorderFrameTags(tags: AnimationTag[] | undefined, from: number, to: nu
 		const start = move(tag.from);
 		const end = move(tag.to);
 		const moved = from >= tag.from && from <= tag.to ? to : start;
-		return { ...tag, from: Math.min(start, end, moved), to: Math.max(start, end, moved) };
+		const neighbor = from + Math.sign(to - from);
+		const shifted = neighbor >= tag.from && neighbor <= tag.to ? move(neighbor) : start;
+		return { ...tag, from: Math.min(start, end, moved, shifted), to: Math.max(start, end, moved, shifted) };
 	});
 }
 
