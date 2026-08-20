@@ -324,6 +324,16 @@ describe('tiled drawing', () => {
 		expect(points).toContainEqual({ x: 1, y: 0 });
 	});
 
+	it('keeps wrapped pixels from intermediate rows of tall wide ellipses', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 8, y: 39 },
+			false,
+			undefined,
+			{ width: 2, height: 1 }
+		)).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }]);
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
