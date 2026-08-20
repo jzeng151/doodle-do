@@ -833,10 +833,16 @@ export class EditorSession {
 	moveFloatingBy(dx: number, dy: number): void {
 		if (!this.floating || (dx === 0 && dy === 0)) return;
 		this.floating.moveBy(dx, dy);
-		this.floatingTwin?.moveBy(-dx, dy); // mirrored motion
+		if (this.floatingTwin) {
+			this.floatingTwin.moveBy(-dx, dy);
+			this.alignFloatingTwin(this.floating, this.floatingTwin);
+		}
 		for (const p of this.floatingPeers) {
 			p.main.moveBy(dx, dy);
-			p.twin?.moveBy(-dx, dy);
+			if (p.twin) {
+				p.twin.moveBy(-dx, dy);
+				this.alignFloatingTwin(p.main, p.twin);
+			}
 		}
 		this.overlayVersion++;
 		tips.fire('T14');
@@ -845,17 +851,37 @@ export class EditorSession {
 	rotateFloating(angleRad: number): void {
 		if (!this.floating || angleRad === this.floating.angle) return;
 		this.floating.rotateTo(angleRad);
-		this.floatingTwin?.rotateTo(-angleRad); // mirrored rotation
+		if (this.floatingTwin) {
+			this.floatingTwin.rotateTo(-angleRad);
+			this.alignFloatingTwin(this.floating, this.floatingTwin);
+		}
 		for (const p of this.floatingPeers) {
 			p.main.rotateTo(angleRad);
-			p.twin?.rotateTo(-angleRad);
+			if (p.twin) {
+				p.twin.rotateTo(-angleRad);
+				this.alignFloatingTwin(p.main, p.twin);
+			}
 		}
 		this.overlayVersion++;
+	}
+
+	private alignFloatingTwin(main: FloatingSelection, twin: FloatingSelection): void {
+		twin.alignRenderX(this.doc.meta.width - main.renderRect.x - twin.renderRect.w);
 	}
 
 	rotateSelectionBy(deltaRad: number): void {
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) this.rotateFloating(this.floating.angle + deltaRad);
+	}
+
+	rotateSelectionQuarter(direction: -1 | 1): void {
+		if (this.currentLayerLocked) return;
+		if (this.selectionMask && !this.floating) this.liftSelection();
+		if (!this.floating) return;
+		const turns = this.floating.angle / (Math.PI / 2);
+		const tolerance = 1e-10 / (Math.PI / 2);
+		const quarter = direction > 0 ? Math.floor(turns + tolerance) + 1 : Math.ceil(turns - tolerance) - 1;
+		this.rotateFloating(quarter * Math.PI / 2);
 	}
 
 	// arrow-key nudge: a bare mask lifts first, like flip()
@@ -1630,7 +1656,7 @@ export class EditorSession {
 
 	// Resize the canvas of the existing document (extends §4.1 beyond
 	// creation-time). 'crop' keeps the art in place; 'scale' resamples it.
-	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale'): void {
+	resizeCanvas(width: number, height: number, mode: 'crop' | 'scale' | 'scale2x'): void {
 		this.lineEnd();
 		this.shapeEnd();
 		this.commitFloating();
@@ -1641,9 +1667,9 @@ export class EditorSession {
 		if (w === oldW && h === oldH) return;
 		this.normalizeMirrorAxes();
 		const before: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
-		const after: [number, number] = [this.normalizeAxis(mode === 'scale'
+		const after: [number, number] = [this.normalizeAxis(mode !== 'crop'
 			? (this.mirrorAxisX + 0.5) * w / oldW - 0.5
-			: this.mirrorAxisX, w - 1), this.normalizeAxis(mode === 'scale'
+			: this.mirrorAxisX, w - 1), this.normalizeAxis(mode !== 'crop'
 			? (this.mirrorAxisY + 0.5) * h / oldH - 0.5
 			: this.mirrorAxisY, h - 1)];
 		const command = new ResizeCanvasCommand(this.doc, oldW, oldH, w, h, mode);

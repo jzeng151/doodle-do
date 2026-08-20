@@ -3,13 +3,13 @@
 	// Mirrors NewDocDialog, plus a crop/extend vs scale choice for the art.
 	import { MAX_CANVAS } from '$lib/core/document';
 
-	let { onResize }: { onResize: (width: number, height: number, mode: 'crop' | 'scale') => void } =
+	let { onResize }: { onResize: (width: number, height: number, mode: 'crop' | 'scale' | 'scale2x') => void } =
 		$props();
 
 	let dialogEl: HTMLDialogElement;
 	let w = $state(32);
 	let h = $state(32);
-	let mode = $state<'crop' | 'scale'>('crop');
+	let mode = $state<'crop' | 'scale' | 'scale2x'>('crop');
 
 	const PRESETS = [16, 32, 48, 64];
 
@@ -35,6 +35,10 @@
 		<label>
 			<input type="radio" name="resize-mode" value="crop" bind:group={mode} />
 			Keep art size (crop / extend)
+		</label>
+		<label>
+			<input type="radio" name="resize-mode" value="scale2x" bind:group={mode} />
+			Scale2x edges, then fit
 		</label>
 		<label>
 			<input type="radio" name="resize-mode" value="scale" bind:group={mode} />

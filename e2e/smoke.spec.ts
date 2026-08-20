@@ -69,7 +69,7 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await remove.click();
 	await colors.nth(1).click();
 	await expect(colors).toHaveCount(16);
-	await expect(colors.first()).toHaveAttribute('aria-label', 'Color #442434');
+	await expect(colors.first()).toHaveAttribute('aria-label', /^Color #442434/);
 	await expect(colors.first()).toHaveAttribute('aria-pressed', 'true');
 });
 
@@ -93,7 +93,7 @@ test('frame duplicate, navigate, delete', async ({ page }) => {
 	await expect(frames).toHaveCount(2); // smart default: 2 frames
 
 	await drawStroke(page);
-	await page.getByRole('button', { name: 'Duplicate' }).click();
+	await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await expect(frames).toHaveCount(3);
 	// duplicated frame carries the drawing
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);

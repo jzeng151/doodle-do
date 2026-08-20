@@ -104,15 +104,18 @@ export function resizePixels(
 	oldH: number,
 	newW: number,
 	newH: number,
-	mode: 'crop' | 'scale'
+	mode: 'crop' | 'scale' | 'scale2x'
 ): Uint8Array {
 	const out = new Uint8Array(newW * newH);
-	if (mode === 'scale') {
+	if (mode === 'scale' || mode === 'scale2x') {
+		const source = mode === 'scale2x' ? scale2x(pixels, oldW, oldH) : pixels;
+		const sourceW = mode === 'scale2x' ? oldW * 2 : oldW;
+		const sourceH = mode === 'scale2x' ? oldH * 2 : oldH;
 		for (let y = 0; y < newH; y++) {
-			const sy = Math.min(oldH - 1, Math.floor((y * oldH) / newH));
+			const sy = Math.min(sourceH - 1, Math.floor((y * sourceH) / newH));
 			for (let x = 0; x < newW; x++) {
-				const sx = Math.min(oldW - 1, Math.floor((x * oldW) / newW));
-				out[y * newW + x] = pixels[sy * oldW + sx];
+				const sx = Math.min(sourceW - 1, Math.floor((x * sourceW) / newW));
+				out[y * newW + x] = source[sy * sourceW + sx];
 			}
 		}
 	} else {
@@ -121,6 +124,20 @@ export function resizePixels(
 		for (let y = 0; y < h; y++) {
 			for (let x = 0; x < w; x++) out[y * newW + x] = pixels[y * oldW + x];
 		}
+	}
+	return out;
+}
+
+function scale2x(pixels: Uint8Array, width: number, height: number): Uint8Array {
+	const out = new Uint8Array(width * height * 4);
+	const at = (x: number, y: number) => pixels[Math.max(0, Math.min(height - 1, y)) * width + Math.max(0, Math.min(width - 1, x))];
+	for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+		const e = at(x, y), b = at(x, y - 1), d = at(x - 1, y), f = at(x + 1, y), h = at(x, y + 1);
+		const row = y * 2 * width * 2 + x * 2;
+		out[row] = d === b && d !== h && b !== f ? d : e;
+		out[row + 1] = b === f && b !== d && f !== h ? f : e;
+		out[row + width * 2] = d === h && d !== b && h !== f ? d : e;
+		out[row + width * 2 + 1] = h === f && d !== h && b !== f ? f : e;
 	}
 	return out;
 }

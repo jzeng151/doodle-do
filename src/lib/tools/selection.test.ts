@@ -349,6 +349,71 @@ describe('extract to layer', () => {
 	});
 });
 
+describe('pixel-safe quarter turns', () => {
+	it('rotates a parity-mismatched selection without dropping pixels', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].pixels.fill(0);
+		doc.frames[0].layers[0].pixels[8] = 3;
+		doc.frames[0].layers[0].pixels[9] = 5;
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 1, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect([...sel.buffer]).toEqual([3, 5]);
+		sel.commit();
+		expect(doc.frames[0].layers[0].pixels.filter(Boolean)).toHaveLength(2);
+	});
+
+	it('moves on the first nudge after an edge-clamped rotation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 1, w: 1, h: 3 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect(sel.renderRect.x).toBe(0);
+		sel.moveBy(1, 0);
+		expect(sel.renderRect.x).toBe(1);
+	});
+
+	it('moves outward after an edge-clamped rotation consumes the nudge', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 0, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		expect(sel.renderRect.y).toBe(0);
+		sel.moveBy(0, -1);
+		expect(sel.renderRect.y).toBe(-1);
+		sel.moveBy(0, -1);
+		expect(sel.renderRect.y).toBe(-2);
+	});
+
+	it('keeps the snapped center when returning to free rotation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 1, y: 1, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		const center = {
+			x: sel.renderRect.x + sel.renderRect.w / 2,
+			y: sel.renderRect.y + sel.renderRect.h / 2
+		};
+		sel.rotateTo(Math.PI / 2 + Math.PI / 12);
+		expect(sel.bbox.x + sel.bbox.w / 2 + sel.dx).toBe(center.x);
+		expect(sel.bbox.y + sel.bbox.h / 2 + sel.dy).toBe(center.y);
+	});
+
+	it('does not turn edge clamps into translation', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 0, w: 2, h: 1 }], 8, 8));
+		for (let turn = 1; turn <= 4; turn++) sel.rotateTo(turn * Math.PI / 2);
+		expect(sel.renderRect).toEqual({ x: 0, y: 0, w: 2, h: 1 });
+		expect(sel.dx).toBe(0);
+		expect(sel.dy).toBe(0);
+	});
+
+	it('keeps orthogonal edge clamps transient during nudges', () => {
+		const doc = testDoc();
+		const sel = new FloatingSelection(doc, 0, 0, maskFromRects([{ x: 0, y: 0, w: 2, h: 1 }], 8, 8));
+		sel.rotateTo(Math.PI / 2);
+		sel.moveBy(1, 0);
+		sel.rotateTo(Math.PI);
+		expect(sel.renderRect.y).toBe(0);
+	});
+});
+
 describe('mirrored twin selection', () => {
 	it('mirrorMaskX reflects the mask across the canvas centerline', () => {
 		const mask = maskFromRects([{ x: 1, y: 2, w: 2, h: 1 }], 8, 8);

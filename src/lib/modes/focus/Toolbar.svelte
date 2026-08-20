@@ -94,6 +94,7 @@
 			<button
 				class:active={session.mirrorX}
 				aria-pressed={session.mirrorX}
+				aria-label="Mirror X"
 				title="Mirror-draw: paint both halves at once"
 				onclick={() => session.toggleMirror()}
 			>
@@ -101,7 +102,7 @@
 			</button>
 		{/if}
 		{#if supportsDrawingMirror}
-			<button class:active={session.mirrorY} aria-pressed={session.mirrorY} title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
+			<button class:active={session.mirrorY} aria-pressed={session.mirrorY} aria-label="Mirror Y" title="Mirror-draw across a horizontal axis" onclick={() => session.toggleMirrorY()}>Mirror Y</button>
 			{#if session.mirrorX}<label>X axis<input type="number" min="0" max={canvasWidth - 1} step="0.5" value={session.mirrorAxisX} onchange={(e) => session.setMirrorAxis('x', e.currentTarget.valueAsNumber)} /></label>{/if}
 			{#if session.mirrorY}<label>Y axis<input type="number" min="0" max={canvasHeight - 1} step="0.5" value={session.mirrorAxisY} onchange={(e) => session.setMirrorAxis('y', e.currentTarget.valueAsNumber)} /></label>{/if}
 		{/if}
@@ -160,6 +161,8 @@
 	</div>
 
 	<div class="group" role="group" aria-label="Rotate selection">
+		<button aria-label="Turn selection left 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation left" onclick={() => session.rotateSelectionQuarter(-1)}>↶90°</button>
+		<button aria-label="Turn selection right 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation right" onclick={() => session.rotateSelectionQuarter(1)}>↷90°</button>
 		<button
 			aria-label="Rotate selection left 15 degrees"
 			disabled={!session.hasSelection}

@@ -9,7 +9,7 @@
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
 	let selectDrag: 'marquee' | 'lasso' | 'float' | 'rotate' | 'layer' | null = null;
-	let rotateStart: { angle0: number; grab: number } | null = null;
+	let rotateStart: { angle0: number; grab: number; x: number; y: number } | null = null;
 	let dragMirrored = false; // float-drag started inside the mirror twin
 	let lastPixel = { x: 0, y: 0 };
 	let keyboardX = $state(0);
@@ -356,9 +356,9 @@
 					session.liftSelection(); // no-op when already floating
 					const sel = session.floating;
 					if (!sel) break;
-					const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
-					const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
-					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx) };
+					const gx = sel.renderRect.x + sel.renderRect.w / 2;
+					const gy = sel.renderRect.y + sel.renderRect.h / 2;
+					rotateStart = { angle0: sel.angle, grab: Math.atan2(f.y - gy, f.x - gx), x: gx, y: gy };
 					selectDrag = 'rotate';
 					break;
 				}
@@ -440,9 +440,7 @@
 			const sel = session.floating;
 			if (sel && rotateStart) {
 				const p = pixelFromEventF(e);
-				const gx = sel.bbox.x + sel.bbox.w / 2 + sel.dx;
-				const gy = sel.bbox.y + sel.bbox.h / 2 + sel.dy;
-				let a = rotateStart.angle0 + Math.atan2(p.y - gy, p.x - gx) - rotateStart.grab;
+				let a = rotateStart.angle0 + Math.atan2(p.y - rotateStart.y, p.x - rotateStart.x) - rotateStart.grab;
 				if (e.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12); // snap 15°
 				session.rotateFloating(a);
 			}

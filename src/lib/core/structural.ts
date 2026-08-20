@@ -291,7 +291,7 @@ export class ResizeCanvasCommand implements Command {
 		private readonly oldH: number,
 		private readonly newW: number,
 		private readonly newH: number,
-		mode: 'crop' | 'scale'
+		mode: 'crop' | 'scale' | 'scale2x'
 	) {
 		const resized = new Map<Uint8Array, Uint8Array>();
 		for (const frame of doc.frames) {
