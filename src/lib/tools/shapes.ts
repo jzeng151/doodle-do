@@ -3,20 +3,36 @@ export interface Point {
 	y: number;
 }
 
-function pointCollector(wrap?: { width: number; height: number }) {
+function pointCollector(wrap?: { width: number; height: number }, trackLogical = false) {
 	const points: Point[] = [];
 	const seen = wrap ? new Set<number>() : null;
+	const logical = wrap && trackLogical ? new Map<number, Point>() : null;
 	return {
 		points,
 		add(x: number, y: number) {
 			if (wrap) {
+				const source = { x, y };
 				x = (x % wrap.width + wrap.width) % wrap.width;
 				y = (y % wrap.height + wrap.height) % wrap.height;
 				const index = y * wrap.width + x;
-				if (seen!.has(index)) return;
+				if (seen!.has(index)) {
+					if (!logical) return;
+					const first = logical!.get(index)!;
+					if (source.y < first.y || (source.y === first.y && source.x < first.x)) logical!.set(index, source);
+					return;
+				}
 				seen!.add(index);
+				logical?.set(index, source);
 			}
 			points.push({ x, y });
+		},
+		sortLogical() {
+			if (!wrap || !logical) return;
+			points.sort((a, b) => {
+				const first = logical!.get(a.y * wrap.width + a.x)!;
+				const second = logical!.get(b.y * wrap.width + b.x)!;
+				return first.y - second.y || first.x - second.x;
+			});
 		}
 	};
 }
@@ -66,7 +82,7 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 	const ry = (y1 - y0 + 1) / 2;
 	const inside = (x: number, y: number) =>
 		((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
-	const { points, add } = pointCollector(wrap);
+	const { points, add, sortLogical } = pointCollector(wrap, true);
 	if (wrap) {
 		const rowSpan = (y: number): [number, number] | null => {
 			const term = 1 - ((y - cy) / ry) ** 2;
@@ -98,7 +114,9 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 			if (hi - lo + 1 >= wrap.height) hi = lo + wrap.height - 1;
 			for (let y = lo; y <= hi; y++) add(x, y);
 		};
-		if (ix1 - ix0 <= iy1 - iy0) {
+		const columnCount = ix1 - ix0 + 1;
+		const rowCount = iy1 - iy0 + 1;
+		if (columnCount <= rowCount && columnCount <= wrap.width * wrap.height) {
 			for (let x = ix0; x <= ix1; x++) {
 				const span = columnSpan(x);
 				if (!span) continue;
@@ -115,12 +133,9 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 						}
 					}
 				}
-				if (points.length === wrap.width * wrap.height) break;
 			}
 		} else {
-			const rows: number[] = [];
-			for (let y = iy0; y <= iy1; y++) rows.push(y);
-			for (const y of rows) {
+			for (let y = iy0; y <= iy1; y++) {
 				const span = rowSpan(y);
 				if (!span) continue;
 				const [lo, hi] = span;
@@ -153,6 +168,6 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		{ x: x0, y: Math.floor(cy) }, { x: x0, y: Math.ceil(cy) },
 		{ x: x1, y: Math.floor(cy) }, { x: x1, y: Math.ceil(cy) }
 	]) if (point.x >= ix0 && point.x <= ix1 && point.y >= iy0 && point.y <= iy1) add(point.x, point.y);
-	if (wrap) points.sort((a, b) => a.y - b.y || a.x - b.x);
+	if (wrap) sortLogical();
 	return points;
 }

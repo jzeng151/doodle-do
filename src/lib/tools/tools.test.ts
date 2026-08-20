@@ -301,7 +301,7 @@ describe('tiled drawing', () => {
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 16_000, y: 12_000 }, false, undefined, wrap).length).toBeLessThanOrEqual(16);
 	});
 
-	it('bounds narrow wrapped ellipses and keeps their points row-major', () => {
+	it('bounds narrow wrapped ellipses without duplicate tile pixels', () => {
 		const points = ellipsePoints(
 			{ x: 0, y: 0 },
 			{ x: 1, y: 1_000_000_000 },
@@ -309,7 +309,7 @@ describe('tiled drawing', () => {
 			undefined,
 			{ width: 512, height: 512 }
 		);
-		expect(points).toEqual([...points].sort((a, b) => a.y - b.y || a.x - b.x));
+		expect(new Set(points.map(({ x, y }) => `${x},${y}`)).size).toBe(points.length);
 		expect(points.length).toBeLessThanOrEqual(512 * 512);
 	});
 
@@ -352,6 +352,13 @@ describe('tiled drawing', () => {
 				{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }
 			]
 		);
+	});
+
+	it('keeps logical ellipse order after wrapping across top and left seams', () => {
+		expect(ellipsePoints({ x: 0, y: 0 }, { x: -1, y: -1 }, false, undefined, { width: 2, height: 2 })).toEqual([
+			{ x: 1, y: 1 }, { x: 0, y: 1 },
+			{ x: 1, y: 0 }, { x: 0, y: 0 }
+		]);
 	});
 
 	it('keeps a local dirty rect until a tiled brush crosses an edge', () => {
