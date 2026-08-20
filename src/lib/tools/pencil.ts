@@ -28,7 +28,8 @@ export class StrokeBuilder {
 		private readonly ditherSize: 0 | 2 | 4 = 0,
 		private readonly mirrorAxisX = (doc.meta.width - 1) / 2,
 		private readonly mirrorY = false,
-		private readonly mirrorAxisY = (doc.meta.height - 1) / 2
+		private readonly mirrorAxisY = (doc.meta.height - 1) / 2,
+		private readonly tiled = false
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -142,7 +143,8 @@ export class StrokeBuilder {
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
 		this.trackCenter(b, -1);
 		for (const point of this.symmetryPoints(b.x, b.y)) {
-			if (this.restorePixel(point.x, point.y)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
+			const restored = this.restorePixel(point.x, point.y);
+			if (restored) rect = unionRect(rect, { ...restored, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
@@ -161,6 +163,10 @@ export class StrokeBuilder {
 	private trackCenter(point: { x: number; y: number }, delta: 1 | -1): void {
 		const { width, height } = this.doc.meta;
 		const track = (x: number, y: number) => {
+			if (this.tiled) {
+				x = (x % width + width) % width;
+				y = (y % height + height) % height;
+			}
 			if (x < 0 || y < 0 || x >= width || y >= height) return;
 			const index = y * width + x;
 			const count = (this.centerCounts.get(index) ?? 0) + delta;
@@ -170,22 +176,48 @@ export class StrokeBuilder {
 		for (const mirrored of this.symmetryPoints(point.x, point.y)) track(mirrored.x, mirrored.y);
 	}
 
-	private restorePixel(x: number, y: number): boolean {
+	private restorePixel(x: number, y: number): { x: number; y: number } | null {
 		const { width, height } = this.doc.meta;
-		if (x < 0 || y < 0 || x >= width || y >= height) return false;
+		if (this.tiled) {
+			x = (x % width + width) % width;
+			y = (y % height + height) % height;
+		}
+		if (x < 0 || y < 0 || x >= width || y >= height) return null;
 		const index = y * width + x;
-		if (this.centerCounts.has(index)) return false;
+		if (this.centerCounts.has(index)) return null;
 		const before = this.dirty.get(index);
-		if (before === undefined) return false;
+		if (before === undefined) return null;
 		this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels[index] = before;
 		this.occupied.delete(index);
-		return true;
+		return { x, y };
 	}
 
 	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, occupied?: Set<number>, clip?: Rect): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
+		if (this.tiled) {
+			const x0 = cx - r, y0 = cy - r;
+			const x1 = x0 + this.size - 1, y1 = y0 + this.size - 1;
+			for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+				const tx = (x % width + width) % width, ty = (y % height + height) % height;
+				const i = ty * width + tx;
+				if (occupied?.has(i)) continue;
+				occupied?.add(i);
+				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
+				const sampleX = reflectX ? (Math.round(2 * this.mirrorAxisX - tx) % width + width) % width : tx;
+				const sampleY = reflectY ? (Math.round(2 * this.mirrorAxisY - ty) % height + height) % height : ty;
+				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
+			}
+			const wrapsX = x0 < 0 || x1 >= width;
+			const wrapsY = y0 < 0 || y1 >= height;
+			return {
+				x: wrapsX ? 0 : x0,
+				y: wrapsY ? 0 : y0,
+				w: wrapsX ? width : this.size,
+				h: wrapsY ? height : this.size
+			};
+		}
 		const x0 = Math.max(0, clip?.x ?? -Infinity, cx - r);
 		const y0 = Math.max(0, clip?.y ?? -Infinity, cy - r);
 		const x1 = Math.min(width - 1, clip ? clip.x + clip.w - 1 : Infinity, cx - r + this.size - 1);
@@ -208,6 +240,13 @@ export class StrokeBuilder {
 	private line(x0: number, y0: number, x1: number, y1: number): Rect | null {
 		// Bresenham; stamps the brush at every cell so fast drags leave no gaps.
 		let rect: Rect | null = null;
+		const seen = this.tiled && (!this.pixelPerfect || this.size !== 1) ? new Set<number>() : null;
+		const { width, height } = this.doc.meta;
+		const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+		// ponytail: rasterize realistic jumps exactly; derive the torus period if synthetic jumps beyond 65k cells need exact paths.
+		let remaining = this.tiled && this.pixelPerfect && this.size === 1
+			? Math.min(steps + 1, Math.max(2 * width * height + 1, 65_536))
+			: Infinity;
 		const dx = Math.abs(x1 - x0);
 		const dy = -Math.abs(y1 - y0);
 		const sx = x0 < x1 ? 1 : -1;
@@ -216,8 +255,14 @@ export class StrokeBuilder {
 		let x = x0;
 		let y = y0;
 		for (;;) {
-			rect = unionRect(rect, this.stamp(x, y));
+			const center = seen ? ((y % height + height) % height) * width + (x % width + width) % width : -1;
+			if (!seen?.has(center)) {
+				seen?.add(center);
+				rect = unionRect(rect, this.stamp(x, y));
+			}
 			if (x === x1 && y === y1) break;
+			if (--remaining === 0) break;
+			if (seen?.size === width * height) break;
 			const e2 = 2 * err;
 			if (e2 >= dy) {
 				err += dy;

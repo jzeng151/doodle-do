@@ -5,12 +5,14 @@
 	import LayerPanel from './focus/LayerPanel.svelte';
 	import LoopPreview from './focus/LoopPreview.svelte';
 	import PalettePanel from './focus/PalettePanel.svelte';
+	import TilePreview from './focus/TilePreview.svelte';
 
 	let { session }: { session: EditorSession } = $props();
 </script>
 
 <aside>
 	<LoopPreview {session} />
+	{#if session.tiledDrawing}<TilePreview {session} />{/if}
 	<LayerPanel {session} />
 	<PalettePanel {session} />
 </aside>

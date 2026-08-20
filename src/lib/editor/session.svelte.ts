@@ -31,7 +31,7 @@ import { floodFill, floodRegion } from '../tools/fill';
 import { samplePixel } from '../tools/sample';
 import { FlipLayerCommand } from '../tools/flip';
 import { constrainLineEndpoint, StrokeBuilder } from '../tools/pencil';
-import { ellipsePoints, rectanglePoints } from '../tools/shapes';
+import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from '../tools/shapes';
 import { replaceColorCommand } from '../tools/replace';
 import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
@@ -103,6 +103,7 @@ export class EditorSession {
 	mirrorY = $state(false);
 	mirrorAxisX = $state(0);
 	mirrorAxisY = $state(0);
+	tiledDrawing = $state(false);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
 	zoom = $state(12);
@@ -814,7 +815,7 @@ export class EditorSession {
 
 	placeStamp(x: number, y: number): void {
 		if (!this.stamp || this.floating) return;
-		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
+		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y, this.tiledDrawing)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
 	}
@@ -935,7 +936,8 @@ export class EditorSession {
 				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		for (const s of this.strokes) {
@@ -981,7 +983,8 @@ export class EditorSession {
 				this.ditherEnabled ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		for (const s of this.strokes) {
@@ -1026,7 +1029,8 @@ export class EditorSession {
 				this.ditherEnabled ? this.ditherSize : 0,
 				this.mirrorAxisX,
 				this.mirrorY,
-				this.mirrorAxisY
+				this.mirrorAxisY,
+				this.tiledDrawing
 			)
 		}));
 		this.shapeMove(x, y);
@@ -1034,10 +1038,18 @@ export class EditorSession {
 
 	shapeMove(x: number, y: number): void {
 		if (!this.shapeOrigin) return;
-		const bounds = { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
+		// Keep tiled ellipses on their true bounding box: shortening each axis
+		// independently changes their aspect ratio. Wrapped point collection
+		// still deduplicates the resulting tile pixels.
+		const end = this.tiledDrawing && this.tool === 'rectangle' ? {
+			x: boundedTileEndpoint(this.shapeOrigin.x, x, this.doc.meta.width),
+			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
+		} : { x, y };
+		const bounds = this.tiledDrawing ? undefined : { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
+		const wrap = this.tiledDrawing ? this.doc.meta : undefined;
 		const points = this.tool === 'ellipse'
-			? ellipsePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds)
-			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
+			? ellipsePoints(this.shapeOrigin, end, this.shapeFilled, bounds, wrap)
+			: rectanglePoints(this.shapeOrigin, end, this.shapeFilled, bounds, wrap);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
 			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
@@ -1088,7 +1100,8 @@ export class EditorSession {
 				Math.max(0, Math.min(255, this.fillTolerance || 0)),
 				this.fillContiguous,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.tiledDrawing
 			))
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		if (!cmds.length) return;

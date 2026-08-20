@@ -5,7 +5,7 @@ import { floodFill, floodRegion } from './fill';
 import { samplePixel } from './sample';
 import { FlipLayerCommand } from './flip';
 import { constrainLineEndpoint, StrokeBuilder } from './pencil';
-import { ellipsePoints, rectanglePoints } from './shapes';
+import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from './shapes';
 import { replaceColorCommand } from './replace';
 import { ditherValue } from './dither';
 import { flipStamp, rotateStamp, stampCommand } from './stamp';
@@ -73,6 +73,17 @@ describe('floodFill (B3)', () => {
 		const cmd = floodFill(doc, 0, 0, 0, 0, 3, 0, false)!;
 		cmd.do(doc);
 		expect([...pixels]).toEqual([3, 2, 3, 2]);
+	});
+
+	it('connects contiguous fill across tile seams', () => {
+		const doc = testDoc(3, 3);
+		const pixels = doc.frames[0].layers[0].pixels;
+		pixels.fill(2);
+		pixels[3] = pixels[5] = 1;
+		const cmd = floodFill(doc, 0, 0, 0, 1, 3, 0, true, undefined, 0, true)!;
+		expect(cmd.pixelCount).toBe(2);
+		cmd.do(doc);
+		expect([pixels[3], pixels[5]]).toEqual([3, 3]);
 	});
 
 	it('normalizes nearby colors to the clicked replacement without recording unchanged pixels', () => {
@@ -222,6 +233,199 @@ describe('mirror-draw', () => {
 		stroke.moveTo(3, 2);
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect(pixels[2 * 8 + 3]).toBe(pixels[2 * 8 + 4]);
+	});
+});
+
+describe('tiled drawing', () => {
+	it('retains one complete traversal plus the wrapped endpoint', () => {
+		expect(boundedTileEndpoint(0, 5, 4)).toBe(5);
+		expect(boundedTileEndpoint(0, 100_001, 4)).toBe(5);
+		expect(boundedTileEndpoint(3, -6, 4)).toBe(-2);
+	});
+
+	it('wraps brush pixels across canvas edges', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(0, 0);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[0, 0], [3, 0], [0, 3], [3, 3]].every(([x, y]) => pixels[y * 4 + x] === 3)).toBe(true);
+	});
+
+	it('preserves mirrored dither phase while tiled', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 3.5, false, 3.5, true).begin(1, 2);
+		expect(doc.frames[0].layers[0].pixels[2 * 8 + 6]).toBe(doc.frames[0].layers[0].pixels[2 * 8 + 1]);
+	});
+
+	it('normalizes custom-axis dither samples back into the tile', () => {
+		const doc = testDoc(5, 5);
+		new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 0.5, false, 2, true).begin(4, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 5 + 2]).toBe(pixels[2 * 5 + 4]);
+	});
+
+	it('deduplicates line centers after they wrap', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'line', false, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(0, 0);
+		stroke.previewLineTo(100_000, 0);
+		expect(stroke.end()!.pixelCount).toBe(4);
+	});
+
+	it('deduplicates filled tiled geometry before stamping', () => {
+		expect(rectanglePoints({ x: 0, y: 0 }, { x: 5, y: 5 }, true, undefined, { width: 4, height: 4 })).toHaveLength(16);
+	});
+
+	it('keeps outlined rectangle points in row-major order', () => {
+		expect(rectanglePoints({ x: 1, y: 1 }, { x: 3, y: 3 }, false)).toEqual([
+			{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 },
+			{ x: 1, y: 2 }, { x: 3, y: 2 },
+			{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }
+		]);
+	});
+
+	it('preserves the aspect ratio of wrapped ellipses', () => {
+		const exact = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 8 }, false, undefined, { width: 4, height: 4 });
+		const shortened = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 4 }, false, undefined, { width: 4, height: 4 });
+		expect(new Set(exact.map(({ x, y }) => `${x},${y}`))).not.toEqual(new Set(shortened.map(({ x, y }) => `${x},${y}`)));
+	});
+
+	it('bounds wrapped ellipse work without changing its wrapped pixels', () => {
+		const wrap = { width: 4, height: 4 };
+		const expected = new Set(
+			ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 8 }, false)
+				.map(({ x, y }) => `${(x % 4 + 4) % 4},${(y % 4 + 4) % 4}`)
+		);
+		const exact = ellipsePoints({ x: 0, y: 0 }, { x: 6, y: 8 }, false, undefined, wrap);
+		expect(new Set(exact.map(({ x, y }) => `${x},${y}`))).toEqual(expected);
+		expect(ellipsePoints({ x: 0, y: 0 }, { x: 16_000, y: 12_000 }, false, undefined, wrap).length).toBeLessThanOrEqual(16);
+	});
+
+	it('bounds narrow wrapped ellipses without duplicate tile pixels', () => {
+		const points = ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 1, y: 1_000_000_000 },
+			false,
+			undefined,
+			{ width: 512, height: 512 }
+		);
+		expect(new Set(points.map(({ x, y }) => `${x},${y}`)).size).toBe(points.length);
+		expect(points.length).toBeLessThanOrEqual(512 * 512);
+	});
+
+	it('keeps wrapped pixels from intermediate rows of tall narrow ellipses', () => {
+		const points = ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 4, y: 12 },
+			false,
+			undefined,
+			{ width: 2, height: 2 }
+		);
+		expect(points).toContainEqual({ x: 1, y: 0 });
+	});
+
+	it('keeps wrapped pixels from intermediate rows of tall wide ellipses', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 8, y: 39 },
+			false,
+			undefined,
+			{ width: 2, height: 1 }
+		)).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }]);
+	});
+
+	it('bounds exact wrapped ellipse traversal by the shorter axis', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 1_000_000_000, y: 2049 },
+			false,
+			undefined,
+			{ width: 512, height: 512 }
+		).length).toBeLessThanOrEqual(512 * 512);
+	});
+
+	it('keeps using the shorter axis when it exceeds the tile area', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 512, y: 1_000_000_000 },
+			false,
+			undefined,
+			{ width: 512, height: 1 }
+		).length).toBeLessThanOrEqual(512);
+	});
+
+	it('keeps local wrapped ellipse outlines in row-major order', () => {
+		const wrap = { width: 4, height: 4 };
+		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
+			[
+				{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
+				{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }
+			]
+		);
+	});
+
+	it('keeps logical ellipse order after wrapping across top and left seams', () => {
+		expect(ellipsePoints({ x: 0, y: 0 }, { x: -1, y: -1 }, false, undefined, { width: 2, height: 2 })).toEqual([
+			{ x: 1, y: 1 }, { x: 0, y: 1 },
+			{ x: 1, y: 0 }, { x: 0, y: 0 }
+		]);
+	});
+
+	it('keeps a local dirty rect until a tiled brush crosses an edge', () => {
+		const doc = testDoc(8, 8);
+		const local = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 3.5, false, 3.5, true);
+		expect(local.begin(3, 3)).toEqual({ x: 2, y: 2, w: 3, h: 3 });
+		const wrapped = new StrokeBuilder(doc, 0, 0, 3, 3, false, 'pencil-stroke', false, undefined, 0, 3.5, false, 3.5, true);
+		expect(wrapped.begin(0, 3)).toEqual({ x: 0, y: 2, w: 8, h: 3 });
+	});
+
+	it('wraps shape geometry drawn beyond the canvas edge', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'rectangle', false, undefined, 0, 1.5, false, 1.5, true);
+		stroke.previewPoints(rectanglePoints({ x: 3, y: 1 }, { x: 5, y: 2 }, false));
+		expect([0, 1, 3].every((x) => doc.frames[0].layers[0].pixels[1 * 4 + x] === 3)).toBe(true);
+	});
+
+	it('wraps pixel-perfect corner cleanup across canvas edges', () => {
+		const doc = testDoc(4, 4);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 1.5, false, 1.5, true);
+		stroke.begin(3, 1);
+		stroke.moveTo(4, 1);
+		stroke.moveTo(4, 2);
+		expect(doc.frames[0].layers[0].pixels[1 * 4]).toBe(0);
+	});
+
+	it('keeps revisited tiled centers during pixel-perfect cleanup', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-3, -1);
+		stroke.moveTo(-3, -3);
+		expect(doc.frames[0].layers[0].pixels[3]).toBe(3);
+	});
+
+	it('bounds distant tiled pixel-perfect pointer moves', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(1_000_000_000, 1_000_000_000);
+		expect(stroke.end()!.pixelCount).toBeLessThanOrEqual(4);
+	});
+
+	it('preserves the slope of bounded tiled pixel-perfect moves', () => {
+		const doc = testDoc(2, 2);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 0.5, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-8, -6);
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
+	});
+
+	it('keeps the full remainder of realistic tiled pixel-perfect moves', () => {
+		const doc = testDoc(2, 3);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, false, 'pencil-stroke', true, undefined, 0, 0.5, false, 1, true);
+		stroke.begin(0, 0);
+		stroke.moveTo(-7, -12);
+		expect(doc.frames[0].layers[0].pixels.every((pixel) => pixel === 3)).toBe(true);
 	});
 });
 
@@ -442,5 +646,14 @@ describe('selection stamps', () => {
 		expect(doc.frames[0].layers[0].pixels[1 * 5 + 1]).toBe(1);
 		expect([...flipStamp(stamp).pixels]).toEqual([0, 1, 3, 2]);
 		expect([...rotateStamp(stamp).pixels]).toEqual([2, 1, 3, 0]);
+	});
+
+	it('wraps stamp pixels across tile edges', () => {
+		const doc = testDoc(4, 4);
+		const command = stampCommand(doc, 0, 0, { width: 2, height: 1, pixels: new Uint8Array([1, 2]) }, 0, 0, true)!;
+		command.do(doc);
+		expect(doc.frames[0].layers[0].pixels.slice(0, 4)).toEqual(new Uint8Array([2, 0, 0, 1]));
+		command.undo(doc);
+		expect(doc.frames[0].layers[0].pixels.slice(0, 4)).toEqual(new Uint8Array(4));
 	});
 });
