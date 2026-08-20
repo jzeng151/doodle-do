@@ -879,7 +879,8 @@ export class EditorSession {
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (!this.floating) return;
 		const turns = this.floating.angle / (Math.PI / 2);
-		const quarter = direction > 0 ? Math.floor(turns + Number.EPSILON) + 1 : Math.ceil(turns - Number.EPSILON) - 1;
+		const tolerance = 1e-10 / (Math.PI / 2);
+		const quarter = direction > 0 ? Math.floor(turns + tolerance) + 1 : Math.ceil(turns - tolerance) - 1;
 		this.rotateFloating(quarter * Math.PI / 2);
 	}
 

@@ -248,6 +248,29 @@ test('quarter turns choose the next orientation in the requested direction', asy
 	expect(await page.evaluate(pixelOpaque, [12, 14] as [number, number])).toBe(false);
 });
 
+test('quarter turns advance after accumulated free rotations reach a cardinal angle', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.locator('canvas.editor').waitFor();
+	await mouseOnPixel(page, 10, 16);
+	await page.mouse.down();
+	await mouseOnPixel(page, 14, 16);
+	await page.mouse.up();
+	await page.keyboard.press('m');
+	await mouseOnPixel(page, 10, 16);
+	await page.mouse.down();
+	await mouseOnPixel(page, 14, 16);
+	await page.mouse.up();
+	const rotateRight = page.getByRole('button', { name: 'Rotate selection right 15 degrees' });
+	for (let i = 0; i < 24; i++) await rotateRight.click();
+	await page.getByRole('button', { name: 'Turn selection right 90 degrees' }).click();
+	await page.locator('canvas.editor').focus();
+	await page.keyboard.press('Enter');
+	expect(await page.evaluate(pixelOpaque, [12, 14] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [12, 18] as [number, number])).toBe(true);
+	expect(await page.evaluate(pixelOpaque, [10, 16] as [number, number])).toBe(false);
+	expect(await page.evaluate(pixelOpaque, [14, 16] as [number, number])).toBe(false);
+});
+
 test('lasso selects a freehand region and moves it', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
