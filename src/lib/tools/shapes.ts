@@ -98,7 +98,7 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 			if (hi - lo + 1 >= wrap.height) hi = lo + wrap.height - 1;
 			for (let y = lo; y <= hi; y++) add(x, y);
 		};
-		if (iy1 - iy0 + 1 > wrap.height * 4) {
+		if (ix1 - ix0 <= iy1 - iy0) {
 			for (let x = ix0; x <= ix1; x++) {
 				const span = columnSpan(x);
 				if (!span) continue;

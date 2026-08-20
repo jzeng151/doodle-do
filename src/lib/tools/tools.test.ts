@@ -334,6 +334,16 @@ describe('tiled drawing', () => {
 		)).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }]);
 	});
 
+	it('bounds exact wrapped ellipse traversal by the shorter axis', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 1_000_000_000, y: 2049 },
+			false,
+			undefined,
+			{ width: 512, height: 512 }
+		).length).toBeLessThanOrEqual(512 * 512);
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
