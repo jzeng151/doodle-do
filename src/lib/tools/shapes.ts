@@ -3,6 +3,8 @@ export interface Point {
 	y: number;
 }
 
+const MAX_WRAPPED_ELLIPSE_SAMPLES = 1_048_576;
+
 function pointCollector(wrap?: { width: number; height: number }, trackLogical = false) {
 	const points: Point[] = [];
 	const seen = wrap ? new Set<number>() : null;
@@ -84,6 +86,11 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
 	const { points, add, sortLogical } = pointCollector(wrap, true);
 	if (wrap) {
+		const visitAxis = (lo: number, hi: number, visit: (value: number) => boolean | void) => {
+			const end = Math.min(hi, lo + MAX_WRAPPED_ELLIPSE_SAMPLES - 1);
+			// ponytail: exact through one million cells; derive the torus curve analytically if synthetic larger ellipses need every wrapped pixel.
+			for (let value = lo; value <= end; value++) if (visit(value)) break;
+		};
 		const rowSpan = (y: number): [number, number] | null => {
 			const term = 1 - ((y - cy) / ry) ** 2;
 			if (term < 0) return null;
@@ -117,9 +124,9 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		const columnCount = ix1 - ix0 + 1;
 		const rowCount = iy1 - iy0 + 1;
 		if (columnCount < rowCount) {
-			for (let x = ix0; x <= ix1; x++) {
+			visitAxis(ix0, ix1, (x) => {
 				const span = columnSpan(x);
-				if (!span) continue;
+				if (!span) return false;
 				const [lo, hi] = span;
 				if (filled) addColumnRange(lo, hi, x);
 				else {
@@ -133,11 +140,11 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 						}
 					}
 				}
-			}
+			});
 		} else {
-			for (let y = iy0; y <= iy1; y++) {
+			visitAxis(iy0, iy1, (y) => {
 				const span = rowSpan(y);
-				if (!span) continue;
+				if (!span) return false;
 				const [lo, hi] = span;
 				if (filled) addRange(lo, hi, y);
 				else {
@@ -151,8 +158,8 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 						}
 					}
 				}
-				if (points.length === wrap.width * wrap.height) break;
-			}
+				return points.length === wrap.width * wrap.height;
+			});
 		}
 	} else {
 		for (let y = iy0; y <= iy1; y++) {
