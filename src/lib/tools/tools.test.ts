@@ -363,6 +363,20 @@ describe('tiled drawing', () => {
 		).length).toBeLessThanOrEqual(512);
 	});
 
+	it('bounds diagonal wrapped ellipse traversal without changing million-cell outlines', () => {
+		const wrap = { width: 512, height: 512 };
+		const exact = ellipsePoints({ x: 0, y: 0 }, { x: 1_000_000, y: 1_000_000 }, false, undefined, wrap);
+		expect(exact).toHaveLength(262_119);
+		expect(exact).not.toContainEqual({ x: 32, y: 32 });
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 1_000_000_000, y: 1_000_000_000 },
+			false,
+			undefined,
+			wrap
+		).length).toBeLessThanOrEqual(wrap.width * wrap.height);
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(
