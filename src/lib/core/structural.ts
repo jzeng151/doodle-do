@@ -464,6 +464,30 @@ export class LayerVisibilityCommand implements Command {
 	}
 }
 
+export class LayerPropertyCommand implements Command {
+	readonly kind: string;
+	readonly byteSize = 64;
+
+	constructor(
+		private readonly frameIndex: number,
+		private readonly layerIndex: number,
+		private readonly property: 'locked' | 'opacity',
+		private readonly before: boolean | number | undefined,
+		private readonly after: boolean | number | undefined
+	) {
+		this.kind = `layer-${property}`;
+	}
+
+	private set(doc: Doc, value: boolean | number | undefined): void {
+		Object.assign(doc.frames[this.frameIndex].layers[this.layerIndex], { [this.property]: value });
+	}
+
+	do(doc: Doc): void { this.set(doc, this.after); }
+	undo(doc: Doc): void { this.set(doc, this.before); }
+	serialize(): unknown { return { kind: this.kind, frame: this.frameIndex, layer: this.layerIndex, value: this.after }; }
+	dirty(): DirtyRegion { return { frame: this.frameIndex, rect: null }; }
+}
+
 export class PaletteAddCommand implements Command {
 	readonly kind = 'palette-add';
 	readonly byteSize = 64;

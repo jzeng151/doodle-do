@@ -11,6 +11,7 @@
 	const layers = $derived((session.version, session.currentFrame, [...session.frame.layers].reverse()));
 	const layerCount = $derived(layers.length);
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	const mergeBlocked = $derived((session.version, session.currentFrame, session.currentLayer, session.mergeLayerDownBlockedReason));
 
 	function realIndex(displayIndex: number): number {
 		return layerCount - 1 - displayIndex;
@@ -22,6 +23,7 @@
 		<h2>Layers</h2>
 		<div class="actions" role="group" aria-label="Layer actions">
 			<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
+			<button aria-label="Duplicate layer" title="Duplicate layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.duplicateLayer()}>⧉</button>
 			<button
 				aria-label="Extract selection to layer"
 				title="Extract selection to layer (Ctrl+J)"
@@ -44,8 +46,8 @@
 			</button>
 			<button
 				aria-label="Merge into layer below"
-				title="Merge into layer below"
-				disabled={session.currentLayer === 0}
+				title={mergeBlocked ?? 'Merge into layer below'}
+				disabled={!!mergeBlocked}
 				onclick={() => session.mergeLayerDown()}
 			>
 				⤵
@@ -62,6 +64,7 @@
 	</header>
 	<ul aria-label="Layers">
 		{#each layers as layer, di (di)}
+			{@const effectiveLocked = session.isLayerLocked(realIndex(di))}
 			<li>
 				<button
 					class="name"
@@ -79,6 +82,8 @@
 				>
 					{layer.visible ? '👁' : '—'}
 				</button>
+				<button disabled={effectiveLocked && !layer.locked} aria-pressed={effectiveLocked} aria-label={effectiveLocked && !layer.locked ? `${layer.name} locked by linked cel` : `${layer.locked ? 'Unlock' : 'Lock'} ${layer.name}`} title={effectiveLocked && !layer.locked ? 'Locked by linked cel' : layer.locked ? 'Unlock layer' : 'Lock layer'} onclick={() => session.setLayerLocked(realIndex(di), !layer.locked)}>{effectiveLocked ? '🔒' : '○'}</button>
+				<label class="opacity" title={`${layer.name} opacity`}><span class="sr-only">{layer.name} opacity</span><input type="range" min="0" max="1" step="0.05" value={layer.opacity ?? 1} onchange={(e) => session.setLayerOpacity(realIndex(di), e.currentTarget.valueAsNumber)} /></label>
 			</li>
 		{/each}
 	</ul>
@@ -101,7 +106,7 @@
 	}
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
+		grid-template-columns: repeat(8, minmax(0, 1fr));
 		gap: 4px;
 	}
 	.actions button {
@@ -132,6 +137,8 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	.opacity { display: flex; align-items: center; width: 54px; }
+	.opacity input { width: 100%; }
 	@media (pointer: coarse) {
 		.actions { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
 		.actions button { min-width: 44px; }

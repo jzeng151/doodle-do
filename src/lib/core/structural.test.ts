@@ -11,6 +11,7 @@ import {
 	FrameReorderCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
+	LayerPropertyCommand,
 	LayerReorderCommand,
 	LayerVisibilityCommand,
 	LinkedFrameAddCommand,
@@ -186,6 +187,10 @@ describe('layer commands', () => {
 
 		bus.dispatch(new LayerVisibilityCommand(0, 2, false));
 		expect(doc.frames[0].layers[2].visible).toBe(false);
+		bus.dispatch(new LayerPropertyCommand(0, 2, 'opacity', undefined, .4));
+		expect(doc.frames[0].layers[2].opacity).toBe(.4);
+		bus.undo();
+		expect(doc.frames[0].layers[2].opacity).toBeUndefined();
 
 		bus.dispatch(new LayerDeleteCommand(doc, 0, 2));
 		expect(doc.frames[0].layers).toHaveLength(2);

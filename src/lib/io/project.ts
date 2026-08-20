@@ -5,7 +5,7 @@
 import { MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
 
 export const PROJECT_FORMAT = 'doodledo-project';
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 export const PROJECT_EXTENSION = '.doodledo';
 
 export function encodeBase64(bytes: Uint8Array): string {
@@ -43,6 +43,8 @@ export function serializeProject(doc: Doc): string {
 				name: layer.name,
 				visible: layer.visible,
 				...(layer.linkId && { linkId: layer.linkId }),
+				...(layer.locked && { locked: true }),
+				...(layer.opacity !== undefined && layer.opacity !== 1 && { opacity: layer.opacity }),
 				pixels: encodeBase64(layer.pixels)
 			}))
 		}))
@@ -62,7 +64,7 @@ export function parseProject(text: string): Doc {
 	}
 	const p = raw as Record<string, unknown>;
 	if (p.format !== PROJECT_FORMAT) fail('unknown format');
-	if (p.version !== PROJECT_VERSION) fail(`unsupported version ${p.version}`);
+	if (p.version !== 1 && p.version !== PROJECT_VERSION) fail(`unsupported version ${p.version}`);
 	const meta = p.meta as Record<string, unknown>;
 	const width = meta?.width as number;
 	const height = meta?.height as number;
@@ -100,7 +102,7 @@ export function parseProject(text: string): Doc {
 			width,
 			height,
 			fps: typeof meta.fps === 'number' && meta.fps >= 1 && meta.fps <= 24 ? meta.fps : 8,
-			version: PROJECT_VERSION,
+			version: 1,
 			syncMeta: null,
 			...(tags && { tags })
 		},
@@ -126,6 +128,8 @@ export function parseProject(text: string): Doc {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,
 						visible: rawLayer.visible !== false,
 						...(linkId && { linkId }),
+						...(rawLayer.locked === true && { locked: true }),
+						...(typeof rawLayer.opacity === 'number' && { opacity: Math.max(0, Math.min(1, rawLayer.opacity)) }),
 						pixels
 					};
 				})

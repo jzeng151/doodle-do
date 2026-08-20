@@ -47,6 +47,19 @@ describe('agent operation adapter', () => {
 		).toThrow('version conflict');
 	});
 
+	it('rejects pixel edits to locked layers', () => {
+		const editor = session();
+		editor.doc.frames.push(structuredClone(editor.doc.frames[0]));
+		editor.doc.frames[1].layers[0].pixels = editor.doc.frames[0].layers[0].pixels;
+		editor.doc.frames[1].layers[0].locked = true;
+		expect(() => executeAgentOperation(editor, 'apply_pixel_patch', {
+			expectedVersion: 0,
+			frame: 0,
+			layer: 0,
+			edits: [{ x: 0, y: 0, value: 1 }]
+		})).toThrow('layer is locked');
+	});
+
 	it('reports linked cels and rejects targeted edits until they are unlinked', () => {
 		const editor = session();
 		editor.doc.frames.push(structuredClone(editor.doc.frames[0]));

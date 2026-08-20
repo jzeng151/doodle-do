@@ -16,6 +16,7 @@ import {
 	LinkedFrameAddCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
+	LayerPropertyCommand,
 	LayerReorderCommand,
 	LayerVisibilityCommand,
 	PaletteAddCommand,
@@ -35,7 +36,7 @@ import { boundedTileEndpoint, ellipsePoints, rectanglePoints } from '../tools/sh
 import { replaceColorCommand } from '../tools/replace';
 import { flipStamp, rotateStamp, stampCommand, type Stamp } from '../tools/stamp';
 import { combineMasks, FloatingSelection, maskFromPolygon, maskFromRects, mirrorMaskX, type SelectionMode } from '../tools/selection';
-import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
+import { mergeDownBlockedReason, mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
@@ -382,13 +383,19 @@ export class EditorSession {
 		const frames = this.bulkFrames.length
 			? [this.currentFrame, ...this.bulkFrames.filter((frame) => frame !== this.currentFrame)]
 			: [this.currentFrame];
+		const locked = new Set(this.doc.frames.flatMap((frame) => frame.layers.filter((layer) => layer.locked).map((layer) => layer.pixels)));
 		const seen = new Set<Uint8Array>();
 		return frames.filter((f) => {
 			const pixels = this.doc.frames[f].layers[this.currentLayer]?.pixels;
-			if (!pixels || seen.has(pixels)) return false;
+			if (!pixels || locked.has(pixels) || seen.has(pixels)) return false;
 			seen.add(pixels);
 			return true;
 		});
+	}
+
+	private layerLocked(frame: number, layer: number): boolean {
+		const pixels = this.doc.frames[frame].layers[layer]?.pixels;
+		return !pixels || this.doc.frames.some((candidate) => candidate.layers.some((owner) => owner.pixels === pixels && owner.locked));
 	}
 
 	toggleBulkFrame(index: number): void {
@@ -717,7 +724,7 @@ export class EditorSession {
 	// Starting a move lifts the mask into a floating buffer — the source
 	// pixels clear and a pending command begins.
 	liftSelection(mirrored = this.mirrorX): void {
-		if (this.floating || !this.selectionMask || this.selectionGesturePending()) return;
+		if (this.floating || !this.selectionMask || this.currentLayerLocked || this.selectionGesturePending()) return;
 		const mask = this.selectionMask;
 		const { width, height } = this.doc.meta;
 		const mirroredMask = mirrored ? mirrorMaskX(mask, width, height) : null;
@@ -748,7 +755,7 @@ export class EditorSession {
 	}
 
 	beginLayerMove(): void {
-		if (this.floating || !this.frame.layers[this.currentLayer]) return;
+		if (this.floating || !this.frame.layers[this.currentLayer] || this.currentLayerLocked) return;
 		const mask = new Uint8Array(this.doc.meta.width * this.doc.meta.height);
 		for (const frame of this.editTargets()) {
 			const pixels = this.doc.frames[frame].layers[this.currentLayer]?.pixels;
@@ -814,7 +821,7 @@ export class EditorSession {
 	}
 
 	placeStamp(x: number, y: number): void {
-		if (!this.stamp || this.floating) return;
+		if (!this.stamp || this.floating || this.currentLayerLocked) return;
 		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y, this.tiledDrawing)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
@@ -917,7 +924,7 @@ export class EditorSession {
 	// --- strokes (B2: one command per drag, finalized on pointer-up) ---
 
 	strokeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating) return; // B5: drawing disabled while floating
+		if (this.floating || this.currentLayerLocked) return;
 		this.normalizeMirrorAxes();
 		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
@@ -964,7 +971,7 @@ export class EditorSession {
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating) return;
+		if (this.floating || this.currentLayerLocked) return;
 		this.lineEnd();
 		this.normalizeMirrorAxes();
 		this.lineOrigin = { x, y };
@@ -1010,7 +1017,7 @@ export class EditorSession {
 	}
 
 	shapeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
-		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
+		if (this.floating || this.currentLayerLocked || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeEnd();
 		this.normalizeMirrorAxes();
 		this.shapeOrigin = { x, y };
@@ -1088,7 +1095,7 @@ export class EditorSession {
 	fill(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		this.lineEnd();
 		this.shapeEnd();
-		if (this.floating) return; // B5: drawing disabled while floating
+		if (this.floating || this.currentLayerLocked) return;
 		const cmds = this.editTargets()
 			.map((f) => floodFill(
 				this.doc,
@@ -1134,6 +1141,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.shapeEnd();
 		if (this.wholeLayerMove) this.commitFloating();
+		if (this.currentLayerLocked) return;
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		if (this.floating) {
 			this.floating.flip(axis);
@@ -1159,7 +1167,7 @@ export class EditorSession {
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		const src = this.frame;
 		const layers = duplicate
-			? src.layers.map((l) => ({ name: l.name, visible: l.visible, pixels: l.pixels.slice() }))
+			? src.layers.map(({ linkId: _, ...layer }) => ({ ...layer, pixels: layer.pixels.slice() }))
 			: src.layers.map((l) => createLayer(this.doc, l.name));
 		const index = this.currentFrame + 1;
 		this.bus.dispatch(
@@ -1322,6 +1330,41 @@ export class EditorSession {
 		if (this.doc.frames.length > 1) tips.fire('T23'); // send-to-frame (queues behind T22)
 	}
 
+	duplicateLayer(): void {
+		if (this.frame.layers.length >= MAX_LAYERS) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const source = this.frame.layers[this.currentLayer];
+		const copy = { ...source, name: `${source.name} copy`, pixels: source.pixels.slice() };
+		delete copy.linkId;
+		this.bus.dispatch(new LayerAddCommand(this.currentFrame, this.currentLayer + 1, copy));
+		this.currentLayer++;
+		this.bulkFrames = [];
+	}
+
+	setLayerLocked(index: number, locked: boolean): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const layer = this.frame.layers[index];
+		if (!layer || layer.locked === locked) return;
+		this.bus.dispatch(new LayerPropertyCommand(this.currentFrame, index, 'locked', layer.locked, locked));
+	}
+
+	setLayerOpacity(index: number, opacity: number): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const layer = this.frame.layers[index];
+		const next = Math.max(0, Math.min(1, opacity));
+		if (!layer || (layer.opacity ?? 1) === next) return;
+		this.bus.dispatch(new LayerPropertyCommand(this.currentFrame, index, 'opacity', layer.opacity, next));
+	}
+
+	get currentLayerLocked(): boolean { return this.layerLocked(this.currentFrame, this.currentLayer); }
+	isLayerLocked(index: number): boolean { return this.layerLocked(this.currentFrame, index); }
+
 	// Extract the selection onto a new layer above the current one: clear the
 	// source pixels + add the layer, as ONE composite command. A bare mask
 	// lifts first, so any pending move/rotate lands on the new layer.
@@ -1335,6 +1378,7 @@ export class EditorSession {
 		if (this.selectionMask && !this.floating) this.liftSelection();
 		const sel = this.floating;
 		if (!sel) return;
+		const opacity = this.frame.layers[this.currentLayer].opacity;
 		const twin = this.floatingTwin;
 		const { layerPixels, sourceDiff } = twin ? sel.extractPair(twin) : sel.extract();
 		if (!sourceDiff) return; // only transparent pixels selected
@@ -1349,12 +1393,11 @@ export class EditorSession {
 			new LayerAddCommand(this.currentFrame, index, {
 				name: `Layer ${this.frame.layers.length + 1}`,
 				visible: true,
+				...(opacity !== undefined && { opacity }),
 				pixels: layerPixels
 			})
 		];
-		this.bus.dispatch(
-			new CompositeCommand('extract-layer', commands)
-		);
+		this.bus.dispatch(new CompositeCommand('extract-layer', commands));
 		this.currentLayer = index;
 	}
 
@@ -1367,6 +1410,10 @@ export class EditorSession {
 	}
 
 	// Flatten the active layer into the one below it, as ONE composite command.
+	get mergeLayerDownBlockedReason(): string | null {
+		return mergeDownBlockedReason(this.doc, this.currentFrame, this.currentLayer);
+	}
+
 	mergeLayerDown(): void {
 		this.lineEnd();
 		this.shapeEnd();
@@ -1563,6 +1610,7 @@ export class EditorSession {
 		const seenPixels = new WeakSet<Uint8Array>();
 		let byteSize = 0;
 		for (const { frame, layer, mask } of targets) {
+			if (this.layerLocked(frame, layer)) continue;
 			const pixels = this.doc.frames[frame].layers[layer].pixels;
 			if (scope !== 'selection' && seenPixels.has(pixels)) continue;
 			seenPixels.add(pixels);

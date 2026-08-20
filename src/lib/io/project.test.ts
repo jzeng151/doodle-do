@@ -48,6 +48,19 @@ describe('project file round-trip', () => {
 		expect(restored.frames[1].layers[0].pixels[0]).toBe(3);
 	});
 
+	it('round-trips layer lock and opacity', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE });
+		doc.frames[0].layers[0].locked = true;
+		doc.frames[0].layers[0].opacity = .4;
+		const serialized = serializeProject(doc);
+		expect(JSON.parse(serialized).version).toBe(2);
+		const restored = parseProject(serialized);
+		expect(restored.frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
+		const legacy = JSON.parse(serialized);
+		legacy.version = 1;
+		expect(parseProject(JSON.stringify(legacy)).frames[0].layers[0]).toMatchObject({ locked: true, opacity: .4 });
+	});
+
 	it('rejects conflicting payloads in a linked cel group', () => {
 		const doc = createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, frameCount: 2 });
 		const raw = JSON.parse(serializeProject(doc));

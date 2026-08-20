@@ -29,6 +29,8 @@ export interface Layer {
 	visible: boolean;
 	pixels: Uint8Array; // width * height palette indices
 	linkId?: string;
+	locked?: boolean;
+	opacity?: number;
 }
 
 export interface Frame {

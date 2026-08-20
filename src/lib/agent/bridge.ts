@@ -30,8 +30,10 @@ function number(args: Args, key: string, min: number, max: number, fallback: num
 function target(session: EditorSession, args: Args): { frame: number; layer: number } {
 	const frame = integer(args, 'frame', 0, session.doc.frames.length - 1);
 	const layer = integer(args, 'layer', 0, session.doc.frames[frame].layers.length - 1);
-	const pixels = session.doc.frames[frame].layers[layer].pixels;
-	if (session.doc.frames.some((candidate) => candidate.layers.some((item) => item !== session.doc.frames[frame].layers[layer] && item.pixels === pixels))) {
+	const target = session.doc.frames[frame].layers[layer];
+	const owners = session.doc.frames.flatMap((candidate) => candidate.layers).filter((item) => item.pixels === target.pixels);
+	if (owners.some((owner) => owner.locked)) throw new Error('layer is locked');
+	if (owners.length > 1) {
 		throw new Error('target is a linked cel; unlink it before applying an agent edit');
 	}
 	return { frame, layer };
@@ -78,6 +80,8 @@ export function executeAgentOperation(
 					index: layerIndex,
 					name: layer.name,
 					visible: layer.visible,
+					locked: layer.locked ?? false,
+					opacity: layer.opacity ?? 1,
 					linkId: layer.linkId ?? null
 				}))
 			})),

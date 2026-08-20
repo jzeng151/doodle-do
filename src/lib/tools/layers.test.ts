@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc } from '../core/document';
 import { DEFAULT_PALETTE } from '../core/palette';
 import { CommandBus } from '../core/commands';
-import { mergeDownCommand, sendLayerCommand } from './layers';
+import { mergeDownBlockedReason, mergeDownCommand, sendLayerCommand } from './layers';
 
 function testDoc(layerCount = 2) {
 	const doc = createDoc({
@@ -50,6 +50,22 @@ describe('mergeDownCommand', () => {
 		expect(doc.frames[0].layers.length).toBe(2);
 	});
 
+	it('does not reveal pixels from a fully transparent upper layer', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[1].opacity = 0;
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+	});
+
+	it('refuses merges that cannot preserve locks or opacity', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].locked = true;
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+		doc.frames[0].layers[0].locked = false;
+		doc.frames[0].layers[0].opacity = .5;
+		expect(mergeDownCommand(doc, 0, 1)).toBeNull();
+		expect(mergeDownBlockedReason(doc, 0, 1)).toMatch(/opacities/);
+	});
+
 	it('refuses when there is no layer below', () => {
 		expect(mergeDownCommand(testDoc(), 0, 0)).toBeNull();
 	});
@@ -84,6 +100,14 @@ describe('sendLayerCommand', () => {
 		expect(bus.undoDepth).toBe(1);
 		bus.undo();
 		expect(doc.frames[1].layers.length).toBe(2);
+	});
+
+	it('preserves lock and opacity metadata when copying', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[1].locked = true;
+		doc.frames[0].layers[1].opacity = .4;
+		new CommandBus(doc).dispatch(sendLayerCommand(doc, 0, 1, 1, false)!);
+		expect(doc.frames[1].layers[2]).toMatchObject({ locked: true, opacity: .4 });
 	});
 
 	it('move also removes the source layer; one undo restores both frames', () => {
