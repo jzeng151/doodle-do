@@ -377,6 +377,16 @@ describe('tiled drawing', () => {
 		).length).toBeLessThanOrEqual(wrap.width * wrap.height);
 	});
 
+	it('keeps logical order when a column traversal fills the tile early', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 2, y: 11 },
+			false,
+			undefined,
+			{ width: 1, height: 3 }
+		)).toEqual([{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }]);
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(

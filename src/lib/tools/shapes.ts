@@ -86,7 +86,7 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
 	const { points, add, sortLogical } = pointCollector(wrap, true);
 	if (wrap) {
-		const visitAxis = (lo: number, hi: number, visit: (value: number) => boolean) => {
+		const visitAxis = (lo: number, hi: number, visit: (value: number) => boolean | void) => {
 			const end = Math.min(hi, lo + MAX_WRAPPED_ELLIPSE_SAMPLES - 1);
 			// ponytail: exact through one million cells; derive the torus curve analytically if synthetic larger ellipses need every wrapped pixel.
 			for (let value = lo; value <= end; value++) if (visit(value)) break;
@@ -140,7 +140,6 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 						}
 					}
 				}
-				return points.length === wrap.width * wrap.height;
 			});
 		} else {
 			visitAxis(iy0, iy1, (y) => {
