@@ -47,6 +47,21 @@ describe('agent operation adapter', () => {
 		).toThrow('version conflict');
 	});
 
+	it('reports linked cels and rejects targeted edits until they are unlinked', () => {
+		const editor = session();
+		editor.doc.frames.push(structuredClone(editor.doc.frames[0]));
+		editor.doc.frames[1].layers[0].pixels = editor.doc.frames[0].layers[0].pixels;
+		editor.doc.frames[0].layers[0].linkId = editor.doc.frames[1].layers[0].linkId = 'linked';
+		const described = executeAgentOperation(editor, 'get_document', {}) as any;
+		expect(described.frames[0].layers[0].linkId).toBe('linked');
+		expect(() => executeAgentOperation(editor, 'apply_pixel_patch', {
+			expectedVersion: 0,
+			frame: 0,
+			layer: 0,
+			edits: [{ x: 0, y: 0, value: 1 }]
+		})).toThrow('unlink it');
+	});
+
 	it('rejects edits while a whole-layer move is floating', () => {
 		const editor = session();
 		editor.floating = {} as EditorSession['floating'];

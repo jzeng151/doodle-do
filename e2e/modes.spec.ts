@@ -167,6 +167,17 @@ test('comparison playback commits a pending layer move', async ({ page }) => {
 	await expect.poll(() => locatorHasInk(page.locator('canvas.compare-canvas').first())).toBe(true);
 });
 
+test('linked frame thumbnails retain a pending selection preview', async ({ page }) => {
+	await gotoApp(page);
+	await drawOn(page, page.locator('canvas.editor'), 0.25, 0.25);
+	await page.getByTitle('Duplicate with shared cel pixels').click();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	await page.getByRole('button', { name: 'All', exact: true }).click();
+	await page.keyboard.press('Alt+ArrowRight');
+	const firstThumb = page.getByRole('group', { name: 'Frames' }).getByRole('button').first().locator('canvas');
+	await expect.poll(() => locatorHasInk(firstThumb)).toBe(true);
+});
+
 test('Grid previews and keyboard-moves a floating layer', async ({ page }) => {
 	await gotoApp(page);
 	await drawOn(page, page.locator('canvas.editor'));
@@ -397,7 +408,7 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 		'true'
 	);
 
-	await editors.nth(1).getByRole('button', { name: 'Duplicate' }).click();
+	await editors.nth(1).getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
 	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
 	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();

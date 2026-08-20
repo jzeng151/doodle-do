@@ -38,6 +38,30 @@ describe('project file round-trip', () => {
 		expect(() => parseProject(JSON.stringify(legacy))).toThrow(/bad animation tags/);
 	});
 
+	it('restores linked cel buffers as shared references', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2 });
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'shared';
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		const restored = parseProject(serializeProject(doc));
+		expect(restored.frames[0].layers[0].pixels).toBe(restored.frames[1].layers[0].pixels);
+		restored.frames[0].layers[0].pixels[0] = 3;
+		expect(restored.frames[1].layers[0].pixels[0]).toBe(3);
+	});
+
+	it('rejects conflicting payloads in a linked cel group', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, frameCount: 2 });
+		const raw = JSON.parse(serializeProject(doc));
+		raw.frames[0].layers[0].linkId = raw.frames[1].layers[0].linkId = 'shared';
+		raw.frames[1].layers[0].pixels = btoa(String.fromCharCode(1));
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/inconsistent/);
+	});
+
+	it('rejects a linked cel repeated within one frame', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 1, height: 1, palette: DEFAULT_PALETTE, layerCount: 2 })));
+		raw.frames[0].layers[0].linkId = raw.frames[0].layers[1].linkId = 'shared';
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/repeats linked cel/);
+	});
+
 	it('rejects empty and duplicate animation tag names', () => {
 		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
 		raw.meta.tags = [{ name: ' walk ', from: 0, to: 0, direction: 'forward', repeats: 0 }, { name: 'walk', from: 0, to: 0, direction: 'forward', repeats: 0 }];

@@ -60,6 +60,16 @@ describe('canvas resize', () => {
 		expect([doc.meta.width, doc.meta.height]).toEqual([2, 2]);
 		expect(Array.from(doc.frames[0].layers[0].pixels)).toEqual([1, 2, 3, 4]);
 	});
+
+	it('preserves shared linked-cel buffers through resize and undo', () => {
+		const doc = createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE, frameCount: 2 });
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		const bus = new CommandBus(doc);
+		bus.dispatch(new ResizeCanvasCommand(doc, 2, 2, 4, 4, 'scale'));
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+		bus.undo();
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
 });
 
 describe('palette LUT', () => {
@@ -194,7 +204,7 @@ describe('CommandBus (B4 budget)', () => {
 		let region: unknown = null;
 		bus.onChange((r) => (region = r));
 		bus.dispatch(strokeCmd(doc, 2 * 8 + 3, 1));
-		expect(region).toEqual({ frame: 0, rect: { x: 3, y: 2, w: 1, h: 1 } });
+		expect(region).toEqual({ frame: 0, layer: 0, rect: { x: 3, y: 2, w: 1, h: 1 } });
 	});
 
 	it('fires commit listeners on dispatch, undo, and redo', () => {
@@ -254,6 +264,7 @@ describe('CompositeCommand', () => {
 		]);
 		expect(sameFrame.byteSize).toBeGreaterThanOrEqual(diff(0).byteSize);
 		expect(sameFrame.dirty()).toEqual({ frame: 0, rect: null });
+		expect(new CompositeCommand('k', [diff(0), diff(0)]).dirty()).toEqual({ frame: 0, layer: 0, rect: null });
 		const crossFrame = new CompositeCommand('k', [diff(0), diff(1)]);
 		expect(crossFrame.dirty()).toEqual({ frame: null, rect: null });
 		void doc;

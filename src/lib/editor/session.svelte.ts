@@ -13,6 +13,7 @@ import {
 	FrameDeleteCommand,
 	FrameDurationCommand,
 	FrameReorderCommand,
+	LinkedFrameAddCommand,
 	LayerAddCommand,
 	LayerDeleteCommand,
 	LayerReorderCommand,
@@ -22,7 +23,8 @@ import {
 	PaletteRemapCommand,
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
-	ResizeCanvasCommand
+	ResizeCanvasCommand,
+	UnlinkFrameCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
 import { floodFill, floodRegion } from '../tools/fill';
@@ -153,6 +155,14 @@ export class EditorSession {
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(region);
+			if (region.frame !== null && region.layer !== undefined) {
+				const pixels = doc.frames[region.frame]?.layers[region.layer]?.pixels;
+				if (pixels) for (let frame = 0; frame < doc.frames.length; frame++) {
+					if (frame !== region.frame && doc.frames[frame].layers.some((layer) => layer.pixels === pixels)) {
+						this.compositor.invalidate({ ...region, frame });
+					}
+				}
+			}
 			this.currentFrame = Math.min(this.currentFrame, doc.frames.length - 1);
 			this.currentLayer = Math.min(
 				this.currentLayer,
@@ -165,7 +175,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
-			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand || command instanceof FrameAddCommand || command instanceof FrameDeleteCommand || command instanceof FrameReorderCommand) && this.activeAnimationTagName) {
+			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand || command instanceof FrameAddCommand || command instanceof FrameDeleteCommand || command instanceof FrameReorderCommand || command instanceof LinkedFrameAddCommand) && this.activeAnimationTagName) {
 				const active = this.doc.meta.tags?.find((tag) => tag.name === this.activeAnimationTagName);
 				this.selectAnimationTag(active ? active.name : '');
 			}
@@ -327,8 +337,16 @@ export class EditorSession {
 	// the frames a mutation applies to, skipping any whose layer stack is
 	// shorter than the active layer
 	private editTargets(): number[] {
-		const frames = this.bulkFrames.length ? this.bulkFrames : [this.currentFrame];
-		return frames.filter((f) => this.currentLayer < this.doc.frames[f].layers.length);
+		const frames = this.bulkFrames.length
+			? [this.currentFrame, ...this.bulkFrames.filter((frame) => frame !== this.currentFrame)]
+			: [this.currentFrame];
+		const seen = new Set<Uint8Array>();
+		return frames.filter((f) => {
+			const pixels = this.doc.frames[f].layers[this.currentLayer]?.pixels;
+			if (!pixels || seen.has(pixels)) return false;
+			seen.add(pixels);
+			return true;
+		});
 	}
 
 	toggleBulkFrame(index: number): void {
@@ -626,10 +644,11 @@ export class EditorSession {
 		this.overlayVersion++;
 		this.bus.emitChange({
 			frame: this.currentFrame,
+			layer: this.currentLayer,
 			rect: this.floatingTwin ? null : this.floating.rect // twin: whole frame
 		});
 		for (const p of this.floatingPeers) {
-			this.bus.emitChange({ frame: p.main.frameIndex, rect: null }); // lifted holes
+			this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null }); // lifted holes
 		}
 		tips.fire('T20'); // arrow-key nudge
 	}
@@ -652,7 +671,12 @@ export class EditorSession {
 	floatingSelections(frame: number): FloatingSelection[] {
 		const active = frame === this.currentFrame ? [this.floatingTwin, this.floating] : [];
 		const peer = this.floatingPeers.find((entry) => entry.main.frameIndex === frame);
-		return [...active, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
+		const linked = frame !== this.currentFrame
+			&& this.floating
+			&& this.doc.frames[frame].layers[this.currentLayer]?.pixels === this.frame.layers[this.currentLayer]?.pixels
+			? [this.floatingTwin, this.floating]
+			: [];
+		return [...active, ...linked, peer?.twin, peer?.main].filter((selection): selection is FloatingSelection => !!selection);
 	}
 
 	autosaveSnapshot(): Doc {
@@ -770,8 +794,8 @@ export class EditorSession {
 		else if (cmds.length) {
 			this.bus.dispatch(new CompositeCommand('bulk-selection-move', cmds), { applied: true });
 		} else {
-			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
-			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, rect: null });
+			this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
+			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, layer: peer.main.layerIndex, rect: null });
 		}
 	}
 
@@ -783,10 +807,10 @@ export class EditorSession {
 			this.floating = null;
 			this.floatingTwin = null; // main's snapshot predates the twin's lift
 			sel.cancel();
-			this.bus.emitChange({ frame: sel.frameIndex, rect: null });
+			this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 			for (const p of this.floatingPeers) {
 				p.main.cancel();
-				this.bus.emitChange({ frame: p.main.frameIndex, rect: null });
+				this.bus.emitChange({ frame: p.main.frameIndex, layer: p.main.layerIndex, rect: null });
 			}
 			this.floatingPeers = [];
 		}
@@ -819,14 +843,14 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
 	strokeMove(x: number, y: number): void {
 		for (const s of this.strokes) {
 			const rect = s.builder.moveTo(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -861,7 +885,7 @@ export class EditorSession {
 		}));
 		for (const s of this.strokes) {
 			const rect = s.builder.begin(x, y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -872,7 +896,7 @@ export class EditorSession {
 			: { x, y };
 		for (const s of this.strokes) {
 			const rect = s.builder.previewLineTo(end.x, end.y);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -911,7 +935,7 @@ export class EditorSession {
 			: rectanglePoints(this.shapeOrigin, { x, y }, this.shapeFilled, bounds);
 		for (const s of this.strokes) {
 			const rect = s.builder.previewPoints(points);
-			if (rect) this.bus.emitChange({ frame: s.frame, rect });
+			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
 		}
 	}
 
@@ -923,7 +947,7 @@ export class EditorSession {
 	cancelLine(): void {
 		for (const stroke of this.strokes) {
 			const rect = stroke.builder.cancel();
-			if (rect) this.bus.emitChange({ frame: stroke.frame, rect });
+			if (rect) this.bus.emitChange({ frame: stroke.frame, layer: this.currentLayer, rect });
 		}
 		this.strokes = [];
 		this.lineOrigin = null;
@@ -1030,6 +1054,27 @@ export class EditorSession {
 		if (duplicate) tips.fire('T03');
 		if (this.doc.frames.length === 6) tips.fire('T10');
 	}
+
+	addLinkedFrame(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		this.bulkFrames = [];
+		const index = this.currentFrame + 1;
+		const ids = this.frame.layers.map((layer, layerIndex) => layer.linkId ?? `${crypto.randomUUID()}:${layerIndex}`);
+		this.bus.dispatch(new LinkedFrameAddCommand(this.currentFrame, index, ids));
+		this.currentFrame = index;
+	}
+
+	unlinkCurrentFrame(): void {
+		if (!this.frame.layers.some((layer) => layer.linkId)) return;
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		this.bus.dispatch(new UnlinkFrameCommand(this.doc, this.currentFrame));
+	}
+
+	get currentFrameLinked(): boolean { return this.frame.layers.some((layer) => layer.linkId); }
 
 	deleteFrame(): void {
 		if (this.doc.frames.length <= 1) return;
@@ -1180,15 +1225,17 @@ export class EditorSession {
 		this.overlayVersion++;
 		sel.cancel(); // restore the source; the composite re-applies the clear
 		const index = this.currentLayer + 1;
+		const commands = [
+			...(this.frame.layers[this.currentLayer].linkId ? [new UnlinkFrameCommand(this.doc, this.currentFrame)] : []),
+			sourceDiff,
+			new LayerAddCommand(this.currentFrame, index, {
+				name: `Layer ${this.frame.layers.length + 1}`,
+				visible: true,
+				pixels: layerPixels
+			})
+		];
 		this.bus.dispatch(
-			new CompositeCommand('extract-layer', [
-				sourceDiff,
-				new LayerAddCommand(this.currentFrame, index, {
-					name: `Layer ${this.frame.layers.length + 1}`,
-					visible: true,
-					pixels: layerPixels
-				})
-			])
+			new CompositeCommand('extract-layer', commands)
 		);
 		this.currentLayer = index;
 	}
@@ -1395,8 +1442,12 @@ export class EditorSession {
 			}
 		}
 		const cmds: NonNullable<ReturnType<typeof replaceColorCommand>>[] = [];
+		const seenPixels = new WeakSet<Uint8Array>();
 		let byteSize = 0;
 		for (const { frame, layer, mask } of targets) {
+			const pixels = this.doc.frames[frame].layers[layer].pixels;
+			if (scope !== 'selection' && seenPixels.has(pixels)) continue;
+			seenPixels.add(pixels);
 			const cmd = replaceColorCommand(this.doc, frame, layer, from, to, mask, staged.get(`${frame}:${layer}`));
 			if (!cmd) continue;
 			byteSize += cmd.byteSize;

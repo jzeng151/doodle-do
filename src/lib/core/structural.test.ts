@@ -13,11 +13,13 @@ import {
 	LayerDeleteCommand,
 	LayerReorderCommand,
 	LayerVisibilityCommand,
+	LinkedFrameAddCommand,
 	PaletteAddCommand,
 	PaletteRemoveCommand,
 	PaletteRemapCommand,
 	PaletteReplaceCommand,
-	PaletteSwapCommand
+	PaletteSwapCommand,
+	UnlinkFrameCommand
 } from './structural';
 
 function testDoc() {
@@ -65,6 +67,44 @@ describe('frame commands', () => {
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 1 });
 		remove.undo(doc);
 		expect(doc.meta.tags?.[0]).toMatchObject({ from: 1, to: 2 });
+	});
+
+	it('adds and unlinks shared cels without snapshotting the document', () => {
+		const doc = testDoc();
+		const add = new LinkedFrameAddCommand(0, 1, ['a', 'b']);
+		expect(add.byteSize).toBeLessThan(1024);
+		add.do(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+		const unlink = new UnlinkFrameCommand(doc, 1);
+		unlink.do(doc);
+		expect(doc.frames[0].layers[0].pixels).not.toBe(doc.frames[1].layers[0].pixels);
+		unlink.undo(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
+
+	it('counts linked buffers once and reconnects unlink undo to live snapshots', () => {
+		const doc = createDoc({ width: 4, height: 4, palette: [], frameCount: 2 });
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const replacement = new DocumentReplaceCommand(doc, structuredClone(doc));
+		expect(replacement.byteSize).toBe(544);
+
+		const unlink = new UnlinkFrameCommand(doc, 1);
+		unlink.do(doc);
+		const refresh = new DocumentReplaceCommand(doc, structuredClone(doc));
+		refresh.do(doc);
+		refresh.undo(doc);
+		unlink.undo(doc);
+		expect(doc.frames[1].layers[0].pixels).toBe(doc.frames[0].layers[0].pixels);
+	});
+
+	it('does not charge a deleted frame for buffers retained by linked peers', () => {
+		const doc = createDoc({ width: 512, height: 512, palette: [], frameCount: 2, layerCount: 8 });
+		for (let i = 0; i < 8; i++) {
+			doc.frames[1].layers[i].pixels = doc.frames[0].layers[i].pixels;
+			doc.frames[0].layers[i].linkId = doc.frames[1].layers[i].linkId = `linked-${i}`;
+		}
+		expect(new FrameDeleteCommand(doc, 0).byteSize).toBe(64);
 	});
 
 	it('extends a clip when duplicating its final frame', () => {
@@ -163,6 +203,23 @@ describe('layer commands', () => {
 		const doc = createDoc({ width: 4, height: 4, palette: [], layerCount: 1 });
 		expect(() => new LayerDeleteCommand(doc, 0, 0)).toThrow();
 	});
+
+	it('reconnects a deleted linked layer to its live peer on undo', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		doc.frames[0].layers[0].linkId = doc.frames[1].layers[0].linkId = 'linked';
+		const command = new LayerDeleteCommand(doc, 0, 0);
+		command.do(doc);
+		doc.frames[1].layers[0].pixels = doc.frames[1].layers[0].pixels.slice();
+		command.undo(doc);
+		expect(doc.frames[0].layers[0].pixels).toBe(doc.frames[1].layers[0].pixels);
+	});
+
+	it('does not charge deleted linked buffers retained by a peer', () => {
+		const doc = testDoc();
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		expect(new LayerDeleteCommand(doc, 0, 0).byteSize).toBe(64);
+	});
 });
 
 describe('palette commands', () => {
@@ -247,5 +304,13 @@ describe('palette commands', () => {
 		expect(pixels[0]).toBe(2); // value 2 is below the removed value — no shift
 		bus.undo();
 		expect(pixels[0]).toBe(6);
+	});
+
+	it('remaps linked buffers only once', () => {
+		const doc = testDoc();
+		doc.frames[0].layers[0].pixels[0] = 3;
+		doc.frames[1].layers[0].pixels = doc.frames[0].layers[0].pixels;
+		new PaletteRemoveCommand(doc, 1, 0).do(doc);
+		expect(doc.frames[0].layers[0].pixels[0]).toBe(2);
 	});
 });

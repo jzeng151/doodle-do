@@ -42,6 +42,7 @@ export function serializeProject(doc: Doc): string {
 			layers: frame.layers.map((layer) => ({
 				name: layer.name,
 				visible: layer.visible,
+				...(layer.linkId && { linkId: layer.linkId }),
 				pixels: encodeBase64(layer.pixels)
 			}))
 		}))
@@ -109,9 +110,13 @@ export function parseProject(text: string): Doc {
 			if (!Array.isArray(rawLayers) || rawLayers.length < 1 || rawLayers.length > MAX_LAYERS) {
 				fail(`frame ${f} has a bad layer list`);
 			}
+			const frameLinks = new Set<string>();
 			return {
 				...(typeof rawFrame.durationMs === 'number' && { durationMs: rawFrame.durationMs }),
 				layers: rawLayers.map((rawLayer, l) => {
+					const linkId = typeof rawLayer.linkId === 'string' ? rawLayer.linkId : '';
+					if (linkId && frameLinks.has(linkId)) fail(`frame ${f} repeats linked cel ${linkId}`);
+					if (linkId) frameLinks.add(linkId);
 					const pixels = decodeBase64(rawLayer.pixels as string);
 					if (pixels.length !== width * height) fail(`frame ${f} layer ${l} pixel size mismatch`);
 					for (const v of pixels) {
@@ -120,11 +125,21 @@ export function parseProject(text: string): Doc {
 					return {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,
 						visible: rawLayer.visible !== false,
+						...(linkId && { linkId }),
 						pixels
 					};
 				})
 			};
 		})
 	};
+	const linked = new Map<string, Uint8Array>();
+	for (const frame of doc.frames) for (const layer of frame.layers) if (layer.linkId) {
+		if (linked.has(layer.linkId)) {
+			const source = linked.get(layer.linkId)!;
+			if (source.some((value, index) => value !== layer.pixels[index])) fail(`linked cel ${layer.linkId} has inconsistent pixels`);
+			layer.pixels = source;
+		}
+		else linked.set(layer.linkId, layer.pixels);
+	}
 	return doc;
 }

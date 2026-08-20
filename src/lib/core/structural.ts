@@ -11,6 +11,12 @@ function frameBytes(frame: Frame): number {
 	return frame.layers.reduce((sum, l) => sum + l.pixels.byteLength, 0) + 64;
 }
 
+function documentBytes(doc: Doc): number {
+	const buffers = new Set<Uint8Array>();
+	for (const frame of doc.frames) for (const layer of frame.layers) buffers.add(layer.pixels);
+	return doc.frames.length * 64 + [...buffers].reduce((sum, pixels) => sum + pixels.byteLength, 0) + tagsBytes(doc.meta.tags);
+}
+
 function replaceDocument(doc: Doc, snapshot: Doc): void {
 	const copy = structuredClone(snapshot);
 	doc.meta = copy.meta;
@@ -71,10 +77,7 @@ export class DocumentReplaceCommand implements Command {
 	constructor(doc: Doc, replacement: Doc) {
 		this.before = structuredClone(doc);
 		this.after = structuredClone(replacement);
-		this.byteSize = [...this.before.frames, ...this.after.frames].reduce(
-			(sum, frame) => sum + frameBytes(frame),
-			256
-		) + tagsBytes(this.before.meta.tags) + tagsBytes(this.after.meta.tags);
+		this.byteSize = 256 + documentBytes(this.before) + documentBytes(this.after);
 	}
 
 	do(doc: Doc): void {
@@ -120,6 +123,66 @@ export class FrameAddCommand implements Command {
 	}
 }
 
+export class LinkedFrameAddCommand implements Command {
+	readonly kind = 'linked-frame-add';
+	private beforeTags?: AnimationTag[];
+	get byteSize(): number { return 256 + tagsBytes(this.beforeTags); }
+	private beforeIds: (string | undefined)[] = [];
+	constructor(private readonly sourceIndex: number, private readonly index: number, private readonly linkIds: string[]) {}
+	do(doc: Doc): void {
+		this.beforeTags = copyTags(doc.meta.tags);
+		const source = doc.frames[this.sourceIndex];
+		this.beforeIds = source.layers.map((layer) => layer.linkId);
+		const layers = source.layers.map((layer, i) => {
+			layer.linkId = this.linkIds[i];
+			return { ...layer, pixels: layer.pixels, linkId: this.linkIds[i] };
+		});
+		doc.frames.splice(this.index, 0, { layers, ...(source.durationMs !== undefined && { durationMs: source.durationMs }) });
+		doc.meta.tags = addFrameTags(this.beforeTags, this.index, this.sourceIndex);
+	}
+	undo(doc: Doc): void {
+		doc.frames.splice(this.index, 1);
+		const source = doc.frames[this.sourceIndex];
+		for (let i = 0; i < source.layers.length; i++) {
+			if (this.beforeIds[i]) source.layers[i].linkId = this.beforeIds[i];
+			else delete source.layers[i].linkId;
+		}
+		doc.meta.tags = copyTags(this.beforeTags);
+	}
+	serialize(): unknown { return { kind: this.kind, source: this.sourceIndex, index: this.index }; }
+	dirty(): DirtyRegion { return DOC_DIRTY; }
+}
+
+export class UnlinkFrameCommand implements Command {
+	readonly kind = 'unlink-frame';
+	readonly byteSize: number;
+	private readonly before: { pixels: Uint8Array; linkId?: string }[];
+	private readonly after: Uint8Array[];
+	constructor(doc: Doc, private readonly frameIndex: number) {
+		this.before = doc.frames[frameIndex].layers.map((layer) => ({ pixels: layer.pixels, ...(layer.linkId && { linkId: layer.linkId }) }));
+		this.after = this.before.map(({ pixels }) => pixels.slice());
+		const peerBuffers = new Set(doc.frames.flatMap((frame, index) => index === frameIndex ? [] : frame.layers.map((layer) => layer.pixels)));
+		const retained = new Set(this.before.map(({ pixels }) => pixels).filter((pixels) => !peerBuffers.has(pixels)));
+		this.byteSize = [...this.after, ...retained].reduce((sum, pixels) => sum + pixels.byteLength, 128);
+	}
+	do(doc: Doc): void {
+		doc.frames[this.frameIndex].layers.forEach((layer, i) => { layer.pixels = this.after[i]; delete layer.linkId; });
+	}
+	undo(doc: Doc): void {
+		doc.frames[this.frameIndex].layers.forEach((layer, i) => {
+			const before = this.before[i];
+			const peer = before.linkId
+				? doc.frames.flatMap((frame) => frame.layers).find((other) => other !== layer && other.linkId === before.linkId)
+				: undefined;
+			layer.pixels = peer?.pixels ?? before.pixels;
+			if (before.linkId) layer.linkId = before.linkId;
+			else delete layer.linkId;
+		});
+	}
+	serialize(): unknown { return { kind: this.kind, frame: this.frameIndex }; }
+	dirty(): DirtyRegion { return DOC_DIRTY; }
+}
+
 export class FrameDeleteCommand implements Command {
 	readonly kind = 'frame-delete';
 	readonly byteSize: number;
@@ -133,7 +196,9 @@ export class FrameDeleteCommand implements Command {
 		if (doc.frames.length <= 1) throw new Error('cannot delete the last frame');
 		this.frame = doc.frames[index];
 		this.beforeTags = copyTags(doc.meta.tags);
-		this.byteSize = frameBytes(this.frame) + tagsBytes(this.beforeTags);
+		const peers = new Set(doc.frames.flatMap((frame, frameIndex) => frameIndex === index ? [] : frame.layers.map((layer) => layer.pixels)));
+		const retained = new Set(this.frame.layers.map((layer) => layer.pixels).filter((pixels) => !peers.has(pixels)));
+		this.byteSize = [...retained].reduce((sum, pixels) => sum + pixels.byteLength, 64 + tagsBytes(this.beforeTags));
 	}
 
 	do(doc: Doc): void {
@@ -141,6 +206,10 @@ export class FrameDeleteCommand implements Command {
 		doc.meta.tags = deleteFrameTags(this.beforeTags, this.index, doc.frames.length - 1);
 	}
 	undo(doc: Doc): void {
+		for (const layer of this.frame.layers) {
+			const peer = layer.linkId ? doc.frames.flatMap((frame) => frame.layers).find((candidate) => candidate.linkId === layer.linkId) : undefined;
+			if (peer) layer.pixels = peer.pixels;
+		}
 		doc.frames.splice(this.index, 0, this.frame);
 		doc.meta.tags = copyTags(this.beforeTags);
 	}
@@ -224,14 +293,16 @@ export class ResizeCanvasCommand implements Command {
 		private readonly newH: number,
 		mode: 'crop' | 'scale'
 	) {
+		const resized = new Map<Uint8Array, Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				this.before.push(layer.pixels);
-				this.after.push(resizePixels(layer.pixels, oldW, oldH, newW, newH, mode));
+				if (!resized.has(layer.pixels)) resized.set(layer.pixels, resizePixels(layer.pixels, oldW, oldH, newW, newH, mode));
+				this.after.push(resized.get(layer.pixels)!);
 			}
 		}
 		// both buffer sets are retained (after = live doc, before = for undo)
-		this.byteSize = this.after.reduce((n, a) => n + a.byteLength, 0) * 2 + 128;
+		this.byteSize = [...new Set([...this.before, ...this.after])].reduce((n, pixels) => n + pixels.byteLength, 128);
 	}
 
 	do(doc: Doc): void {
@@ -317,13 +388,20 @@ export class LayerDeleteCommand implements Command {
 			throw new Error('cannot delete the last layer');
 		}
 		this.layer = doc.frames[frameIndex].layers[layerIndex];
-		this.byteSize = this.layer.pixels.byteLength + 64;
+		const retainedByPeer = doc.frames.some((frame) =>
+			frame.layers.some((layer) => layer !== this.layer && layer.pixels === this.layer.pixels)
+		);
+		this.byteSize = (retainedByPeer ? 0 : this.layer.pixels.byteLength) + 64;
 	}
 
 	do(doc: Doc): void {
 		doc.frames[this.frameIndex].layers.splice(this.layerIndex, 1);
 	}
 	undo(doc: Doc): void {
+		const peer = this.layer.linkId
+			? doc.frames.flatMap((frame) => frame.layers).find((layer) => layer.linkId === this.layer.linkId)
+			: undefined;
+		if (peer) this.layer.pixels = peer.pixels;
 		doc.frames[this.frameIndex].layers.splice(this.layerIndex, 0, this.layer);
 	}
 	serialize(): unknown {
@@ -493,9 +571,12 @@ export class PaletteRemoveCommand implements Command {
 		this.removedValue = paletteIndex + 1;
 		this.targetValue = targetPaletteIndex + 1;
 		let count = 0;
+		const seen = new Set<Uint8Array>();
 		for (let f = 0; f < doc.frames.length; f++) {
 			for (let l = 0; l < doc.frames[f].layers.length; l++) {
 				const pixels = doc.frames[f].layers[l].pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				const hits: number[] = [];
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] === this.removedValue) hits.push(i);
@@ -514,9 +595,12 @@ export class PaletteRemoveCommand implements Command {
 			const pixels = doc.frames[frame].layers[layer].pixels;
 			for (const i of indices) pixels[i] = this.targetValue;
 		}
+		const seen = new Set<Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				const pixels = layer.pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] > this.removedValue) pixels[i]--;
 				}
@@ -527,9 +611,12 @@ export class PaletteRemoveCommand implements Command {
 
 	undo(doc: Doc): void {
 		doc.palette.splice(this.removedValue - 1, 0, this.color);
+		const seen = new Set<Uint8Array>();
 		for (const frame of doc.frames) {
 			for (const layer of frame.layers) {
 				const pixels = layer.pixels;
+				if (seen.has(pixels)) continue;
+				seen.add(pixels);
 				for (let i = 0; i < pixels.length; i++) {
 					if (pixels[i] >= this.removedValue) pixels[i]++;
 				}

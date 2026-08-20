@@ -17,6 +17,7 @@ export interface Rect {
 // palette means the color LUT itself changed.
 export interface DirtyRegion {
 	frame: number | null;
+	layer?: number;
 	rect: Rect | null;
 	palette?: boolean;
 	metadata?: boolean;
@@ -96,7 +97,7 @@ export class PixelDiffCommand implements Command {
 	}
 
 	dirty(): DirtyRegion {
-		return { frame: this.frameIndex, rect: this.bbox };
+		return { frame: this.frameIndex, layer: this.layerIndex, rect: this.bbox };
 	}
 }
 
@@ -129,7 +130,8 @@ export class CompositeCommand implements Command {
 		const regions = this.commands.map((c) => c.dirty());
 		const palette = regions.some((r) => r.palette);
 		const frame = regions.every((r) => r.frame === regions[0]?.frame) ? (regions[0]?.frame ?? null) : null;
-		return { frame, rect: null, ...(palette && { palette: true }) };
+		const layer = frame !== null && regions.every((r) => r.layer === regions[0]?.layer) ? regions[0]?.layer : undefined;
+		return { frame, ...(layer !== undefined && { layer }), rect: null, ...(palette && { palette: true }) };
 	}
 }
 
