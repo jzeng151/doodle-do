@@ -160,6 +160,30 @@ describe('mirror-draw', () => {
 		expect(cmd.pixelCount).toBe(2);
 	});
 
+	it('supports movable X axes and combined X/Y symmetry', () => {
+		const doc = testDoc(8, 8);
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', false, undefined, 0, 2, true, 2);
+		stroke.begin(1, 1);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[1, 1], [3, 1], [1, 3], [3, 3]].every(([x, y]) => pixels[y * 8 + x] === 3)).toBe(true);
+	});
+
+	it('reflects even brush footprints without a one-pixel shift', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 2, true, 'pencil-stroke', false, undefined, 0, 3.5, true, 3.5).begin(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[1, 1], [2, 2], [5, 1], [6, 2], [1, 5], [2, 6], [5, 5], [6, 6]].every(([x, y]) => pixels[y * 8 + x] === 3)).toBe(true);
+		expect(pixels[4 * 8 + 4]).toBe(0);
+	});
+
+	it('samples even mirrored brushes from the source footprint', () => {
+		const doc = testDoc(8, 8);
+		new StrokeBuilder(doc, 0, 0, 3, 2, true, 'pencil-stroke', false, 4, 2, 3.5).begin(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect(pixels[2 * 8 + 5]).toBe(pixels[2 * 8 + 2]);
+		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
+
 	it('center column with mirror does not double-record', () => {
 		const doc = testDoc(7, 7); // odd width, center x = 3 mirrors to itself
 		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true);
@@ -173,6 +197,15 @@ describe('mirror-draw', () => {
 		stroke.begin(1, 2);
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect(pixels[2 * 8 + 6]).toBe(pixels[2 * 8 + 1]);
+	});
+
+	it('preserves dither phase across custom X and Y axes', () => {
+		const xDoc = testDoc(8, 8);
+		new StrokeBuilder(xDoc, 0, 0, 3, 1, true, 'pencil-stroke', false, 4, 2, 2).begin(1, 2);
+		expect(xDoc.frames[0].layers[0].pixels[2 * 8 + 3]).toBe(xDoc.frames[0].layers[0].pixels[2 * 8 + 1]);
+		const yDoc = testDoc(8, 8);
+		new StrokeBuilder(yDoc, 0, 0, 3, 1, false, 'pencil-stroke', false, 4, 2, 3.5, true, 1.5).begin(2, 1);
+		expect(yDoc.frames[0].layers[0].pixels[2 * 8 + 2]).toBe(yDoc.frames[0].layers[0].pixels[1 * 8 + 2]);
 	});
 
 	it('does not repaint an overlapping mirrored dither stamp', () => {
@@ -258,6 +291,16 @@ describe('shape tools', () => {
 	});
 });
 
+describe('adjustable symmetry', () => {
+	it('reflects only the in-bounds source brush footprint', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 3, true, 'pencil-stroke', false, undefined, 0, 1.5);
+		stroke.begin(0, 3);
+		const row = [...doc.frames[0].layers[0].pixels.slice(3 * 8, 4 * 8)];
+		expect(row).toEqual([3, 3, 3, 3, 0, 0, 0, 0]);
+	});
+});
+
 describe('pixel-perfect pencil', () => {
 	it('removes the redundant middle pixel from an L-shaped corner', () => {
 		const doc = testDoc();
@@ -300,6 +343,16 @@ describe('pixel-perfect pencil', () => {
 		stroke.moveTo(4, 2);
 		const pixels = doc.frames[0].layers[0].pixels;
 		expect([pixels[2 * 8 + 3], pixels[2 * 8 + 4]]).toEqual([3, 3]);
+	});
+
+	it('cleans the pixel-perfect corner in every mirrored quadrant', () => {
+		const doc = testDoc();
+		const stroke = new StrokeBuilder(doc, 0, 0, 3, 1, true, 'pencil-stroke', true, undefined, 0, 3.5, true, 3.5);
+		stroke.begin(1, 1);
+		stroke.moveTo(2, 1);
+		stroke.moveTo(2, 2);
+		const pixels = doc.frames[0].layers[0].pixels;
+		expect([[2, 1], [5, 1], [2, 6], [5, 6]].map(([x, y]) => pixels[y * 8 + x])).toEqual([0, 0, 0, 0]);
 	});
 
 	it('keeps both mirrored arms when a corner crosses the axis', () => {

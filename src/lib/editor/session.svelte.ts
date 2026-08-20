@@ -66,6 +66,20 @@ export function createDefaultDoc(): Doc {
 	return createDoc({ width: 32, height: 32, fps: 8, palette: DEFAULT_PALETTE });
 }
 
+type AxisHistory = {
+	before: [number, number];
+	after: [number, number];
+	beforeSize: [number, number];
+	afterSize: [number, number];
+	scaled: boolean;
+	exactBefore?: (number | undefined)[];
+	projectedAfter?: (number | undefined)[];
+	exactAfter?: (number | undefined)[];
+	projectedBefore?: (number | undefined)[];
+	projectedAfterGeneration?: (number | undefined)[];
+	projectedBeforeGeneration?: (number | undefined)[];
+};
+
 export class EditorSession {
 	readonly doc: Doc;
 	readonly bus: CommandBus;
@@ -86,6 +100,9 @@ export class EditorSession {
 	selectionMode = $state<SelectionMode>('replace');
 	stamp = $state<Stamp | null>(null);
 	mirrorX = $state(false);
+	mirrorY = $state(false);
+	mirrorAxisX = $state(0);
+	mirrorAxisY = $state(0);
 	colorValue = $state(1);
 	backgroundColorValue = $state(2);
 	zoom = $state(12);
@@ -144,6 +161,9 @@ export class EditorSession {
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private manualPaletteAdds = 0;
+	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, AxisHistory>();
+	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, AxisHistory>();
+	private mirrorAxisGeneration: [number, number] = [0, 0];
 	private paletteRemovalColors = new WeakMap<PaletteRemoveCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteReplaceColors = new WeakMap<PaletteReplaceCommand, { before: [number, number]; after: [number, number] }>();
 	private paletteRemapColors = new WeakMap<PaletteRemapCommand, { before: [number, number]; after: [number, number] }>();
@@ -153,6 +173,8 @@ export class EditorSession {
 		this.bus = new CommandBus(doc);
 		this.compositor = new Compositor(doc);
 		this.gridZoom = $state(Math.max(2, Math.floor(96 / Math.max(doc.meta.width, doc.meta.height))));
+		this.mirrorAxisX = (doc.meta.width - 1) / 2;
+		this.mirrorAxisY = (doc.meta.height - 1) / 2;
 		this.backgroundColorValue = Math.min(2, doc.palette.length);
 		this.bus.onChange((region) => {
 			this.compositor.invalidate(region);
@@ -187,6 +209,10 @@ export class EditorSession {
 				this.clearGestures();
 				this.overlayVersion++;
 			}
+			const axes = command instanceof ResizeCanvasCommand ? this.resizeMirrorAxes.get(command) : undefined;
+			if (axes) [this.mirrorAxisX, this.mirrorAxisY] = this.restoreHistoryAxes(axes, action);
+			const replacementAxes = command instanceof DocumentReplaceCommand ? this.replaceMirrorAxes.get(command) : undefined;
+			if (replacementAxes) [this.mirrorAxisX, this.mirrorAxisY] = this.restoreHistoryAxes(replacementAxes, action);
 			if (command instanceof DocumentReplaceCommand) {
 				this.colorValue = Math.min(this.colorValue, doc.palette.length);
 				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
@@ -273,6 +299,8 @@ export class EditorSession {
 		fork.loopPlaybackMode = this.loopPlaybackMode;
 		fork.loopRepeatCount = this.loopRepeatCount;
 		if (this.activeAnimationTagName) fork.selectAnimationTag(this.activeAnimationTagName);
+		fork.mirrorAxisX = this.mirrorAxisX;
+		fork.mirrorAxisY = this.mirrorAxisY;
 		this.comparisonSession = fork;
 		this.comparisonVersion++;
 	}
@@ -291,7 +319,15 @@ export class EditorSession {
 		this.clearGestures();
 		this.bulkFrames = [];
 		this.overlayVersion++;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, this.comparisonSession.doc));
+		const command = new DocumentReplaceCommand(this.doc, this.comparisonSession.doc);
+		this.replaceMirrorAxes.set(command, {
+			before: [this.mirrorAxisX, this.mirrorAxisY],
+			after: [this.comparisonSession.mirrorAxisX, this.comparisonSession.mirrorAxisY],
+			beforeSize: [this.doc.meta.width, this.doc.meta.height],
+			afterSize: [this.comparisonSession.doc.meta.width, this.comparisonSession.doc.meta.height],
+			scaled: true
+		});
+		this.bus.dispatch(command);
 	}
 
 	swapComparisonFork(): void {
@@ -314,8 +350,12 @@ export class EditorSession {
 		this.bulkFrames = fork.bulkFrames = [];
 		this.overlayVersion++;
 		fork.overlayVersion++;
-		this.bus.dispatch(new DocumentReplaceCommand(this.doc, forkDoc));
-		fork.bus.dispatch(new DocumentReplaceCommand(fork.doc, currentDoc));
+		const currentCommand = new DocumentReplaceCommand(this.doc, forkDoc);
+		const forkCommand = new DocumentReplaceCommand(fork.doc, currentDoc);
+		this.replaceMirrorAxes.set(currentCommand, { before: [this.mirrorAxisX, this.mirrorAxisY], after: [fork.mirrorAxisX, fork.mirrorAxisY], beforeSize: [this.doc.meta.width, this.doc.meta.height], afterSize: [fork.doc.meta.width, fork.doc.meta.height], scaled: true });
+		fork.replaceMirrorAxes.set(forkCommand, { before: [fork.mirrorAxisX, fork.mirrorAxisY], after: [this.mirrorAxisX, this.mirrorAxisY], beforeSize: [fork.doc.meta.width, fork.doc.meta.height], afterSize: [this.doc.meta.width, this.doc.meta.height], scaled: true });
+		this.bus.dispatch(currentCommand);
+		fork.bus.dispatch(forkCommand);
 	}
 
 	selectFrame(index: number): void {
@@ -388,6 +428,58 @@ export class EditorSession {
 		this.shapeEnd();
 		this.mirrorX = !this.mirrorX;
 		if (this.mirrorX) tips.fire('T13');
+	}
+
+	toggleMirrorY(): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.mirrorY = !this.mirrorY;
+	}
+
+	setMirrorAxis(axis: 'x' | 'y', value: number): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.mirrorAxisGeneration[axis === 'x' ? 0 : 1]++;
+		if (axis === 'x') this.mirrorAxisX = this.normalizeAxis(value, this.doc.meta.width - 1);
+		else this.mirrorAxisY = this.normalizeAxis(value, this.doc.meta.height - 1);
+	}
+
+	private normalizeMirrorAxes(): void {
+		this.mirrorAxisX = this.normalizeAxis(this.mirrorAxisX, this.doc.meta.width - 1);
+		this.mirrorAxisY = this.normalizeAxis(this.mirrorAxisY, this.doc.meta.height - 1);
+	}
+
+	private normalizeAxis(value: number, max: number): number {
+		return Number.isFinite(value) ? Math.round(Math.max(0, Math.min(max, value)) * 2) / 2 : max / 2;
+	}
+
+	private historyAxis(current: number, before: number, after: number, fromSize: number, toSize: number, scaled: boolean, force: boolean): number {
+		if (force || current === before) return after;
+		return this.normalizeAxis(scaled ? (current + .5) * toSize / fromSize - .5 : current, toSize - 1);
+	}
+
+	private restoreHistoryAxes(axes: AxisHistory, action: 'dispatch' | 'undo' | 'redo'): [number, number] {
+		const undo = action === 'undo';
+		const before = undo ? axes.after : axes.before;
+		const after = undo ? axes.before : axes.after;
+		const fromSize = undo ? axes.afterSize : axes.beforeSize;
+		const toSize = undo ? axes.beforeSize : axes.afterSize;
+		const current: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
+		return [0, 1].map((index) => {
+			if (action === 'undo' && axes.projectedAfter?.[index] === current[index] && axes.projectedAfterGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactBefore![index]!;
+			if (action === 'redo' && axes.projectedBefore?.[index] === current[index] && axes.projectedBeforeGeneration?.[index] === this.mirrorAxisGeneration[index]) return axes.exactAfter![index]!;
+			const next = this.historyAxis(current[index], before[index], after[index], fromSize[index], toSize[index], axes.scaled, action === 'dispatch');
+			if (action === 'undo' && current[index] !== before[index]) {
+				(axes.exactAfter ??= [])[index] = current[index];
+				(axes.projectedBefore ??= [])[index] = next;
+				(axes.projectedBeforeGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
+			} else if (action === 'redo' && current[index] !== before[index]) {
+				(axes.exactBefore ??= [])[index] = current[index];
+				(axes.projectedAfter ??= [])[index] = next;
+				(axes.projectedAfterGeneration ??= [])[index] = this.mirrorAxisGeneration[index];
+			}
+			return next;
+		}) as [number, number];
 	}
 
 	togglePaletteLock(): void {
@@ -825,6 +917,7 @@ export class EditorSession {
 
 	strokeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating) return; // B5: drawing disabled while floating
+		this.normalizeMirrorAxes();
 		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
@@ -839,7 +932,10 @@ export class EditorSession {
 				undefined,
 				this.tool === 'pencil' && this.pixelPerfect,
 				this.ditherEnabled && this.tool !== 'eraser' ? secondaryColorValue : undefined,
-				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0
+				this.ditherEnabled && this.tool !== 'eraser' ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		for (const s of this.strokes) {
@@ -868,6 +964,7 @@ export class EditorSession {
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating) return;
 		this.lineEnd();
+		this.normalizeMirrorAxes();
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -881,7 +978,10 @@ export class EditorSession {
 				'line',
 				false,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		for (const s of this.strokes) {
@@ -909,6 +1009,7 @@ export class EditorSession {
 	shapeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeEnd();
+		this.normalizeMirrorAxes();
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -922,7 +1023,10 @@ export class EditorSession {
 				this.tool,
 				false,
 				this.ditherEnabled ? secondaryColorValue : undefined,
-				this.ditherEnabled ? this.ditherSize : 0
+				this.ditherEnabled ? this.ditherSize : 0,
+				this.mirrorAxisX,
+				this.mirrorY,
+				this.mirrorAxisY
 			)
 		}));
 		this.shapeMove(x, y);
@@ -1471,10 +1575,19 @@ export class EditorSession {
 		this.commitFloating();
 		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(width)));
 		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(height)));
-		if (w === this.doc.meta.width && h === this.doc.meta.height) return;
-		this.bus.dispatch(
-			new ResizeCanvasCommand(this.doc, this.doc.meta.width, this.doc.meta.height, w, h, mode)
-		);
+		const oldW = this.doc.meta.width;
+		const oldH = this.doc.meta.height;
+		if (w === oldW && h === oldH) return;
+		this.normalizeMirrorAxes();
+		const before: [number, number] = [this.mirrorAxisX, this.mirrorAxisY];
+		const after: [number, number] = [this.normalizeAxis(mode === 'scale'
+			? (this.mirrorAxisX + 0.5) * w / oldW - 0.5
+			: this.mirrorAxisX, w - 1), this.normalizeAxis(mode === 'scale'
+			? (this.mirrorAxisY + 0.5) * h / oldH - 0.5
+			: this.mirrorAxisY, h - 1)];
+		const command = new ResizeCanvasCommand(this.doc, oldW, oldH, w, h, mode);
+		this.resizeMirrorAxes.set(command, { before, after, beforeSize: [oldW, oldH], afterSize: [w, h], scaled: mode !== 'crop' });
+		this.bus.dispatch(command);
 		this.selectionMask = null;
 		this.previousSelectionMask = null;
 		this.clearGestures();

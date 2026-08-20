@@ -25,7 +25,10 @@ export class StrokeBuilder {
 		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
 		private readonly pixelPerfect = false,
 		private readonly secondaryValue?: number,
-		private readonly ditherSize: 0 | 2 | 4 = 0
+		private readonly ditherSize: 0 | 2 | 4 = 0,
+		private readonly mirrorAxisX = (doc.meta.width - 1) / 2,
+		private readonly mirrorY = false,
+		private readonly mirrorAxisY = (doc.meta.height - 1) / 2
 	) {}
 
 	// Returns the rect touched by this event, for optimistic repaint.
@@ -118,8 +121,16 @@ export class StrokeBuilder {
 	}
 
 	private stamp(cx: number, cy: number): Rect | null {
-		let rect = this.stampOne(cx, cy, false, this.occupied);
-		if (this.mirrorX) rect = unionRect(rect, this.stampOne(this.doc.meta.width - 1 - cx, cy, true, this.occupied));
+		const evenOffset = this.size % 2 === 0 ? 1 : 0;
+		const points = this.symmetryPoints(cx, cy, evenOffset);
+		const sourceRect = this.stampOne(cx, cy, false, false, this.occupied);
+		let rect = sourceRect;
+		if (sourceRect) for (const point of points.slice(1)) {
+			const x0 = point.reflectX ? Math.round(2 * this.mirrorAxisX - (sourceRect.x + sourceRect.w - 1)) : sourceRect.x;
+			const y0 = point.reflectY ? Math.round(2 * this.mirrorAxisY - (sourceRect.y + sourceRect.h - 1)) : sourceRect.y;
+			const clip = { x: x0, y: y0, w: sourceRect.w, h: sourceRect.h };
+			rect = unionRect(rect, this.stampOne(point.x, point.y, point.reflectX, point.reflectY, this.occupied, clip));
+		}
 		if (!this.pixelPerfect || this.size !== 1) return rect;
 		const last = this.centers.at(-1);
 		if (last?.x === cx && last.y === cy) return rect;
@@ -130,26 +141,33 @@ export class StrokeBuilder {
 		const [a, b, c] = this.centers.slice(-3);
 		if (Math.abs(a.x - c.x) !== 1 || Math.abs(a.y - c.y) !== 1) return rect;
 		this.trackCenter(b, -1);
-		if (this.restorePixel(b.x, b.y)) rect = unionRect(rect, { x: b.x, y: b.y, w: 1, h: 1 });
-		if (this.mirrorX) {
-			const mirrorX = this.doc.meta.width - 1 - b.x;
-			if (this.restorePixel(mirrorX, b.y)) rect = unionRect(rect, { x: mirrorX, y: b.y, w: 1, h: 1 });
+		for (const point of this.symmetryPoints(b.x, b.y)) {
+			if (this.restorePixel(point.x, point.y)) rect = unionRect(rect, { ...point, w: 1, h: 1 });
 		}
 		this.centers.splice(-2, 1);
 		return rect;
 	}
 
+	private symmetryPoints(x: number, y: number, offset = 0): { x: number; y: number; reflectX: boolean; reflectY: boolean }[] {
+		const mx = Math.round(2 * this.mirrorAxisX - x + offset);
+		const my = Math.round(2 * this.mirrorAxisY - y + offset);
+		const points = [{ x, y, reflectX: false, reflectY: false }];
+		if (this.mirrorX) points.push({ x: mx, y, reflectX: true, reflectY: false });
+		if (this.mirrorY) points.push({ x, y: my, reflectX: false, reflectY: true });
+		if (this.mirrorX && this.mirrorY) points.push({ x: mx, y: my, reflectX: true, reflectY: true });
+		return points;
+	}
+
 	private trackCenter(point: { x: number; y: number }, delta: 1 | -1): void {
 		const { width, height } = this.doc.meta;
-		const track = (x: number) => {
-			if (x < 0 || point.y < 0 || x >= width || point.y >= height) return;
-			const index = point.y * width + x;
+		const track = (x: number, y: number) => {
+			if (x < 0 || y < 0 || x >= width || y >= height) return;
+			const index = y * width + x;
 			const count = (this.centerCounts.get(index) ?? 0) + delta;
 			if (count) this.centerCounts.set(index, count);
 			else this.centerCounts.delete(index);
 		};
-		track(point.x);
-		if (this.mirrorX) track(width - 1 - point.x);
+		for (const mirrored of this.symmetryPoints(point.x, point.y)) track(mirrored.x, mirrored.y);
 	}
 
 	private restorePixel(x: number, y: number): boolean {
@@ -164,14 +182,14 @@ export class StrokeBuilder {
 		return true;
 	}
 
-	private stampOne(cx: number, cy: number, mirrored = false, occupied?: Set<number>): Rect | null {
+	private stampOne(cx: number, cy: number, reflectX = false, reflectY = false, occupied?: Set<number>, clip?: Rect): Rect | null {
 		const { width, height } = this.doc.meta;
 		const pixels = this.doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		const r = this.size >> 1;
-		const x0 = Math.max(0, cx - r);
-		const y0 = Math.max(0, cy - r);
-		const x1 = Math.min(width - 1, cx - r + this.size - 1);
-		const y1 = Math.min(height - 1, cy - r + this.size - 1);
+		const x0 = Math.max(0, clip?.x ?? -Infinity, cx - r);
+		const y0 = Math.max(0, clip?.y ?? -Infinity, cy - r);
+		const x1 = Math.min(width - 1, clip ? clip.x + clip.w - 1 : Infinity, cx - r + this.size - 1);
+		const y1 = Math.min(height - 1, clip ? clip.y + clip.h - 1 : Infinity, cy - r + this.size - 1);
 		if (x1 < x0 || y1 < y0) return null;
 		for (let y = y0; y <= y1; y++) {
 			for (let x = x0; x <= x1; x++) {
@@ -179,7 +197,9 @@ export class StrokeBuilder {
 				if (occupied?.has(i)) continue;
 				occupied?.add(i);
 				if (!this.dirty.has(i)) this.dirty.set(i, pixels[i]);
-				pixels[i] = ditherValue(mirrored ? width - 1 - x : x, y, this.value, this.secondaryValue, this.ditherSize);
+				const sampleX = reflectX ? Math.round(2 * this.mirrorAxisX - x) : x;
+				const sampleY = reflectY ? Math.round(2 * this.mirrorAxisY - y) : y;
+				pixels[i] = ditherValue(sampleX, sampleY, this.value, this.secondaryValue, this.ditherSize);
 			}
 		}
 		return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };

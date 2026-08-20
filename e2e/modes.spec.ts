@@ -311,6 +311,28 @@ test('comparison fork keeps its saved clip playback settings', async ({ page }) 
 	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', forkPaused!);
 });
 
+test('comparison replacement preserves lossy mirror axis round trips', async ({ page }) => {
+	await gotoApp(page);
+	await page.getByRole('button', { name: 'Mirror X' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: '16×16' }).click();
+	await dialog.getByLabel('Scale art to fit').check();
+	await dialog.getByRole('button', { name: 'Resize' }).click();
+	await switcher(page).getByRole('button', { name: 'Compare' }).click();
+	const current = page.locator('.editor-pane').first();
+	page.once('dialog', (confirmation) => confirmation.accept());
+	await page.locator('.editor-pane').last().getByRole('button', { name: 'Apply as current' }).click();
+	const axis = current.getByLabel('X axis');
+	await axis.fill('10');
+	await current.getByRole('button', { name: 'Undo' }).click();
+	await expect(axis).toHaveValue('5');
+	await current.getByRole('button', { name: 'Redo' }).click();
+	await expect(axis).toHaveValue('10');
+});
+
 test('comparison fork starts with the active clip', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await gotoApp(page);
@@ -442,13 +464,21 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 	await editors.nth(1).getByRole('button', { name: 'Save project' }).click();
 	await expect.poll(() => page.evaluate(() => (window as typeof window & { savedForkName?: string }).savedForkName))
 		.toBe('Untitled-fork.doodledo');
+	await editors.nth(0).getByRole('button', { name: 'Mirror X' }).click();
+	await editors.nth(1).getByRole('button', { name: 'Mirror X' }).click();
+	const currentAxis = editors.nth(0).getByLabel('X axis');
+	await currentAxis.fill('2');
+	await editors.nth(1).getByLabel('X axis').fill('10');
 
 	page.once('dialog', (dialog) => dialog.accept());
 	await editors.nth(1).getByRole('button', { name: 'Apply as current' }).click();
 	await expect(editors.nth(0).getByText('3 frames · Save/export target')).toBeVisible();
+	await expect(currentAxis).toHaveValue('10');
 	expect(await locatorHasInk(currentCanvas)).toBe(true);
+	await currentAxis.fill('5');
 	await editors.nth(0).getByRole('button', { name: 'Undo' }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
+	await expect(currentAxis).toHaveValue('5');
 	expect(await locatorHasInk(currentCanvas)).toBe(false);
 
 	await page.getByRole('button', { name: 'Compare animations' }).click();
