@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDoc } from '../core/document';
-import { LoopPlayer, nextLoopFrame } from './loop';
+import { LoopPlayer, nextLoopFrame, nextPlaybackFrame } from './loop';
 
 describe('nextLoopFrame (playback range)', () => {
 	it('advances within the range and wraps from end to start', () => {
@@ -16,6 +16,17 @@ describe('nextLoopFrame (playback range)', () => {
 
 	it('holds still on a single-frame range', () => {
 		expect(nextLoopFrame(2, 2, 2)).toBe(2);
+	});
+});
+
+describe('playback modes', () => {
+	it('advances forward, reverse, and ping-pong ranges', () => {
+		expect(nextPlaybackFrame(3, 1, 3, 'forward')).toEqual({ frame: 1, direction: 1, wrapped: true });
+		expect(nextPlaybackFrame(1, 1, 3, 'reverse')).toEqual({ frame: 3, direction: -1, wrapped: true });
+		expect(nextPlaybackFrame(3, 1, 3, 'ping-pong', 1)).toEqual({ frame: 2, direction: -1, wrapped: false });
+		expect(nextPlaybackFrame(1, 1, 3, 'ping-pong', -1)).toEqual({ frame: 2, direction: 1, wrapped: true });
+		expect(nextPlaybackFrame(0, 2, 4, 'ping-pong', 1)).toEqual({ frame: 2, direction: 1, wrapped: false });
+		expect(nextPlaybackFrame(5, 2, 4, 'ping-pong', -1)).toEqual({ frame: 2, direction: 1, wrapped: false });
 	});
 });
 
@@ -56,12 +67,16 @@ describe('LoopPlayer playback speed', () => {
 		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
 		const doc = createDoc({ width: 1, height: 1, fps: 10, palette: ['#000000'], frameCount: 3 });
 		const complete = vi.fn();
-		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, undefined, undefined, () => 'reverse', () => 1, complete);
+		let mode: 'forward' | 'reverse' = 'reverse';
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, undefined, undefined, () => mode, () => 1, complete);
 		player.start();
 		expect(player.currentFrame).toBe(2);
 		tick(100); tick(200); tick(300);
 		expect(player.currentFrame).toBe(0);
 		expect(complete).toHaveBeenCalledOnce();
+		mode = 'forward';
+		player.reset();
+		expect(player.currentFrame).toBe(0);
 		now.mockRestore();
 		vi.unstubAllGlobals();
 	});

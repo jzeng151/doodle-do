@@ -13,6 +13,28 @@ export function nextLoopFrame(frame: number, start: number, end: number): number
 
 export type PlaybackMode = 'forward' | 'reverse' | 'ping-pong';
 
+export function nextPlaybackFrame(
+	frame: number,
+	start: number,
+	end: number,
+	mode: PlaybackMode,
+	direction = 1
+) {
+	if (start === end) return { frame: start, direction, wrapped: true };
+	if (frame < start || frame > end) return mode === 'reverse'
+		? { frame: end, direction: -1, wrapped: false }
+		: { frame: start, direction: 1, wrapped: false };
+	if (mode === 'reverse') return frame <= start || frame > end
+		? { frame: end, direction: -1, wrapped: frame <= start }
+		: { frame: frame - 1, direction: -1, wrapped: false };
+	if (mode === 'ping-pong') {
+		if (direction > 0 && frame >= end) return { frame: end - 1, direction: -1, wrapped: false };
+		if (direction < 0 && frame <= start) return { frame: start + 1, direction: 1, wrapped: true };
+		return { frame: frame + direction, direction, wrapped: false };
+	}
+	return { frame: frame < start || frame >= end ? start : frame + 1, direction: 1, wrapped: frame >= end };
+}
+
 export class LoopPlayer {
 	private raf = 0;
 	private frame = 0;
@@ -132,6 +154,12 @@ export class LoopPlayer {
 	stop(): void {
 		if (this.raf) cancelAnimationFrame(this.raf);
 		this.raf = 0;
+	}
+
+	reset(): void {
+		this.stop();
+		this.started = false;
+		this.syncConfig();
 	}
 
 	seek(frame: number): void {

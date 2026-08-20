@@ -82,6 +82,7 @@ export function doodledoJson(doc: Doc, layout: SheetLayout, imageName: string): 
 			image: imageName,
 			frameSize: { w: doc.meta.width, h: doc.meta.height },
 			fps: doc.meta.fps,
+			...(doc.meta.tags?.length && { animations: doc.meta.tags }),
 			frames: layout.rects.map((rect, i) => ({
 				...rect,
 				durationMs: Math.round(frameDurationMs(doc, i))

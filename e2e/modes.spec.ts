@@ -303,6 +303,12 @@ test('comparison fork keeps its saved clip playback settings', async ({ page }) 
 	await page.getByRole('button', { name: 'Compare animations' }).click();
 	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', /frame 1 of 2/);
 	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame 2 of 2/);
+	await page.getByRole('button', { name: 'Pause both' }).click();
+	const currentPaused = await page.locator('canvas.compare-canvas').first().getAttribute('aria-label');
+	const forkPaused = await page.locator('canvas.compare-canvas').last().getAttribute('aria-label');
+	await page.waitForTimeout(300);
+	await expect(page.locator('canvas.compare-canvas').first()).toHaveAttribute('aria-label', currentPaused!);
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', forkPaused!);
 });
 
 test('comparison fork starts with the active clip', async ({ page }) => {

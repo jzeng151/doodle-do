@@ -39,6 +39,7 @@ import { mergeDownCommand, sendLayerCommand } from '../tools/layers';
 import { colorRamp, DEFAULT_PALETTE, sortPaletteRange, type PaletteSort } from '../core/palette';
 import { tips } from '../learn/tips';
 import { paletteFromArtwork } from '../io/palette';
+import type { PlaybackMode } from '../render/loop';
 
 export type Tool =
 	| 'pencil'
@@ -103,7 +104,7 @@ export class EditorSession {
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
-	loopPlaybackMode = $state<'forward' | 'reverse' | 'ping-pong'>('forward');
+	loopPlaybackMode = $state<PlaybackMode>('forward');
 	loopRepeatCount = $state(0);
 	activeAnimationTagName = $state('');
 	showPreviewBackground = $state(true);
