@@ -344,6 +344,16 @@ describe('tiled drawing', () => {
 		).length).toBeLessThanOrEqual(512 * 512);
 	});
 
+	it('keeps using the shorter axis when it exceeds the tile area', () => {
+		expect(ellipsePoints(
+			{ x: 0, y: 0 },
+			{ x: 512, y: 1_000_000_000 },
+			false,
+			undefined,
+			{ width: 512, height: 1 }
+		).length).toBeLessThanOrEqual(512);
+	});
+
 	it('keeps local wrapped ellipse outlines in row-major order', () => {
 		const wrap = { width: 4, height: 4 };
 		expect(ellipsePoints({ x: 0, y: 0 }, { x: 2, y: 1 }, false, undefined, wrap)).toEqual(

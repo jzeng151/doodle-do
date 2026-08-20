@@ -116,7 +116,7 @@ export function ellipsePoints(a: Point, b: Point, filled: boolean, bounds?: { wi
 		};
 		const columnCount = ix1 - ix0 + 1;
 		const rowCount = iy1 - iy0 + 1;
-		if (columnCount <= rowCount && columnCount <= wrap.width * wrap.height) {
+		if (columnCount < rowCount) {
 			for (let x = ix0; x <= ix1; x++) {
 				const span = columnSpan(x);
 				if (!span) continue;
