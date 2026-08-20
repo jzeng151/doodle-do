@@ -69,6 +69,7 @@ export class LoopPlayer {
 	start(): void {
 		if (this.raf) return;
 		this.syncConfig();
+		this.blit();
 		this.lastTime = performance.now();
 		const tick = (now: number) => {
 			const { start, end } = this.range?.() ?? { start: 0, end: this.doc.frames.length - 1 };
@@ -107,7 +108,6 @@ export class LoopPlayer {
 		this.direction = mode === 'reverse' ? -1 : 1;
 		this.frame = mode === 'reverse' ? end : start;
 		this.onFrame?.(this.frame);
-		this.blit();
 	}
 
 	private configValue(): string {
@@ -174,6 +174,7 @@ export class LoopPlayer {
 	}
 
 	blit(): void {
+		this.syncConfig();
 		if (this.frame >= this.doc.frames.length) this.frame = 0; // frame was deleted
 		const ctx = this.target.getContext('2d')!;
 		ctx.imageSmoothingEnabled = false;

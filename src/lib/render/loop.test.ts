@@ -155,4 +155,15 @@ describe('LoopPlayer playback speed', () => {
 		now.mockRestore();
 		vi.unstubAllGlobals();
 	});
+
+	it('reseeks paused playback when its range changes', () => {
+		const target = { width: 1, height: 1, getContext: () => ({ imageSmoothingEnabled: false, clearRect: vi.fn(), drawImage: vi.fn() }) } as unknown as HTMLCanvasElement;
+		const doc = createDoc({ width: 1, height: 1, palette: ['#000000'], frameCount: 3 });
+		let range = { start: 0, end: 0 };
+		const player = new LoopPlayer(doc, { frameCanvas: () => ({}) } as never, target, undefined, () => range);
+		player.blit();
+		range = { start: 2, end: 2 };
+		player.blit();
+		expect(player.currentFrame).toBe(2);
+	});
 });
