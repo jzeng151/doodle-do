@@ -6,6 +6,7 @@
 	let { session }: { session: EditorSession } = $props();
 
 	let dialogEl: HTMLDialogElement;
+	let isOpen = $state(false);
 	const titleId = $props.id();
 	let current = $state(toolLessons.current);
 	let currentComplete = $state(toolLessons.currentComplete);
@@ -65,7 +66,9 @@
 	}
 
 	export function open() {
-		if (!dialogEl.open) dialogEl.showModal();
+		if (dialogEl.open) return;
+		dialogEl.showModal();
+		isOpen = true;
 	}
 
 	function activate(tool: Tool) {
@@ -92,7 +95,7 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl} aria-labelledby={titleId}>
+<dialog bind:this={dialogEl} aria-labelledby={titleId} onclose={() => isOpen = false}>
 	<header>
 		<div>
 			<h2 id={titleId}>Tool lessons</h2>
@@ -100,25 +103,27 @@
 		</div>
 		<button aria-label="Close tool lessons" onclick={() => dialogEl.close()}>Close</button>
 	</header>
-	<ul>
-		{#each TOOL_LESSONS as lesson (lesson.tool)}
-			{@const unavailable = unavailableReason(lesson.tool)}
-			<li>
-				<div>
-					<strong>{lesson.title}</strong>
-					<span>{lesson.description} Shortcut: <kbd>{lesson.shortcut}</kbd></span>
-					{#if unavailable}<span>{unavailable}</span>{/if}
-				</div>
-				<button
-					disabled={!!unavailable}
-					title={unavailable ?? lesson.task}
-					onclick={() => start(lesson.tool)}
-				>
-					{completed.includes(lesson.tool) ? 'Replay' : 'Start'}
-				</button>
-			</li>
-		{/each}
-	</ul>
+	{#if isOpen}
+		<ul>
+			{#each TOOL_LESSONS as lesson (lesson.tool)}
+				{@const unavailable = unavailableReason(lesson.tool)}
+				<li>
+					<div>
+						<strong>{lesson.title}</strong>
+						<span>{lesson.description} Shortcut: <kbd>{lesson.shortcut}</kbd></span>
+						{#if unavailable}<span>{unavailable}</span>{/if}
+					</div>
+					<button
+						disabled={!!unavailable}
+						title={unavailable ?? lesson.task}
+						onclick={() => start(lesson.tool)}
+					>
+						{completed.includes(lesson.tool) ? 'Replay' : 'Start'}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </dialog>
 
 {#if current}
