@@ -45,3 +45,24 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Done. You used Pencil.')).toBeVisible();
 	await expect.poll(() => page.evaluate(() => localStorage.getItem('doodledo.toolLessons'))).toContain('pencil');
 });
+
+test('keeps every tool lesson reachable in a short viewport', async ({ page }) => {
+	await page.setViewportSize({ width: 740, height: 320 });
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	await page.getByRole('button', { name: 'Open tool lessons' }).click();
+
+	const dialog = page.getByRole('dialog', { name: 'Tool lessons' });
+	const list = dialog.getByRole('list');
+	expect(await list.evaluate((element) => element.scrollHeight)).toBeGreaterThan(
+		await list.evaluate((element) => element.clientHeight)
+	);
+	const lastStart = dialog.getByRole('listitem').last().getByRole('button');
+	await lastStart.scrollIntoViewIfNeeded();
+	await expect(lastStart).toBeInViewport();
+	await lastStart.click();
+	await expect(dialog).toBeHidden();
+});
