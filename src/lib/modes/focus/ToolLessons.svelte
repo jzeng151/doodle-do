@@ -39,10 +39,15 @@
 				}
 				if (!fork.stamp) return;
 			}
+			if (toolLessonUnavailableReason(fork, lesson.tool)) return;
 			fork.setTool(lesson.tool);
 		});
 		const stopSession = session.onToolUse(report);
-		const stopFork = fork?.onToolUse(report);
+		const stopFork = lesson && fork && mode === 'compare'
+			? fork.onToolUse((tool) => {
+				if (!toolLessonUnavailableReason(fork, lesson.tool)) report(tool);
+			})
+			: undefined;
 		return () => {
 			stopSession();
 			stopFork?.();
