@@ -163,6 +163,7 @@ export class EditorSession {
 
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
 	private strokeTool: Tool | null = null;
+	private strokeHasVisiblePaint = false;
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private lineHasDistinctEndpoint = false;
@@ -259,6 +260,10 @@ export class EditorSession {
 
 	private reportToolUse(tool = this.tool): void {
 		for (const listener of this.toolUseListeners) listener(tool);
+	}
+
+	private hasVisiblePaint(colorValue: number, secondaryColorValue?: number): boolean {
+		return colorValue !== 0 || (this.ditherEnabled && secondaryColorValue !== undefined && secondaryColorValue !== 0);
 	}
 
 	get frame() {
@@ -1000,6 +1005,7 @@ export class EditorSession {
 		this.normalizeMirrorAxes();
 		this.strokeTool = this.tool;
 		const value = this.tool === 'eraser' ? 0 : colorValue;
+		this.strokeHasVisiblePaint = this.hasVisiblePaint(value, this.tool === 'eraser' ? undefined : secondaryColorValue);
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -1036,9 +1042,11 @@ export class EditorSession {
 	strokeEnd(): void {
 		if (!this.strokes.length) {
 			this.strokeTool = null;
+			this.strokeHasVisiblePaint = false;
 			return;
 		}
 		const tool = this.strokeTool ?? this.tool;
+		const hasVisiblePaint = this.strokeHasVisiblePaint;
 		const reportGesture = tool === 'line'
 			? this.lineHasDistinctEndpoint
 			: tool === 'rectangle' || tool === 'ellipse'
@@ -1049,10 +1057,14 @@ export class EditorSession {
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		this.strokes = [];
 		this.strokeTool = null;
+		this.strokeHasVisiblePaint = false;
 		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
-		if (cmds.length && reportGesture) this.reportToolUse(tool);
+		if (cmds.length && reportGesture) {
+			if (tool === 'eraser') this.reportToolUse(tool);
+			else if (hasVisiblePaint) this.reportToolUse(tool);
+		}
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
@@ -1060,6 +1072,7 @@ export class EditorSession {
 		this.lineEnd();
 		this.normalizeMirrorAxes();
 		this.strokeTool = this.tool;
+		this.strokeHasVisiblePaint = this.hasVisiblePaint(colorValue, secondaryColorValue);
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -1108,6 +1121,7 @@ export class EditorSession {
 		this.shapeEnd();
 		this.normalizeMirrorAxes();
 		this.strokeTool = this.tool;
+		this.strokeHasVisiblePaint = this.hasVisiblePaint(colorValue, secondaryColorValue);
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -1164,6 +1178,7 @@ export class EditorSession {
 		}
 		this.strokes = [];
 		this.strokeTool = null;
+		this.strokeHasVisiblePaint = false;
 		this.lineOrigin = null;
 		this.shapeOrigin = null;
 		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
@@ -1209,7 +1224,7 @@ export class EditorSession {
 		} else {
 			this.bus.dispatch(new CompositeCommand('bulk-fill', cmds));
 		}
-		this.reportToolUse('fill');
+		if (this.hasVisiblePaint(colorValue, secondaryColorValue)) this.reportToolUse('fill');
 	}
 
 	eyedrop(x: number, y: number, background = false): void {
