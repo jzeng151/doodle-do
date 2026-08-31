@@ -41,6 +41,7 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 type Subscriber = (state: ToolbarPreferenceState) => void;
 
 const STORAGE_KEY = 'doodledo.toolbar';
+const EXISTING_INSTALL_KEY = 'doodledo.tips';
 const ESSENTIAL_TOOLS = new Set<ToolbarToolId>(['pencil', 'eraser', 'fill', 'eyedropper', 'select']);
 const ESSENTIAL_GROUPS = new Set<ToolbarGroupId>([
 	'tools',
@@ -112,8 +113,12 @@ export class ToolbarPreferences {
 
 	private load(): ToolbarPreferenceState {
 		try {
-			const saved = this.storage()?.getItem(STORAGE_KEY);
-			return saved === null || saved === undefined ? defaultToolbarPreferences() : normalize(JSON.parse(saved));
+			const storage = this.storage();
+			const saved = storage?.getItem(STORAGE_KEY);
+			if (saved !== null && saved !== undefined) return normalize(JSON.parse(saved));
+			const defaults = defaultToolbarPreferences();
+			defaults.chooserSeen = storage !== null && storage.getItem(EXISTING_INSTALL_KEY) !== null;
+			return defaults;
 		} catch {
 			return defaultToolbarPreferences();
 		}

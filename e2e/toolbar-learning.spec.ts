@@ -23,8 +23,12 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 	const settings = page.locator('.settings');
 	await settings.getByText('Custom', { exact: true }).click();
 	await settings.getByLabel('Onion skin').uncheck();
+	await settings.getByLabel('Drawing tools').uncheck();
 	await settings.getByRole('button', { name: 'Close' }).click();
 	await expect(page.getByRole('group', { name: 'Onion skin' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'More tools' }).click();
+	await page.getByRole('button', { name: 'Pencil', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
 test('completes a user-started lesson after a real canvas action', async ({ page }) => {
