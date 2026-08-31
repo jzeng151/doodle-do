@@ -653,10 +653,11 @@ export class EditorSession {
 
 	endMarquee(): void {
 		if (!this.pendingRect) return;
-		this.bakeMask(maskFromRects([this.pendingRect], this.doc.meta.width, this.doc.meta.height));
+		const rect = this.pendingRect;
+		this.bakeMask(maskFromRects([rect], this.doc.meta.width, this.doc.meta.height));
 		this.pendingRect = null;
 		this.overlayVersion++;
-		this.reportToolUse('select');
+		if (rect.w > 1 || rect.h > 1) this.reportToolUse('select');
 	}
 
 	// lasso: freehand path in float pixel coords, auto-closed on release
