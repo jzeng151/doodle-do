@@ -50,7 +50,10 @@
 		do toolLessons.skip();
 		while (toolLessons.current && unavailableReason(toolLessons.current.tool));
 		const nextLesson = toolLessons.current;
-		if (nextLesson) session.setTool(nextLesson.tool);
+		if (nextLesson) {
+			session.setMode('focus');
+			session.setTool(nextLesson.tool);
+		}
 	}
 </script>
 

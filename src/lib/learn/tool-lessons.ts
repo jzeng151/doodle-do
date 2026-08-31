@@ -14,7 +14,7 @@ const LESSONS_BY_TOOL = {
 	line: lesson('line', 'Line', 'N', 'Draw a straight line.', 'Drag across the canvas to draw a line.'),
 	rectangle: lesson('rectangle', 'Rectangle', 'R', 'Draw an outlined or filled rectangle.', 'Drag across the canvas to draw a rectangle.'),
 	ellipse: lesson('ellipse', 'Ellipse', 'C', 'Draw an outlined or filled ellipse.', 'Drag across the canvas to draw an ellipse.'),
-	move: lesson('move', 'Move', 'V', 'Move the active layer or selection.', 'Drag the artwork to a new position.'),
+	move: lesson('move', 'Move', 'V', 'Move the active layer.', 'Drag the active layer to a new position.'),
 	stamp: {
 		...lesson('stamp', 'Stamp', 'S', 'Place a reusable copy of a captured selection.', 'Place a captured stamp on the canvas.'),
 		transient: true
