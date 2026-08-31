@@ -710,8 +710,16 @@ export class EditorSession {
 	closePolygon(): void {
 		if (!this.polygonVerts) return;
 		if (this.polygonVerts.length >= 3) {
-			this.bakeMask(maskFromPolygon(this.polygonVerts, this.doc.meta.width, this.doc.meta.height));
-			this.reportToolUse('polygon');
+			const points = this.polygonVerts;
+			const mask = maskFromPolygon(points, this.doc.meta.width, this.doc.meta.height);
+			const origin = points[0];
+			const axis = points.find((point) => point.x !== origin.x || point.y !== origin.y);
+			// The cross product is twice the triangle area; ignore sub-half-pixel slivers.
+			const hasArea = axis && points.some((point) => Math.abs(
+				(axis.x - origin.x) * (point.y - origin.y) - (axis.y - origin.y) * (point.x - origin.x)
+			) >= 1);
+			this.bakeMask(mask);
+			if (hasArea && mask.some(Boolean)) this.reportToolUse('polygon');
 		}
 		this.polygonVerts = null;
 		this.overlayVersion++;
