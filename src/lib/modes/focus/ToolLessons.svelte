@@ -81,6 +81,11 @@
 	$effect(() => {
 		const lesson = current;
 		if (!lesson || currentComplete) return;
+		const mode = session.mode;
+		if (SELECT_TOOLS.includes(lesson.tool) && mode !== 'focus' && mode !== 'compare') {
+			toolLessons.close();
+			return;
+		}
 		void session.version;
 		if (session.strokeActive || session.floating) return;
 		if (toolLessonUnavailableReason(session, lesson.tool)) toolLessons.close();
