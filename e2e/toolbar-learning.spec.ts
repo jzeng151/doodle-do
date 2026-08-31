@@ -456,6 +456,29 @@ test('explains lessons that need artwork before they can start', async ({ page }
 	await expect(move).toContainText('Draw something on the active layer before learning Move.');
 });
 
+test('evaluates lesson availability only while the lessons dialog is open', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Essentials' })
+		.click();
+	const lessons = page.locator('dialog').filter({ hasText: 'Pick one short task.' });
+	await expect(lessons).toBeHidden();
+	await expect(lessons.locator('li')).toHaveCount(0);
+
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	await page.getByRole('button', { name: 'Open tool lessons' }).click();
+	await expect(lessons.locator('li')).toHaveCount(13);
+	const pencil = lessons.getByRole('listitem').first();
+	await expect(pencil.getByRole('button')).toBeEnabled();
+
+	await page.getByRole('button', { name: 'Lock Layer 1' }).evaluate((button: HTMLButtonElement) => button.click());
+	await expect(pencil.getByRole('button')).toBeDisabled();
+	await expect(pencil).toContainText('Unlock the active layer before learning Pencil.');
+
+	await lessons.getByRole('button', { name: 'Close tool lessons' }).click();
+	await expect(lessons.locator('li')).toHaveCount(0);
+});
+
 test('explains that drawing lessons need an unlocked active layer', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
