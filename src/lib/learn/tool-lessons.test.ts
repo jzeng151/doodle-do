@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Tool } from '../editor/session.svelte';
-import { DEFAULT_TOOL_LESSONS, TOOL_LESSONS, ToolLessonsEngine } from './tool-lessons';
+import type { EditorSession, Tool } from '../editor/session.svelte';
+import { DEFAULT_TOOL_LESSONS, TOOL_LESSONS, ToolLessonsEngine, toolLessonUnavailableReason } from './tool-lessons';
 
 function fakeStorage(value?: string): Pick<Storage, 'getItem' | 'setItem'> & { value?: string } {
 	return {
@@ -16,6 +16,25 @@ describe('tool lesson catalog', () => {
 		expect(TOOL_LESSONS.map((lesson) => lesson.tool)).toEqual(tools);
 		expect(TOOL_LESSONS.find((lesson) => lesson.tool === 'stamp')?.transient).toBe(true);
 		expect(DEFAULT_TOOL_LESSONS.some((lesson) => lesson.tool === 'stamp')).toBe(false);
+	});
+
+	it('explains prerequisites for lessons that cannot work on a blank canvas', () => {
+		const pixels = new Uint8Array(4);
+		const session = {
+			stamp: null,
+			currentLayer: 0,
+			currentLayerLocked: false,
+			frame: { layers: [{ pixels, visible: true }] }
+		} as unknown as EditorSession;
+		expect(toolLessonUnavailableReason(session, 'move')).toContain('Draw something');
+		expect(toolLessonUnavailableReason(session, 'eraser')).toContain('Draw something');
+		expect(toolLessonUnavailableReason(session, 'eyedropper')).toContain('Draw something visible');
+		expect(toolLessonUnavailableReason(session, 'pencil')).toBeNull();
+
+		pixels[0] = 1;
+		expect(toolLessonUnavailableReason(session, 'move')).toBeNull();
+		expect(toolLessonUnavailableReason(session, 'eraser')).toBeNull();
+		expect(toolLessonUnavailableReason(session, 'eyedropper')).toBeNull();
 	});
 });
 
@@ -40,6 +59,7 @@ describe('ToolLessonsEngine', () => {
 		expect(engine.current?.tool).toBe('line');
 		engine.close();
 		expect(engine.current).toBeNull();
+		expect(engine.isCompleted('pencil')).toBe(true);
 		engine.replay('pencil');
 		expect(engine.current?.tool).toBe('pencil');
 		expect(engine.currentComplete).toBe(false);

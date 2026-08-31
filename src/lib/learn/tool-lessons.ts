@@ -1,4 +1,4 @@
-import type { Tool } from '../editor/session.svelte';
+import type { EditorSession, Tool } from '../editor/session.svelte';
 
 export interface ToolLesson {
 	tool: Tool;
@@ -24,7 +24,7 @@ const LESSONS_BY_TOOL = {
 	eyedropper: lesson('eyedropper', 'Eyedropper', 'I', 'Pick a color from the canvas.', 'Pick a color from the canvas.'),
 	select: lesson('select', 'Select', 'M', 'Select a rectangular area.', 'Drag a selection rectangle.'),
 	lasso: lesson('lasso', 'Lasso', 'L', 'Draw a freehand selection.', 'Draw a loop around part of the artwork.'),
-	wand: lesson('wand', 'Wand', 'W', 'Select connected pixels of the same color.', 'Select a colored area.'),
+	wand: lesson('wand', 'Wand', 'W', 'Select connected pixels of the same color.', 'Select any connected area, including empty canvas.'),
 	polygon: lesson('polygon', 'Polygon', 'P', 'Select an area by placing points.', 'Place points and close the polygon.')
 } satisfies Record<Tool, ToolLesson>;
 
@@ -34,6 +34,20 @@ function lesson(tool: Tool, title: string, shortcut: string, description: string
 
 export const TOOL_LESSONS: readonly ToolLesson[] = Object.values(LESSONS_BY_TOOL);
 export const DEFAULT_TOOL_LESSONS: readonly ToolLesson[] = TOOL_LESSONS.filter((lesson) => !lesson.transient);
+
+export function toolLessonUnavailableReason(session: EditorSession, tool: Tool): string | null {
+	if (tool === 'stamp' && !session.stamp) return 'Make a stamp from a selection first.';
+	if (tool === 'move' || tool === 'eraser') {
+		if (!session.frame.layers[session.currentLayer].pixels.some(Boolean)) {
+			return `Draw something on the active layer before learning ${LESSONS_BY_TOOL[tool].title}.`;
+		}
+		if (session.currentLayerLocked) return `Unlock the active layer before learning ${LESSONS_BY_TOOL[tool].title}.`;
+	}
+	if (tool === 'eyedropper' && !session.frame.layers.some((layer) => layer.visible && (layer.opacity ?? 1) > 0 && layer.pixels.some(Boolean))) {
+		return 'Draw something visible on this frame before learning Eyedropper.';
+	}
+	return null;
+}
 
 interface PersistedState {
 	completed: Tool[];

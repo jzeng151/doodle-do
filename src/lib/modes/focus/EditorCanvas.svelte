@@ -546,6 +546,7 @@
 				keyboardX = Math.max(0, Math.min(session.doc.meta.width - 1, keyboardX + move[0]));
 				keyboardY = Math.max(0, Math.min(session.doc.meta.height - 1, keyboardY + move[1]));
 				if (session.pendingRect) session.updateMarquee(keyboardX, keyboardY);
+				if (session.lassoPath) session.updateLasso(keyboardX, keyboardY);
 				keyboardStatus = `Pixel ${keyboardX + 1}, ${keyboardY + 1}`;
 				if (session.lineActive) session.lineMove(keyboardX, keyboardY, e.shiftKey);
 				if (session.shapeActive) session.shapeMove(keyboardX, keyboardY);
@@ -613,7 +614,8 @@
 				else session.polygonAdd(keyboardX, keyboardY, e.shiftKey);
 				break;
 			case 'lasso':
-				keyboardStatus = 'Lasso needs a pointer. Choose Select or Wand for keyboard selection.';
+				if (session.lassoPath) session.endLasso();
+				else session.beginLasso(keyboardX, keyboardY, e.shiftKey);
 				break;
 		}
 	}
