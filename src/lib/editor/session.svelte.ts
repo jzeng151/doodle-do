@@ -161,6 +161,7 @@ export class EditorSession {
 	unsavedCommits = $state(0);
 
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
+	private strokeTool: Tool | null = null;
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
 	private lineHasDistinctEndpoint = false;
@@ -995,6 +996,7 @@ export class EditorSession {
 	strokeBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating || this.currentLayerLocked) return;
 		this.normalizeMirrorAxes();
+		this.strokeTool = this.tool;
 		const value = this.tool === 'eraser' ? 0 : colorValue;
 		// one builder per bulk-edit frame, driven in lockstep
 		this.strokes = this.editTargets().map((frame) => ({
@@ -1030,26 +1032,32 @@ export class EditorSession {
 	}
 
 	strokeEnd(): void {
-		if (!this.strokes.length) return;
-		const reportGesture = this.tool === 'line'
+		if (!this.strokes.length) {
+			this.strokeTool = null;
+			return;
+		}
+		const tool = this.strokeTool ?? this.tool;
+		const reportGesture = tool === 'line'
 			? this.lineHasDistinctEndpoint
-			: this.tool === 'rectangle' || this.tool === 'ellipse'
+			: tool === 'rectangle' || tool === 'ellipse'
 				? this.shapeHasDistinctEndpoint
 				: true;
 		const cmds = this.strokes
 			.map((s) => s.builder.end())
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		this.strokes = [];
+		this.strokeTool = null;
 		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
-		if (cmds.length && reportGesture) this.reportToolUse();
+		if (cmds.length && reportGesture) this.reportToolUse(tool);
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
 		if (this.floating || this.currentLayerLocked) return;
 		this.lineEnd();
 		this.normalizeMirrorAxes();
+		this.strokeTool = this.tool;
 		this.lineOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -1097,6 +1105,7 @@ export class EditorSession {
 		if (this.floating || this.currentLayerLocked || (this.tool !== 'rectangle' && this.tool !== 'ellipse')) return;
 		this.shapeEnd();
 		this.normalizeMirrorAxes();
+		this.strokeTool = this.tool;
 		this.shapeOrigin = { x, y };
 		this.strokes = this.editTargets().map((frame) => ({
 			frame,
@@ -1152,6 +1161,7 @@ export class EditorSession {
 			if (rect) this.bus.emitChange({ frame: stroke.frame, layer: this.currentLayer, rect });
 		}
 		this.strokes = [];
+		this.strokeTool = null;
 		this.lineOrigin = null;
 		this.shapeOrigin = null;
 		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
