@@ -96,20 +96,28 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
-test('completes a lesson from the current Compare fork after reset', async ({ page }) => {
+test('keeps a non-Pencil lesson active when the Compare fork is created and reset', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
 		.getByRole('button', { name: 'Choose Essentials' })
 		.click();
+	await page.getByRole('button', { name: 'More tools' }).click();
+	await page.locator('.more-tools').getByRole('button', { name: 'Line', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await expect(forkPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name: 'Reset fork' }).click();
+	await expect(forkPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
-	const forkEditor = page.locator('[data-editor-branch="fork"] canvas.editor');
+	const forkEditor = forkPane.locator('canvas.editor');
 	const box = (await forkEditor.boundingBox())!;
-	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-	await expect(page.getByText('Done. You used Pencil.')).toBeVisible();
+	await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.6);
+	await page.mouse.up();
+	await expect(page.getByText('Done. You used Line.')).toBeVisible();
 });
 
 test('selection lessons start and advance in Replace mode', async ({ page }) => {

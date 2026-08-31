@@ -24,8 +24,13 @@
 	$effect(() => {
 		void session.comparisonVersion;
 		const report = (tool: Tool) => toolLessons.reportAction(tool);
+		const fork = session.comparisonSession;
+		if (current && fork) {
+			if (SELECT_TOOLS.includes(current.tool)) fork.selectionMode = 'replace';
+			fork.setTool(current.tool);
+		}
 		const stopSession = session.onToolUse(report);
-		const stopFork = session.comparisonSession?.onToolUse(report);
+		const stopFork = fork?.onToolUse(report);
 		return () => {
 			stopSession();
 			stopFork?.();
