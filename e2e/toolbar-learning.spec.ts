@@ -34,6 +34,14 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 test.describe('with a coarse pointer', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
+	test('keeps the toolbar chooser Skip target at least 44px tall', async ({ page }) => {
+		await openFreshEditor(page);
+		expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+		const skip = page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+			.getByRole('button', { name: 'Skip and keep Full' });
+		expect(await skip.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+	});
+
 	test('keeps toolbar settings tap targets at least 44px tall', async ({ page }) => {
 		await page.addInitScript(() => localStorage.setItem('doodledo.toolbar', '{"layout":"custom","chooserSeen":true}'));
 		await openFreshEditor(page);

@@ -221,6 +221,9 @@
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
 	}
+	@media (pointer: coarse) {
+		.skip { min-height: 44px; }
+	}
 
 	@media (max-width: 640px) {
 		dialog { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
