@@ -38,3 +38,20 @@ test('online navigation bypasses a stale cached shell', async ({ page }) => {
 		'Draw a frame. Watch it loop.'
 	);
 });
+
+test('finishes caching a visited route before its response settles', async ({ page, context }) => {
+	await page.goto('/canvas');
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await page.reload();
+	await page.goto('/privacy');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('Privacy');
+	expect(await page.evaluate(async () => {
+		const key = (await caches.keys()).find((name) => name.startsWith('doodledo-'))!;
+		return !!(await (await caches.open(key)).match('/privacy'));
+	})).toBe(true);
+
+	await context.setOffline(true);
+	await page.reload();
+	await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('Privacy');
+	await context.setOffline(false);
+});

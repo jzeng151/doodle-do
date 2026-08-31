@@ -278,36 +278,38 @@ export function connectAgentBridge(getSession: () => EditorSession | null): () =
 	let queue = Promise.resolve();
 
 	events.addEventListener('operation', (event) => {
-		queue = queue.then(async () => {
-			let request: Args;
-			try {
-				request = object(JSON.parse((event as MessageEvent<string>).data));
-				if (request.protocolVersion !== 1) throw new Error('unsupported bridge protocol version');
-				if (typeof request.id !== 'string' || typeof request.operation !== 'string') {
-					throw new Error('invalid bridge request');
-				}
-				const session = getSession();
-				if (!session) throw new Error('Doodle-Do has no open document');
-				const result = executeAgentOperation(session, request.operation, request.args);
-				await fetch(`${base}/result?token=${token}`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id: request.id, ok: true, result })
-				});
-			} catch (error) {
-				if (request! && typeof request.id === 'string') {
+		queue = queue
+			.then(async () => {
+				let request: Args;
+				try {
+					request = object(JSON.parse((event as MessageEvent<string>).data));
+					if (request.protocolVersion !== 1) throw new Error('unsupported bridge protocol version');
+					if (typeof request.id !== 'string' || typeof request.operation !== 'string') {
+						throw new Error('invalid bridge request');
+					}
+					const session = getSession();
+					if (!session) throw new Error('Doodle-Do has no open document');
+					const result = executeAgentOperation(session, request.operation, request.args);
 					await fetch(`${base}/result?token=${token}`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							id: request.id,
-							ok: false,
-							error: error instanceof Error ? error.message : String(error)
-						})
+						body: JSON.stringify({ id: request.id, ok: true, result })
 					});
+				} catch (error) {
+					if (request! && typeof request.id === 'string') {
+						await fetch(`${base}/result?token=${token}`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								id: request.id,
+								ok: false,
+								error: error instanceof Error ? error.message : String(error)
+							})
+						});
+					}
 				}
-			}
-		});
+			})
+			.catch((error) => console.warn('agent bridge result failed', error));
 	});
 
 	return () => events.close();
