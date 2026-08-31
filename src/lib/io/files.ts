@@ -7,7 +7,7 @@
 
 import type { Doc } from '../core/document';
 import { PROJECT_EXTENSION, PROJECT_FORMAT, parseProject, serializeProject } from './project';
-import { detectStrip, manifestEntryFor, stripToDoc } from './import/strip';
+import { detectStrip, manifestEntryFor, stripPngDimensions, stripToDoc } from './import/strip';
 
 export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
@@ -45,38 +45,46 @@ export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promis
 }
 
 async function docFromStrip(png: File, manifestFile: File | undefined): Promise<Doc> {
+	const expected = stripPngDimensions(new Uint8Array(await png.slice(0, 24).arrayBuffer()));
 	const bitmap = await createImageBitmap(png);
-	const canvas = document.createElement('canvas');
-	canvas.width = bitmap.width;
-	canvas.height = bitmap.height;
-	const ctx = canvas.getContext('2d')!;
-	ctx.drawImage(bitmap, 0, 0);
-	const img = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+	try {
+		if (bitmap.width !== expected.width || bitmap.height !== expected.height) {
+			throw new Error('PNG dimensions changed while decoding');
+		}
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const ctx = canvas.getContext('2d')!;
+		ctx.drawImage(bitmap, 0, 0);
+		const img = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
 
-	let frameMs: number | undefined;
-	if (manifestFile) {
-		const text = await manifestFile.text();
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(text);
-		} catch {
-			throw new Error('manifest is not valid JSON');
-		}
-		if ((parsed as { format?: string }).format === PROJECT_FORMAT) {
-			throw new Error('cannot open a project file together with a PNG; pick one or the other');
-		}
-		const entry = manifestEntryFor(text, png.name);
-		if (entry) {
-			const detected = detectStrip(img).frameCount;
-			if (entry.frames && entry.frames !== detected) {
-				throw new Error(
-					`manifest says ${entry.frames} frames but the strip splits into ${detected}`
-				);
+		let frameMs: number | undefined;
+		if (manifestFile) {
+			const text = await manifestFile.text();
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(text);
+			} catch {
+				throw new Error('manifest is not valid JSON');
 			}
-			if (entry.frameMs) frameMs = entry.frameMs;
+			if ((parsed as { format?: string }).format === PROJECT_FORMAT) {
+				throw new Error('cannot open a project file together with a PNG; pick one or the other');
+			}
+			const entry = manifestEntryFor(text, png.name);
+			if (entry) {
+				const detected = detectStrip(img).frameCount;
+				if (entry.frames && entry.frames !== detected) {
+					throw new Error(
+						`manifest says ${entry.frames} frames but the strip splits into ${detected}`
+					);
+				}
+				if (entry.frameMs) frameMs = entry.frameMs;
+			}
 		}
+		return stripToDoc(img, png.name.replace(/\.png$/i, ''), { frameMs });
+	} finally {
+		bitmap.close();
 	}
-	return stripToDoc(img, png.name.replace(/\.png$/i, ''), { frameMs });
 }
 
 async function docFromSelection(files: File[]): Promise<Doc | null> {

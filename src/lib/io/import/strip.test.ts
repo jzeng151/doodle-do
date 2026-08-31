@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_PALETTE } from '../../core/document';
 import { packColor, buildLut } from '../../core/palette';
-import { ALPHA_THRESHOLD, detectStrip, manifestEntryFor, stripToDoc, type RgbaImage } from './strip';
+import { ALPHA_THRESHOLD, detectStrip, manifestEntryFor, stripPngDimensions, stripToDoc, type RgbaImage } from './strip';
 
 function makeImage(width: number, height: number): RgbaImage {
 	return { width, height, data: new Uint8ClampedArray(width * height * 4) };
@@ -63,6 +63,19 @@ describe('stripToDoc — exact palette path', () => {
 		const doc = stripToDoc(img, 'timed', { frameMs: 220 });
 		expect(doc.frames.map((f) => f.durationMs)).toEqual([220, 220]);
 	});
+
+	it('gives transparent strips a usable foreground color', () => {
+		const doc = stripToDoc(makeImage(4, 4), 'blank');
+		expect(doc.palette).toHaveLength(1);
+		doc.frames[0].layers[0].pixels[0] = 1;
+		expect(doc.frames[0].layers[0].pixels[0]).toBeLessThanOrEqual(doc.palette.length);
+	});
+
+	it('rejects unsafe direct frame durations', () => {
+		for (const frameMs of [0, -1, 1.5, 19]) {
+			expect(() => stripToDoc(makeImage(4, 4), 'timed', { frameMs })).toThrow(/duration/);
+		}
+	});
 });
 
 describe('stripToDoc — quantization path', () => {
@@ -119,5 +132,33 @@ describe('manifestEntryFor', () => {
 
 	it('throws on malformed JSON', () => {
 		expect(() => manifestEntryFor('nope', 'idle.png')).toThrow(/JSON/);
+	});
+
+	it('rejects invalid manifest timing and frame counts', () => {
+		for (const entry of [{ frames: -1, frameMs: 100 }, { frames: 1, frameMs: 0 }]) {
+			const text = JSON.stringify({ animations: { bad: { src: 'bad.png', ...entry } } });
+			expect(() => manifestEntryFor(text, 'bad.png')).toThrow(/manifest/);
+		}
+	});
+});
+
+describe('stripPngDimensions', () => {
+	function header(width: number, height: number): Uint8Array {
+		const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 0, 0, 0, 0, 0]);
+		const view = new DataView(bytes.buffer);
+		view.setUint32(16, width);
+		view.setUint32(20, height);
+		return bytes;
+	}
+
+	it('reads safe dimensions before bitmap decoding', () => {
+		expect(stripPngDimensions(header(512, 128))).toEqual({ width: 512, height: 128 });
+	});
+
+	it('rejects malformed and oversized headers', () => {
+		expect(() => stripPngDimensions(new Uint8Array(24))).toThrow(/valid PNG/);
+		expect(() => stripPngDimensions(header(512, 513))).toThrow(/sprite strips/);
+		expect(() => stripPngDimensions(header(33_554_432, 1))).toThrow(/sprite strips/);
+		expect(() => stripPngDimensions(header(100, 96))).toThrow(/uniform strip/);
 	});
 });

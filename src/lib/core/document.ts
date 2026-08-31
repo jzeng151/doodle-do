@@ -4,7 +4,12 @@
 export const MAX_PALETTE = 64;
 export const MAX_LAYERS = 8;
 export const MAX_CANVAS = 512;
+export const MIN_FRAME_DURATION_MS = 20;
 export const TRANSPARENT = 0;
+
+export function isValidFrameDuration(value: unknown): value is number {
+	return typeof value === 'number' && Number.isSafeInteger(value) && value >= MIN_FRAME_DURATION_MS;
+}
 
 export interface DocMeta {
 	name: string;
