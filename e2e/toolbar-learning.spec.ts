@@ -177,6 +177,51 @@ test('resyncs a reused Compare fork before activating a context-sensitive lesson
 	await expect(page.getByText('Done. You used Move.')).toBeVisible();
 });
 
+test('keeps fork lessons off blank and locked reused contexts', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const currentPane = page.locator('[data-editor-branch="current"]');
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkEditor = forkPane.locator('canvas.editor');
+	const forkBox = (await forkEditor.boundingBox())!;
+	await forkPane.getByRole('button', { name: 'Eraser', exact: true }).click();
+	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	await expect(currentPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	const currentEditor = currentPane.locator('canvas.editor');
+	const currentBox = (await currentEditor.boundingBox())!;
+	await page.mouse.move(currentBox.x + currentBox.width * 0.4, currentBox.y + currentBox.height * 0.4);
+	await page.mouse.down();
+	await page.mouse.move(currentBox.x + currentBox.width * 0.6, currentBox.y + currentBox.height * 0.6);
+	await page.mouse.up();
+	await expect(page.getByText('Done. You used Move.')).toBeVisible();
+	await page.locator('.coach').getByRole('button', { name: 'Close' }).click();
+
+	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await page.getByRole('button', { name: 'Line', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	await expect(currentPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await page.mouse.move(currentBox.x + currentBox.width * 0.3, currentBox.y + currentBox.height * 0.3);
+	await page.mouse.down();
+	await page.mouse.move(currentBox.x + currentBox.width * 0.5, currentBox.y + currentBox.height * 0.5);
+	await page.mouse.up();
+	await expect(page.getByText('Done. You used Line.')).toBeVisible();
+});
+
 test('keeps active Stamp lesson data through Compare creation, reset, and swap', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
