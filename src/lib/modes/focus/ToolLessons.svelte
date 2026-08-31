@@ -90,7 +90,7 @@
 	dialog {
 		box-sizing: border-box;
 		width: min(42rem, calc(100vw - 2rem));
-		max-height: min(42rem, calc(100vh - 2rem));
+		height: min(42rem, calc(100dvh - 2rem));
 		padding: 0;
 		overflow: hidden;
 		border: 3px solid var(--edge);
@@ -98,6 +98,7 @@
 		background: var(--paper);
 		color: var(--ink);
 	}
+	dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 	dialog::backdrop { background: var(--backdrop); }
 	header {
 		display: flex;
@@ -110,7 +111,7 @@
 	}
 	h2 { margin: 0; font-size: 1.1rem; }
 	header p { max-width: 58ch; margin: .25rem 0 0; line-height: 1.4; }
-	ul { max-height: 30rem; margin: 0; padding: 0; overflow: auto; list-style: none; }
+	ul { min-height: 0; margin: 0; padding: 0; overflow: auto; list-style: none; }
 	li {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
