@@ -56,14 +56,11 @@
 	});
 
 	$effect(() => {
-		void session.version;
-		if (current?.tool === 'stamp' && !session.stamp) toolLessons.close();
-	});
-
-	$effect(() => {
-		void session.documentReplacementVersion;
 		const lesson = current;
-		if (lesson && toolLessonUnavailableReason(session, lesson.tool)) toolLessons.close();
+		if (!lesson || currentComplete) return;
+		void session.version;
+		if (session.strokeActive || session.floating) return;
+		if (toolLessonUnavailableReason(session, lesson.tool)) toolLessons.close();
 	});
 
 	function unavailableReason(tool: Tool): string | null {
