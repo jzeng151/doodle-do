@@ -27,6 +27,9 @@
 		const fork = session.comparisonSession;
 		if (current && fork) {
 			if (SELECT_TOOLS.includes(current.tool)) fork.selectionMode = 'replace';
+			if (current.tool === 'stamp' && session.stamp) {
+				fork.stamp = { ...session.stamp, pixels: session.stamp.pixels.slice() };
+			}
 			fork.setTool(current.tool);
 		}
 		const stopSession = session.onToolUse(report);
