@@ -297,6 +297,9 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	@media (pointer: coarse) {
+		.layouts span, .groups label, .tools label, .groups input, .tools input { min-height: 44px; }
+	}
 
 	@media (max-width: 420px) {
 		.settings {
