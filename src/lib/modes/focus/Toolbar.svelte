@@ -80,6 +80,10 @@
 		return toolbarPreferences.isGroupVisible(id);
 	}
 
+	function toolDisabled(tool: Tool): boolean {
+		return SELECT_TOOLS.includes(tool) && session.mode !== 'focus' && session.mode !== 'compare';
+	}
+
 	function chooseLayout(layout: ToolbarLayout) {
 		toolbarPreferences.chooseLayout(layout);
 		if (layout === 'custom') requestAnimationFrame(() => toolbarSettings?.open());
@@ -117,8 +121,8 @@
 			<button
 				class:active={session.tool === t.id}
 				aria-pressed={session.tool === t.id}
-				disabled={SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' && session.mode !== 'compare'}
-				title={`${t.description} (${t.key})${SELECT_TOOLS.includes(t.id) && session.mode !== 'focus' && session.mode !== 'compare' ? '. Focus mode only' : ''}`}
+				disabled={toolDisabled(t.id)}
+				title={`${t.description} (${t.key})${toolDisabled(t.id) ? '. Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
 			>
 				{t.label}
@@ -339,7 +343,11 @@
 </div>
 <section bind:this={moreToolsEl} id={moreToolsId} class="more-tools" popover="auto" aria-label="More drawing tools">
 	{#each hiddenTools as tool (tool.id)}
-		<button title={`${tool.description} (${tool.key})`} onclick={() => selectHiddenTool(tool.id)}>{tool.label}</button>
+		<button
+			disabled={toolDisabled(tool.id)}
+			title={`${tool.description} (${tool.key})${toolDisabled(tool.id) ? '. Focus mode only' : ''}`}
+			onclick={() => selectHiddenTool(tool.id)}
+		>{tool.label}</button>
 	{/each}
 </section>
 <ToolbarLayoutDialog bind:this={layoutDialog} onChoose={chooseLayout} />
