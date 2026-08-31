@@ -99,6 +99,7 @@ const appServer = spawn('npx', ['vite', 'preview', '--port', String(PORT_APP), '
 try {
 	const browser = await chromium.launch();
 	const page = await browser.newPage();
+	await page.addInitScript(() => localStorage.setItem('doodledo.toolbar', '{"layout":"full","chooserSeen":true}'));
 
 	// --- 1. produce a real export through the real UI ---
 	for (let i = 0; ; i++) {
