@@ -85,8 +85,14 @@
 	}
 
 	function chooseLayout(layout: ToolbarLayout) {
+		if (layout === 'essentials') session.selectionMode = 'replace';
 		toolbarPreferences.chooseLayout(layout);
 		if (layout === 'custom') requestAnimationFrame(() => toolbarSettings?.open());
+	}
+
+	function setLayout(layout: ToolbarLayout) {
+		if (layout === 'essentials') session.selectionMode = 'replace';
+		toolbarPreferences.setLayout(layout);
 	}
 
 	function setCustomGroups(groups: ToolbarGroupId[]) {
@@ -333,7 +339,7 @@
 			layout={preferences.layout}
 			{customGroups}
 			{customTools}
-			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
+			onLayoutChange={setLayout}
 			onCustomGroupsChange={setCustomGroups}
 			onCustomToolsChange={setCustomTools}
 			onReset={resetToolbar}

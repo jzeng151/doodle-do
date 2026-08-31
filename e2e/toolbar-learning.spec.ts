@@ -31,6 +31,61 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
+for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as const) {
+	test(`keeps Select effective after switching from ${layout} with ${mode} to Essentials`, async ({ page }) => {
+		await openFreshEditor(page);
+		await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+			.getByRole('button', { name: `Choose ${layout}` })
+			.click();
+		const settings = page.locator('.settings');
+		if (layout === 'Custom') {
+			await expect(settings).toBeVisible();
+			await settings.getByRole('button', { name: 'Close' }).click();
+		}
+		const editor = page.locator('canvas.editor');
+		const box = (await editor.boundingBox())!;
+		const point = (x: number, y: number) => ({
+			x: box.x + (x + 0.5) * box.width / 32,
+			y: box.y + (y + 0.5) * box.height / 32
+		});
+		const opaque = (x: number, y: number) => editor.evaluate((element, [px, py]) => {
+			const canvas = element as HTMLCanvasElement;
+			const zoom = canvas.width / 32;
+			return canvas.getContext('2d')!.getImageData(
+				Math.floor((px + 0.5) * zoom),
+				Math.floor((py + 0.5) * zoom),
+				1,
+				1
+			).data[3] > 0;
+		}, [x, y] as [number, number]);
+
+		await page.mouse.click(point(8, 8).x, point(8, 8).y);
+		await page.getByRole('button', { name: 'Select', exact: true }).click();
+		const selectionMode = page.getByRole('group', { name: 'Selection mode' });
+		await selectionMode.getByRole('button', { name: mode, exact: true }).click();
+		await selectionMode.getByRole('button', { name: 'Deselect', exact: true }).click();
+
+		await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+		await settings.getByText('Essentials', { exact: true }).click();
+		await settings.getByRole('button', { name: 'Close' }).click();
+		await expect(selectionMode).toHaveCount(0);
+
+		await page.mouse.move(point(6, 6).x, point(6, 6).y);
+		await page.mouse.down();
+		await page.mouse.move(point(10, 10).x, point(10, 10).y);
+		await page.mouse.up();
+		await page.mouse.move(point(8, 8).x, point(8, 8).y);
+		await page.mouse.down();
+		await page.mouse.move(point(16, 16).x, point(16, 16).y);
+		await page.mouse.up();
+		await editor.focus();
+		await page.keyboard.press('Enter');
+
+		await expect.poll(() => opaque(8, 8)).toBe(false);
+		await expect.poll(() => opaque(16, 16)).toBe(true);
+	});
+}
+
 test.describe('with a coarse pointer', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
