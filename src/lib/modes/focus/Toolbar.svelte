@@ -85,14 +85,8 @@
 	}
 
 	function chooseLayout(layout: ToolbarLayout) {
-		if (layout === 'essentials') session.selectionMode = 'replace';
 		toolbarPreferences.chooseLayout(layout);
 		if (layout === 'custom') requestAnimationFrame(() => toolbarSettings?.open());
-	}
-
-	function setLayout(layout: ToolbarLayout) {
-		if (layout === 'essentials') session.selectionMode = 'replace';
-		toolbarPreferences.setLayout(layout);
 	}
 
 	function setCustomGroups(groups: ToolbarGroupId[]) {
@@ -114,7 +108,10 @@
 	}
 
 	onMount(() => {
-		const stop = toolbarPreferences.subscribe((next) => (preferences = next));
+		const stop = toolbarPreferences.subscribe((next) => {
+			preferences = next;
+			if (next.layout === 'essentials') session.selectionMode = 'replace';
+		});
 		if (toolbarPreferences.needsChooser) requestAnimationFrame(() => layoutDialog?.open());
 		return stop;
 	});
@@ -339,7 +336,7 @@
 			layout={preferences.layout}
 			{customGroups}
 			{customTools}
-			onLayoutChange={setLayout}
+			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
 			onCustomGroupsChange={setCustomGroups}
 			onCustomToolsChange={setCustomTools}
 			onReset={resetToolbar}
