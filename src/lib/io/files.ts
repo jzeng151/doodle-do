@@ -18,7 +18,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
 	URL.revokeObjectURL(url);
 }
 
-export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promise<void> {
+export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promise<boolean> {
 	const text = serializeProject(doc);
 	const filename = `${filenameBase || doc.meta.name || 'untitled'}${PROJECT_EXTENSION}`;
 	if ('showSaveFilePicker' in window) {
@@ -33,8 +33,9 @@ export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promis
 					}
 				]
 			});
-		} catch {
-			return; // user cancelled
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return false;
+			throw error;
 		}
 		const writable = await handle.createWritable();
 		await writable.write(text);
@@ -42,6 +43,7 @@ export async function saveProjectToDisk(doc: Doc, filenameBase?: string): Promis
 	} else {
 		downloadBlob(new Blob([text], { type: 'application/json' }), filename);
 	}
+	return true;
 }
 
 async function docFromStrip(png: File, manifestFile: File | undefined): Promise<Doc> {

@@ -85,7 +85,7 @@
 
 	const saveClick = () =>
 		run('Save', async () => {
-			await saveProjectToDisk(session.doc);
+			if (!(await saveProjectToDisk(session.doc))) return;
 			session.savedToDiskAt = new Date(); // resets the T15 reminder clock
 			session.unsavedCommits = 0;
 		});
