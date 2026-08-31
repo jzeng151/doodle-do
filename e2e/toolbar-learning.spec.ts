@@ -229,6 +229,30 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
+for (const [tool, mode, task] of [
+	['Select', 'Grid', 'Drag a selection rectangle.'],
+	['Lasso', 'Loop', 'Draw a loop around part of the artwork.'],
+	['Wand', 'Grid', 'Select any connected area, including empty canvas.'],
+	['Polygon', 'Loop', 'Place points and close the polygon.']
+] as const) {
+	test(`closes an incomplete ${tool} lesson when switching to ${mode}`, async ({ page }) => {
+		await openFreshEditor(page);
+		await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+			.getByRole('button', { name: 'Choose Full' })
+			.click();
+		await page.getByRole('button', { name: tool, exact: true }).click();
+		await page.getByRole('button', { name: 'Learn', exact: true }).click();
+		await expect(page.getByText(task)).toBeVisible();
+
+		const workspaceMode = page.getByRole('group', { name: 'Workspace mode' });
+		await workspaceMode.getByRole('button', { name: mode, exact: true }).click();
+		await expect(page.getByText(task)).toHaveCount(0);
+		await workspaceMode.getByRole('button', { name: 'Focus', exact: true }).click();
+		await expect(page.locator('.coach')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Pencil', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	});
+}
+
 test('requires distinct endpoints for Line, Rectangle, and Ellipse lessons', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
