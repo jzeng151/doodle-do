@@ -36,7 +36,7 @@
 
 	const saveFork = () =>
 		run('Save', async () => {
-			await saveProjectToDisk(fork.doc, forkName());
+			if (!(await saveProjectToDisk(fork.doc, forkName()))) return;
 			fork.savedToDiskAt = new Date();
 			fork.unsavedCommits = 0;
 		});
