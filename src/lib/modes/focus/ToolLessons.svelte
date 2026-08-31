@@ -23,10 +23,14 @@
 
 	$effect(() => {
 		void session.comparisonVersion;
+		const mode = session.mode;
 		const lesson = current;
 		const report = (tool: Tool) => toolLessons.reportAction(tool);
 		const fork = session.comparisonSession;
-		if (lesson && fork) untrack(() => {
+		if (lesson && fork && mode === 'compare') untrack(() => {
+			fork.currentFrame = Math.min(session.currentFrame, fork.doc.frames.length - 1);
+			fork.currentLayer = Math.min(session.currentLayer, fork.frame.layers.length - 1);
+			fork.colorValue = Math.min(session.colorValue, fork.doc.palette.length);
 			if (SELECT_TOOLS.includes(lesson.tool)) fork.selectionMode = 'replace';
 			if (lesson.tool === 'stamp' && session.stamp) {
 				fork.stamp = { ...session.stamp, pixels: session.stamp.pixels.slice() };

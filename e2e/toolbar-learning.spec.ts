@@ -116,7 +116,7 @@ test('keeps the lesson coach clear of an active tip on narrow screens', async ({
 	await expect(tip).toBeHidden();
 });
 
-test('keeps a context-sensitive lesson on the active frame and layer in Compare', async ({ page }) => {
+test('resyncs a reused Compare fork before activating a context-sensitive lesson', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
 		.getByRole('button', { name: 'Choose Full' })
@@ -126,18 +126,19 @@ test('keeps a context-sensitive lesson on the active frame and layer in Compare'
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '1', exact: true }).click();
+	await forkPane.getByRole('button', { name: 'Transparent', exact: true }).click();
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+
 	await page.getByRole('button', { name: 'Move', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	page.once('dialog', (dialog) => dialog.accept());
-	await page.getByRole('button', { name: 'Reset fork' }).click();
-	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	await expect(forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	await expect(forkPane.getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Transparent', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
 	const forkEditor = forkPane.locator('canvas.editor');
 	const forkBox = (await forkEditor.boundingBox())!;
