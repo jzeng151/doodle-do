@@ -28,6 +28,7 @@
 		const lesson = current;
 		const report = (tool: Tool) => toolLessons.reportAction(tool);
 		const fork = session.comparisonSession;
+		let forkLessonEligible = false;
 		if (lesson && fork && mode === 'compare') untrack(() => {
 			fork.currentFrame = Math.min(session.currentFrame, fork.doc.frames.length - 1);
 			fork.currentLayer = Math.min(session.currentLayer, fork.frame.layers.length - 1);
@@ -41,13 +42,12 @@
 				if (!fork.stamp) return;
 			}
 			if (toolLessonUnavailableReason(fork, lesson.tool)) return;
+			forkLessonEligible = true;
 			fork.setTool(lesson.tool);
 		});
 		const stopSession = session.onToolUse(report);
-		const stopFork = lesson && fork && mode === 'compare'
-			? fork.onToolUse((tool) => {
-				if (!toolLessonUnavailableReason(fork, lesson.tool)) report(tool);
-			})
+		const stopFork = fork && forkLessonEligible
+			? fork.onToolUse(report)
 			: undefined;
 		return () => {
 			stopSession();
