@@ -372,6 +372,7 @@ test('landing footer links to legal pages, GitHub, and support', async ({ page }
 	await expect(footer.getByRole('link', { name: 'Buy me a coffee' })).toHaveAttribute('href', 'https://buymeacoffee.com/jasonzeng');
 	await footer.getByRole('link', { name: 'Privacy' }).click();
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy');
+	await expect(page.getByText(/toolbar preferences, tool-lesson progress/)).toContainText('Clearing site data removes it, resets your toolbar preferences and tool-lesson progress');
 });
 
 test('public surfaces keep accessible names and selected-control contrast', async ({ page }) => {

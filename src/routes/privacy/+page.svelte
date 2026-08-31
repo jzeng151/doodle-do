@@ -2,12 +2,12 @@
 	import LegalPage from '$lib/legal/LegalPage.svelte';
 </script>
 
-<LegalPage title="Privacy" updated="August 12, 2026">
+<LegalPage title="Privacy" updated="August 30, 2026">
 	<h2>The short version</h2>
 	<p>Doodle-Do does not require an account or upload your drawings and project files. Your work stays in your browser unless you save or export it. We do not use advertising trackers, sell personal information, or keep an app-level visitor database.</p>
 
 	<h2>Information on your device</h2>
-	<p>Doodle-Do uses browser storage for autosaves, dismissed teaching tips, offline app files, and—only when explicitly configured—a local agent-bridge token. This information is not available to us. Clearing site data removes it, including your browser autosave, so save a <code>.doodledo</code> file first if you need an editable copy.</p>
+	<p>Doodle-Do uses browser storage for autosaves, dismissed teaching tips, toolbar preferences, tool-lesson progress, offline app files, and—only when explicitly configured—a local agent-bridge token. This information is not available to us. Clearing site data removes it, resets your toolbar preferences and tool-lesson progress, and deletes your browser autosave, so save a <code>.doodledo</code> file first if you need an editable copy.</p>
 
 	<h2>Your files and artwork</h2>
 	<p>Files you open are processed locally. Exports go to a location you choose. We do not claim ownership of your artwork, animations, projects, or exports.</p>
