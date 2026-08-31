@@ -1,4 +1,5 @@
 import type { EditorSession, Tool } from '../editor/session.svelte';
+import { hasSampleablePixel } from '../tools/sample';
 
 export interface ToolLesson {
 	tool: Tool;
@@ -50,7 +51,7 @@ export function toolLessonUnavailableReason(session: EditorSession, tool: Tool):
 			return `Draw something on the active layer before learning ${LESSONS_BY_TOOL[tool].title}.`;
 		}
 	}
-	if (tool === 'eyedropper' && !session.frame.layers.some((layer) => layer.visible && (layer.opacity ?? 1) > 0 && layer.pixels.some(Boolean))) {
+	if (tool === 'eyedropper' && !hasSampleablePixel(session.doc, session.currentFrame)) {
 		return 'Draw something visible on this frame before learning Eyedropper.';
 	}
 	return null;

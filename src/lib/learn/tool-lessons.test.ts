@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createDoc } from '../core/document';
 import type { EditorSession, Tool } from '../editor/session.svelte';
+import { samplePixel } from '../tools/sample';
 import { DEFAULT_TOOL_LESSONS, TOOL_LESSONS, ToolLessonsEngine, toolLessonUnavailableReason } from './tool-lessons';
 
 function fakeStorage(value?: string): Pick<Storage, 'getItem' | 'setItem'> & { value?: string } {
@@ -23,13 +25,16 @@ describe('tool lesson catalog', () => {
 	});
 
 	it('explains prerequisites for lessons that cannot work on a blank canvas', () => {
-		const pixels = new Uint8Array(4);
+		const doc = createDoc({ width: 2, height: 2, palette: ['#ff0000'], frameCount: 1, layerCount: 1 });
+		const pixels = doc.frames[0].layers[0].pixels;
 		const context = {
+			doc,
+			currentFrame: 0,
 			stamp: null as EditorSession['stamp'],
 			currentLayer: 0,
 			currentLayerLocked: false,
 			colorValue: 1,
-			frame: { layers: [{ pixels, visible: true }] }
+			frame: doc.frames[0]
 		};
 		const session = context as unknown as EditorSession;
 		expect(toolLessonUnavailableReason(session, 'move')).toContain('Draw something');
@@ -54,6 +59,20 @@ describe('tool lesson catalog', () => {
 		expect(toolLessonUnavailableReason(session, 'stamp')).toBe('Make a stamp from a selection first.');
 		context.stamp = { width: 1, height: 1, pixels: new Uint8Array([1]) };
 		expect(toolLessonUnavailableReason(session, 'stamp')).toBe('Unlock the active layer before learning Stamp.');
+	});
+
+	it('matches Eyedropper availability to visible composited pixels', () => {
+		const doc = createDoc({ width: 1, height: 1, palette: ['#ff0000'], frameCount: 1, layerCount: 2 });
+		const session = { doc, currentFrame: 0, frame: doc.frames[0] } as EditorSession;
+		doc.frames[0].layers[0].pixels[0] = 1;
+		doc.frames[0].layers[0].opacity = 0.001;
+
+		expect(samplePixel(doc, 0, 0, 0)).toBe(0);
+		expect(toolLessonUnavailableReason(session, 'eyedropper')).toContain('Draw something visible');
+
+		doc.frames[0].layers[1].pixels[0] = 1;
+		expect(samplePixel(doc, 0, 0, 0)).toBe(1);
+		expect(toolLessonUnavailableReason(session, 'eyedropper')).toBeNull();
 	});
 });
 
