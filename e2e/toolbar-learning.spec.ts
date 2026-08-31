@@ -31,6 +31,26 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
+test('disables Focus-only tools in the Grid More tools menu', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Essentials' })
+		.click();
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	const settings = page.locator('.settings');
+	await settings.getByText('Custom', { exact: true }).click();
+	await settings.getByLabel('Drawing tools').uncheck();
+	await settings.getByRole('button', { name: 'Close' }).click();
+
+	await page.getByRole('group', { name: 'Workspace mode' }).getByRole('button', { name: 'Grid' }).click();
+	await page.getByRole('button', { name: 'More tools' }).click();
+	const moreTools = page.locator('.more-tools');
+	for (const tool of ['Select', 'Lasso', 'Wand', 'Polygon']) {
+		await expect(moreTools.getByRole('button', { name: tool, exact: true })).toBeDisabled();
+	}
+	await expect(moreTools.getByRole('button', { name: 'Pencil', exact: true })).toBeEnabled();
+});
+
 test('completes a user-started lesson after a real canvas action', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
