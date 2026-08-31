@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { EditorSession, Tool } from '$lib/editor/session.svelte';
+	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
 	import { TOOL_LESSONS, toolLessons, toolLessonUnavailableReason } from '$lib/learn/tool-lessons';
 
 	let { session }: { session: EditorSession } = $props();
@@ -18,11 +18,17 @@
 	}
 
 	onMount(() => {
-		const stopLessons = toolLessons.onChange(sync);
-		const stopSession = session.onToolUse((tool) => toolLessons.reportAction(tool));
+		return toolLessons.onChange(sync);
+	});
+
+	$effect(() => {
+		void session.comparisonVersion;
+		const report = (tool: Tool) => toolLessons.reportAction(tool);
+		const stopSession = session.onToolUse(report);
+		const stopFork = session.comparisonSession?.onToolUse(report);
 		return () => {
-			stopLessons();
 			stopSession();
+			stopFork?.();
 		};
 	});
 
@@ -35,13 +41,18 @@
 		if (!dialogEl.open) dialogEl.showModal();
 	}
 
+	function activate(tool: Tool) {
+		session.setMode('focus');
+		if (SELECT_TOOLS.includes(tool)) session.selectionMode = 'replace';
+		session.setTool(tool);
+	}
+
 	export function start(tool: Tool) {
 		if (unavailableReason(tool)) {
 			open();
 			return;
 		}
-		session.setMode('focus');
-		session.setTool(tool);
+		activate(tool);
 		toolLessons.start(tool);
 		if (dialogEl.open) dialogEl.close();
 	}
@@ -50,10 +61,7 @@
 		do toolLessons.skip();
 		while (toolLessons.current && unavailableReason(toolLessons.current.tool));
 		const nextLesson = toolLessons.current;
-		if (nextLesson) {
-			session.setMode('focus');
-			session.setTool(nextLesson.tool);
-		}
+		if (nextLesson) activate(nextLesson.tool);
 	}
 </script>
 

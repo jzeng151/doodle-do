@@ -71,6 +71,39 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
+test('completes a lesson from the current Compare fork after reset', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Essentials' })
+		.click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Reset fork' }).click();
+
+	const forkEditor = page.locator('[data-editor-branch="fork"] canvas.editor');
+	const box = (await forkEditor.boundingBox())!;
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+	await expect(page.getByText('Done. You used Pencil.')).toBeVisible();
+});
+
+test('selection lessons start and advance in Replace mode', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	const selectionMode = page.getByRole('group', { name: 'Selection mode' });
+	await selectionMode.getByRole('button', { name: 'Subtract', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await expect(selectionMode.getByRole('button', { name: 'Replace', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+	await selectionMode.getByRole('button', { name: 'Intersect', exact: true }).click();
+	await page.getByRole('button', { name: 'Skip', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Lasso', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(selectionMode.getByRole('button', { name: 'Replace', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('keeps every tool lesson reachable in a short viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 740, height: 320 });
 	await openFreshEditor(page);
