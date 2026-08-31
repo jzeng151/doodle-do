@@ -11,6 +11,7 @@
 	let current = $state(toolLessons.current);
 	let currentComplete = $state(toolLessons.currentComplete);
 	let completed = $state([...toolLessons.completed]);
+	const forkLessonState = { eligible: false };
 
 	function sync() {
 		current = toolLessons.current;
@@ -28,7 +29,7 @@
 		const lesson = current;
 		const report = (tool: Tool) => toolLessons.reportAction(tool);
 		const fork = session.comparisonSession;
-		let forkLessonEligible = false;
+		forkLessonState.eligible = false;
 		if (lesson && fork && mode === 'compare') untrack(() => {
 			fork.currentFrame = Math.min(session.currentFrame, fork.doc.frames.length - 1);
 			fork.currentLayer = Math.min(session.currentLayer, fork.frame.layers.length - 1);
@@ -42,17 +43,39 @@
 				if (!fork.stamp) return;
 			}
 			if (toolLessonUnavailableReason(fork, lesson.tool)) return;
-			forkLessonEligible = true;
+			forkLessonState.eligible = true;
 			fork.setTool(lesson.tool);
 		});
 		const stopSession = session.onToolUse(report);
-		const stopFork = fork && forkLessonEligible
-			? fork.onToolUse(report)
+		const stopFork = lesson && fork && mode === 'compare'
+			? fork.onToolUse((tool) => {
+				if (forkLessonState.eligible) report(tool);
+			})
 			: undefined;
 		return () => {
+			forkLessonState.eligible = false;
 			stopSession();
 			stopFork?.();
 		};
+	});
+
+	$effect(() => {
+		void session.comparisonVersion;
+		const mode = session.mode;
+		const lesson = current;
+		const fork = session.comparisonSession;
+		if (!lesson || !fork || mode !== 'compare' || currentComplete) return;
+		void fork.version;
+		void fork.currentFrame;
+		void fork.currentLayer;
+		void fork.colorValue;
+		void fork.stamp;
+		if (fork.strokeActive || fork.floating) return;
+		const wasEligible = forkLessonState.eligible;
+		const eligible = !toolLessonUnavailableReason(fork, lesson.tool);
+		forkLessonState.eligible = eligible;
+		if (!eligible && fork.tool === lesson.tool) fork.setTool(lesson.tool === 'pencil' ? 'select' : 'pencil');
+		else if (eligible && !wasEligible) fork.setTool(lesson.tool);
 	});
 
 	$effect(() => {
