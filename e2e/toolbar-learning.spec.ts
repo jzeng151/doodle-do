@@ -96,28 +96,36 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
-test('keeps a non-Pencil lesson active when the Compare fork is created and reset', async ({ page }) => {
+test('keeps a context-sensitive lesson on the active frame and layer in Compare', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
+		.getByRole('button', { name: 'Choose Full' })
 		.click();
-	await page.getByRole('button', { name: 'More tools' }).click();
-	await page.locator('.more-tools').getByRole('button', { name: 'Line', exact: true }).click();
+	await page.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true }).click();
+	await page.getByTitle('Add layer').click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 	const forkPane = page.locator('[data-editor-branch="fork"]');
-	await expect(forkPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name: 'Reset fork' }).click();
-	await expect(forkPane.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
 	const forkEditor = forkPane.locator('canvas.editor');
-	const box = (await forkEditor.boundingBox())!;
-	await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	const forkBox = (await forkEditor.boundingBox())!;
+	await page.mouse.move(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
 	await page.mouse.down();
-	await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.6);
+	await page.mouse.move(forkBox.x + forkBox.width * 0.6, forkBox.y + forkBox.height * 0.6);
 	await page.mouse.up();
-	await expect(page.getByText('Done. You used Line.')).toBeVisible();
+	await expect(page.getByText('Done. You used Move.')).toBeVisible();
 });
 
 test('copies the active Stamp lesson data into created and reset Compare forks', async ({ page }) => {

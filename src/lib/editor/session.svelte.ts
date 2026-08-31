@@ -308,6 +308,9 @@ export class EditorSession {
 		this.shapeEnd();
 		this.commitFloating();
 		const fork = new EditorSession(structuredClone(this.doc));
+		fork.currentFrame = this.currentFrame;
+		fork.currentLayer = this.currentLayer;
+		fork.colorValue = this.colorValue;
 		fork.loopRange = this.loopRange ? { ...this.loopRange } : null;
 		fork.loopPlaybackSpeed = this.loopPlaybackSpeed;
 		fork.loopPlaybackMode = this.loopPlaybackMode;
