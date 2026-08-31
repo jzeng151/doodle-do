@@ -5,6 +5,7 @@
 	let { session }: { session: EditorSession } = $props();
 
 	let dialogEl: HTMLDialogElement;
+	const titleId = $props.id();
 	let target = $state(1); // 1-based for display
 
 	const frameCount = $derived((session.version, session.doc.frames.length));
@@ -22,8 +23,8 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl} aria-labelledby="send-layer-title">
-	<h2 id="send-layer-title">Send layer to frame</h2>
+<dialog bind:this={dialogEl} aria-labelledby={titleId}>
+	<h2 id={titleId}>Send layer to frame</h2>
 	<form onsubmit={(e) => send(e, false)}>
 		<label>
 			Frame
