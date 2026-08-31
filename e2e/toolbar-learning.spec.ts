@@ -86,6 +86,84 @@ for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as 
 	});
 }
 
+test('resets selection mode in both Compare panes when either chooses Essentials', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const editorBox = (await editor.boundingBox())!;
+	await page.mouse.click(
+		editorBox.x + 8.5 * editorBox.width / 32,
+		editorBox.y + 8.5 * editorBox.height / 32
+	);
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+
+	const currentPane = page.locator('[data-editor-branch="current"]');
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	for (const [pane, mode] of [[currentPane, 'Subtract'], [forkPane, 'Intersect']] as const) {
+		await pane.getByRole('button', { name: 'Select', exact: true }).click();
+		const controls = pane.getByRole('group', { name: 'Selection mode' });
+		await controls.getByRole('button', { name: mode, exact: true }).click();
+		await controls.getByRole('button', { name: 'Deselect', exact: true }).click();
+	}
+
+	await currentPane.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	const currentSettings = currentPane.locator('.settings');
+	await currentSettings.getByText('Essentials', { exact: true }).click();
+	await currentSettings.getByRole('button', { name: 'Close' }).click();
+	await expect(currentPane.getByRole('group', { name: 'Selection mode' })).toHaveCount(0);
+	await expect(forkPane.getByRole('group', { name: 'Selection mode' })).toHaveCount(0);
+
+	async function moveSelection(pane: typeof currentPane, targetX: number) {
+		const canvas = pane.locator('canvas.editor');
+		const box = (await canvas.boundingBox())!;
+		const point = (x: number, y: number) => ({
+			x: box.x + (x + 0.5) * box.width / 32,
+			y: box.y + (y + 0.5) * box.height / 32
+		});
+		await page.mouse.move(point(6, 6).x, point(6, 6).y);
+		await page.mouse.down();
+		await page.mouse.move(point(10, 10).x, point(10, 10).y);
+		await page.mouse.up();
+		await page.mouse.move(point(8, 8).x, point(8, 8).y);
+		await page.mouse.down();
+		await page.mouse.move(point(targetX, 16).x, point(targetX, 16).y);
+		await page.mouse.up();
+		await canvas.focus();
+		await page.keyboard.press('Enter');
+	}
+
+	async function opaque(pane: typeof currentPane, x: number, y: number) {
+		return pane.locator('canvas.editor').evaluate((element, [px, py]) => {
+			const canvas = element as HTMLCanvasElement;
+			const zoom = canvas.width / 32;
+			return canvas.getContext('2d')!.getImageData(
+				Math.floor((px + 0.5) * zoom),
+				Math.floor((py + 0.5) * zoom),
+				1,
+				1
+			).data[3] > 0;
+		}, [x, y] as [number, number]);
+	}
+
+	await moveSelection(currentPane, 16);
+	await moveSelection(forkPane, 20);
+	await expect.poll(() => opaque(currentPane, 8, 8)).toBe(false);
+	await expect.poll(() => opaque(currentPane, 16, 16)).toBe(true);
+	await expect.poll(() => opaque(forkPane, 8, 8)).toBe(false);
+	await expect.poll(() => opaque(forkPane, 20, 16)).toBe(true);
+
+	await forkPane.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	const forkSettings = forkPane.locator('.settings');
+	await forkSettings.getByText('Full', { exact: true }).click();
+	await forkSettings.getByRole('button', { name: 'Close' }).click();
+	for (const pane of [currentPane, forkPane]) {
+		await expect(pane.getByRole('group', { name: 'Selection mode' })
+			.getByRole('button', { name: 'Replace', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	}
+});
+
 test.describe('with a coarse pointer', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
