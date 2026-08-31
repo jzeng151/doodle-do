@@ -182,6 +182,33 @@ test('keeps active Stamp lesson data through Compare creation, reset, and swap',
 	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();
 });
 
+test('closes an active Stamp lesson when Apply as current discards its stamp', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await editor.focus();
+	await page.keyboard.press('m');
+	await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.35);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.45);
+	await page.mouse.up();
+	await page.getByRole('button', { name: 'Make stamp' }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await expect(page.getByText('Place a captured stamp on the canvas.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Apply as current' }).click();
+	await expect(page.getByText('Place a captured stamp on the canvas.')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Stamp', exact: true })).toHaveCount(0);
+	await expect(page.getByText('Place a captured stamp on the canvas.')).toHaveCount(0);
+});
+
 test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
