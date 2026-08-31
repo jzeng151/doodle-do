@@ -1,0 +1,71 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { Tool } from '../editor/session.svelte';
+import { DEFAULT_TOOL_LESSONS, TOOL_LESSONS, ToolLessonsEngine } from './tool-lessons';
+
+function fakeStorage(value?: string): Pick<Storage, 'getItem' | 'setItem'> & { value?: string } {
+	return {
+		value,
+		getItem() { return this.value ?? null; },
+		setItem(_key, next) { this.value = next; }
+	};
+}
+
+describe('tool lesson catalog', () => {
+	it('covers every editor tool and keeps transient Stamp out of the default sequence', () => {
+		const tools: Tool[] = ['pencil', 'line', 'rectangle', 'ellipse', 'move', 'stamp', 'eraser', 'fill', 'eyedropper', 'select', 'lasso', 'wand', 'polygon'];
+		expect(TOOL_LESSONS.map((lesson) => lesson.tool)).toEqual(tools);
+		expect(TOOL_LESSONS.find((lesson) => lesson.tool === 'stamp')?.transient).toBe(true);
+		expect(DEFAULT_TOOL_LESSONS.some((lesson) => lesson.tool === 'stamp')).toBe(false);
+	});
+});
+
+describe('ToolLessonsEngine', () => {
+	it('starts only when asked and completes only from the matching real tool action', () => {
+		const engine = new ToolLessonsEngine(fakeStorage());
+		expect(engine.current).toBeNull();
+		expect(engine.start('line')).toBe(true);
+		expect(engine.reportAction('pencil')).toBe(false);
+		expect(engine.currentComplete).toBe(false);
+		expect(engine.reportAction('line')).toBe(true);
+		expect(engine.currentComplete).toBe(true);
+		expect(engine.isCompleted('line')).toBe(true);
+		expect(engine.reportAction('line')).toBe(false);
+	});
+
+	it('supports skipping, closing, and replaying completed lessons', () => {
+		const engine = new ToolLessonsEngine(fakeStorage());
+		engine.start('pencil');
+		engine.reportAction('pencil');
+		engine.skip();
+		expect(engine.current?.tool).toBe('line');
+		engine.close();
+		expect(engine.current).toBeNull();
+		engine.replay('pencil');
+		expect(engine.current?.tool).toBe('pencil');
+		expect(engine.currentComplete).toBe(false);
+		expect(engine.isCompleted('pencil')).toBe(true);
+	});
+
+	it('persists completions and recovers from corrupt or invalid storage', () => {
+		const storage = fakeStorage();
+		const first = new ToolLessonsEngine(storage);
+		first.start('fill');
+		first.reportAction('fill');
+		expect(new ToolLessonsEngine(storage).completed).toEqual(['fill']);
+		expect(new ToolLessonsEngine(fakeStorage('{bad json')).completed).toEqual([]);
+		expect(new ToolLessonsEngine(fakeStorage('{"completed":["fill","missing",7]}')).completed).toEqual(['fill']);
+	});
+
+	it('notifies subscribers about visible state changes', () => {
+		const engine = new ToolLessonsEngine(fakeStorage());
+		const listener = vi.fn();
+		const unsubscribe = engine.onChange(listener);
+		engine.start('eraser');
+		engine.reportAction('eraser');
+		engine.close();
+		expect(listener).toHaveBeenCalledTimes(3);
+		unsubscribe();
+		engine.start('fill');
+		expect(listener).toHaveBeenCalledTimes(3);
+	});
+});
