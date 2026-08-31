@@ -8,7 +8,8 @@
 // is in the page's prerender graph via files.ts). A namespace import grabs the
 // whole exports object and sidesteps the check.
 import * as gifenc from 'gifenc';
-import { MAX_CANVAS, MAX_PALETTE, type Doc } from '../../core/document';
+import { isValidFrameDuration, MAX_CANVAS, MAX_PALETTE, type Doc } from '../../core/document';
+import { DEFAULT_PALETTE } from '../../core/palette';
 
 // Doodle-Do transparency is 1-bit (index 0); GIF-style threshold.
 export const ALPHA_THRESHOLD = 128;
@@ -22,6 +23,29 @@ export interface RgbaImage {
 export interface StripInfo {
 	frameSize: number;
 	frameCount: number;
+}
+
+export const MAX_STRIP_PIXELS = MAX_CANVAS * MAX_CANVAS * 64;
+
+export function stripPngDimensions(header: Uint8Array): { width: number; height: number } {
+	const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+	if (
+		header.length < 24 ||
+		!signature.every((byte, index) => header[index] === byte) ||
+		String.fromCharCode(...header.slice(12, 16)) !== 'IHDR'
+	) {
+		throw new Error('that file is not a valid PNG');
+	}
+	const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+	const width = view.getUint32(16);
+	const height = view.getUint32(20);
+	if (!width || !height || height > MAX_CANVAS || width > MAX_STRIP_PIXELS / height) {
+		throw new Error(`sprite strips must use at most ${MAX_STRIP_PIXELS.toLocaleString()} pixels with frames no taller than ${MAX_CANVAS}px`);
+	}
+	if (width % height !== 0) {
+		throw new Error(`not a uniform strip: width ${width} is not a multiple of frame height ${height}`);
+	}
+	return { width, height };
 }
 
 export function detectStrip(img: RgbaImage): StripInfo {
@@ -111,8 +135,12 @@ export function stripToDoc(
 	name: string,
 	opts: { frameMs?: number; fps?: number } = {}
 ): Doc {
+	if (opts.frameMs !== undefined && !isValidFrameDuration(opts.frameMs)) {
+		throw new Error('frame duration must be a whole number of at least 20 ms');
+	}
 	const { frameSize, frameCount } = detectStrip(img);
 	const { palette, valueAt } = buildPalette(img);
+	const usablePalette = palette.length ? palette : [DEFAULT_PALETTE[0]];
 
 	const frames: Doc['frames'] = [];
 	for (let f = 0; f < frameCount; f++) {
@@ -138,7 +166,7 @@ export function stripToDoc(
 			version: 1,
 			syncMeta: null
 		},
-		palette,
+		palette: usablePalette,
 		frames
 	};
 }
@@ -161,6 +189,12 @@ export function manifestEntryFor(
 		const a = entry as { src?: string; frames?: number; frameMs?: number };
 		if (typeof a.src !== 'string') continue;
 		if (a.src.split('/').pop() === pngFilename) {
+			if (a.frames !== undefined && (!Number.isSafeInteger(a.frames) || a.frames < 1)) {
+				throw new Error('manifest frame count must be a positive whole number');
+			}
+			if (a.frameMs !== undefined && !isValidFrameDuration(a.frameMs)) {
+				throw new Error('manifest frame duration must be a whole number of at least 20 ms');
+			}
 			return {
 				frames: typeof a.frames === 'number' ? a.frames : 0,
 				frameMs: typeof a.frameMs === 'number' ? a.frameMs : 0

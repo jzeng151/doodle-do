@@ -120,4 +120,17 @@ describe('project file round-trip', () => {
 		expect(() => parseProject(JSON.stringify(good))).not.toThrow();
 		expect(() => parseProject(JSON.stringify(badJson))).toThrow(/out-of-palette/);
 	});
+
+	it('rejects frame durations that can stall playback', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: DEFAULT_PALETTE })));
+		for (const durationMs of [0, -1, 1.5, 19]) {
+			raw.frames[0].durationMs = durationMs;
+			expect(() => parseProject(JSON.stringify(raw))).toThrow(/bad duration/);
+		}
+	});
+
+	it('repairs legacy documents with an empty palette', () => {
+		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: [] })));
+		expect(parseProject(JSON.stringify(raw)).palette).toEqual([DEFAULT_PALETTE[0]]);
+	});
 });

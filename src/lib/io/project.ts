@@ -2,7 +2,8 @@
 // pixel buffers as base64 strings. `version` and `syncMeta` present from
 // day one for future cloud sync.
 
-import { MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
+import { isValidFrameDuration, MAX_CANVAS, MAX_LAYERS, MAX_PALETTE, type Doc } from '../core/document';
+import { DEFAULT_PALETTE } from '../core/palette';
 
 export const PROJECT_FORMAT = 'doodledo-project';
 export const PROJECT_VERSION = 2;
@@ -78,8 +79,9 @@ export function parseProject(text: string): Doc {
 	) {
 		fail('canvas size out of range');
 	}
-	const palette = p.palette as string[];
-	if (!Array.isArray(palette) || palette.length > MAX_PALETTE) fail('bad palette');
+	const rawPalette = p.palette as string[];
+	if (!Array.isArray(rawPalette) || rawPalette.length > MAX_PALETTE) fail('bad palette');
+	const palette = rawPalette.length ? rawPalette : [DEFAULT_PALETTE[0]];
 	const rawFrames = p.frames as Record<string, unknown>[];
 	if (!Array.isArray(rawFrames) || rawFrames.length < 1) fail('no frames');
 	let tags: Doc['meta']['tags'];
@@ -108,13 +110,16 @@ export function parseProject(text: string): Doc {
 		},
 		palette,
 		frames: rawFrames.map((rawFrame, f) => {
+			if (rawFrame.durationMs !== undefined && !isValidFrameDuration(rawFrame.durationMs)) {
+				fail(`frame ${f} has a bad duration`);
+			}
 			const rawLayers = rawFrame.layers as Record<string, unknown>[];
 			if (!Array.isArray(rawLayers) || rawLayers.length < 1 || rawLayers.length > MAX_LAYERS) {
 				fail(`frame ${f} has a bad layer list`);
 			}
 			const frameLinks = new Set<string>();
 			return {
-				...(typeof rawFrame.durationMs === 'number' && { durationMs: rawFrame.durationMs }),
+				...(rawFrame.durationMs !== undefined && { durationMs: rawFrame.durationMs as number }),
 				layers: rawLayers.map((rawLayer, l) => {
 					const linkId = typeof rawLayer.linkId === 'string' ? rawLayer.linkId : '';
 					if (linkId && frameLinks.has(linkId)) fail(`frame ${f} repeats linked cel ${linkId}`);
