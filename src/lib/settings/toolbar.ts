@@ -1,33 +1,40 @@
-export const TOOLBAR_LAYOUTS = ['essentials', 'full', 'custom'] as const;
-export type ToolbarLayout = (typeof TOOLBAR_LAYOUTS)[number];
-
-export const TOOL_IDS = [
-	'pencil',
-	'line',
-	'rectangle',
-	'ellipse',
-	'move',
-	'stamp',
-	'eraser',
-	'fill',
-	'eyedropper',
-	'select',
-	'lasso',
-	'wand',
-	'polygon'
+export const TOOLBAR_LAYOUT_OPTIONS = [
+	{ id: 'essentials', label: 'Essentials', description: 'Core drawing tools, active tool options, history, canvas view, and onion skin.', preview: [5, 3, 0, 0, 2, 0, 3] },
+	{ id: 'full', label: 'Full', description: 'Every drawing control, exactly as the toolbar works now.', preview: [5, 3, 4, 2, 2, 3, 3] },
+	{ id: 'custom', label: 'Custom', description: 'Choose which toolbar groups stay within reach.', preview: [5, 0, 4, 0, 2, 3, 0] }
 ] as const;
-export type ToolbarToolId = (typeof TOOL_IDS)[number];
+export type ToolbarLayout = (typeof TOOLBAR_LAYOUT_OPTIONS)[number]['id'];
+export const TOOLBAR_LAYOUTS: readonly ToolbarLayout[] = TOOLBAR_LAYOUT_OPTIONS.map(({ id }) => id);
 
-export const TOOLBAR_GROUP_IDS = [
-	'tools',
-	'tool-options',
-	'selection',
-	'layer-transform',
-	'history',
-	'canvas-view',
-	'onion-skin'
+export const TOOLBAR_TOOLS = [
+	{ id: 'pencil', label: 'Pencil', shortLabel: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
+	{ id: 'line', label: 'Line', shortLabel: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
+	{ id: 'rectangle', label: 'Rectangle', shortLabel: 'Rect', key: 'R', description: 'Draw a rectangle' },
+	{ id: 'ellipse', label: 'Ellipse', shortLabel: 'Ellipse', key: 'C', description: 'Draw an ellipse' },
+	{ id: 'move', label: 'Move', shortLabel: 'Move', key: 'V', description: 'Move the active layer' },
+	{ id: 'stamp', label: 'Stamp', shortLabel: 'Stamp', key: 'S', description: 'Place the captured selection stamp' },
+	{ id: 'eraser', label: 'Eraser', shortLabel: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
+	{ id: 'fill', label: 'Fill', shortLabel: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
+	{ id: 'eyedropper', label: 'Eyedropper', shortLabel: 'Pick', key: 'I', description: 'Pick a color from the canvas' },
+	{ id: 'select', label: 'Select', shortLabel: 'Select', key: 'M', description: 'Select a rectangular area' },
+	{ id: 'lasso', label: 'Lasso', shortLabel: 'Lasso', key: 'L', description: 'Draw a freehand selection' },
+	{ id: 'wand', label: 'Wand', shortLabel: 'Wand', key: 'W', description: 'Select connected pixels of the same color' },
+	{ id: 'polygon', label: 'Polygon', shortLabel: 'Polygon', key: 'P', description: 'Select an area by placing points' }
 ] as const;
-export type ToolbarGroupId = (typeof TOOLBAR_GROUP_IDS)[number];
+export type ToolbarToolId = (typeof TOOLBAR_TOOLS)[number]['id'];
+export const TOOL_IDS: readonly ToolbarToolId[] = TOOLBAR_TOOLS.map(({ id }) => id);
+
+export const TOOLBAR_GROUPS = [
+	{ id: 'tools', label: 'Drawing tools' },
+	{ id: 'tool-options', label: 'Active tool options' },
+	{ id: 'selection', label: 'Selection controls' },
+	{ id: 'layer-transform', label: 'Layer transforms' },
+	{ id: 'history', label: 'Undo and redo' },
+	{ id: 'canvas-view', label: 'Canvas view' },
+	{ id: 'onion-skin', label: 'Onion skin' }
+] as const;
+export type ToolbarGroupId = (typeof TOOLBAR_GROUPS)[number]['id'];
+export const TOOLBAR_GROUP_IDS: readonly ToolbarGroupId[] = TOOLBAR_GROUPS.map(({ id }) => id);
 
 export interface ToolbarPreferenceState {
 	layout: ToolbarLayout;

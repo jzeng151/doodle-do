@@ -1,46 +1,26 @@
-<script module lang="ts">
-	export type ToolbarLayout = 'essentials' | 'full' | 'custom';
-	export type ToolbarGroupId =
-		| 'tools'
-		| 'tool-options'
-		| 'selection'
-		| 'layer-transform'
-		| 'history'
-		| 'canvas-view'
-		| 'onion-skin';
-	export type ToolbarToolId =
-		| 'pencil'
-		| 'line'
-		| 'rectangle'
-		| 'ellipse'
-		| 'move'
-		| 'stamp'
-		| 'eraser'
-		| 'fill'
-		| 'eyedropper'
-		| 'select'
-		| 'lasso'
-		| 'wand'
-		| 'polygon';
-</script>
-
 <script lang="ts">
+	import { TOOLBAR_GROUPS, TOOLBAR_LAYOUT_OPTIONS, TOOLBAR_TOOLS, type ToolbarGroupId, type ToolbarLayout, type ToolbarToolId } from '$lib/settings/toolbar';
+
 	let {
 		layout,
 		customGroups,
 		customTools,
+		toolOrder,
 		onLayoutChange,
 		onCustomGroupsChange,
 		onCustomToolsChange,
+		onToolOrderChange,
 		onReset,
 		onOpenToolLessons
 	}: {
 		layout: ToolbarLayout;
 		customGroups: readonly ToolbarGroupId[];
 		customTools: readonly ToolbarToolId[];
+		toolOrder: readonly ToolbarToolId[];
 		onLayoutChange: (layout: ToolbarLayout) => void;
 		onCustomGroupsChange: (groups: ToolbarGroupId[]) => void;
 		onCustomToolsChange: (tools: ToolbarToolId[]) => void;
+		onToolOrderChange: (tools: ToolbarToolId[]) => void;
 		onReset: () => void;
 		onOpenToolLessons?: () => void;
 	} = $props();
@@ -51,35 +31,9 @@
 	const enabledGroups = $derived(new Set(customGroups));
 	const enabledTools = $derived(new Set(customTools));
 
-	const layouts: { id: ToolbarLayout; label: string }[] = [
-		{ id: 'essentials', label: 'Essentials' },
-		{ id: 'full', label: 'Full' },
-		{ id: 'custom', label: 'Custom' }
-	];
-	const groups: { id: ToolbarGroupId; label: string }[] = [
-		{ id: 'tools', label: 'Drawing tools' },
-		{ id: 'tool-options', label: 'Active tool options' },
-		{ id: 'selection', label: 'Selection controls' },
-		{ id: 'layer-transform', label: 'Layer transforms' },
-		{ id: 'history', label: 'Undo and redo' },
-		{ id: 'canvas-view', label: 'Canvas view' },
-		{ id: 'onion-skin', label: 'Onion skin' }
-	];
-	const tools: { id: ToolbarToolId; label: string }[] = [
-		{ id: 'pencil', label: 'Pencil' },
-		{ id: 'line', label: 'Line' },
-		{ id: 'rectangle', label: 'Rectangle' },
-		{ id: 'ellipse', label: 'Ellipse' },
-		{ id: 'move', label: 'Move' },
-		{ id: 'stamp', label: 'Stamp' },
-		{ id: 'eraser', label: 'Eraser' },
-		{ id: 'fill', label: 'Fill' },
-		{ id: 'eyedropper', label: 'Eyedropper' },
-		{ id: 'select', label: 'Select' },
-		{ id: 'lasso', label: 'Lasso' },
-		{ id: 'wand', label: 'Wand' },
-		{ id: 'polygon', label: 'Polygon' }
-	];
+	const layouts = TOOLBAR_LAYOUT_OPTIONS;
+	const groups = TOOLBAR_GROUPS;
+	const tools = $derived(toolOrder.map((id) => TOOLBAR_TOOLS.find((tool) => tool.id === id)!));
 
 	export function open() {
 		popoverEl.showPopover();
@@ -99,6 +53,15 @@
 
 	function setTool(id: ToolbarToolId, checked: boolean) {
 		onCustomToolsChange(tools.map((tool) => tool.id).filter((tool) => tool === id ? checked : enabledTools.has(tool)));
+	}
+
+	function moveTool(id: ToolbarToolId, offset: -1 | 1) {
+		const index = toolOrder.indexOf(id);
+		const target = index + offset;
+		if (index < 0 || target < 0 || target >= toolOrder.length) return;
+		const next = [...toolOrder];
+		[next[index], next[target]] = [next[target], next[index]];
+		onToolOrderChange(next);
 	}
 
 	function openLessons() {
@@ -149,15 +112,21 @@
 	{#if layout === 'custom'}
 		<fieldset class="tools">
 			<legend>Visible tools</legend>
-			{#each tools as tool (tool.id)}
-				<label>
-					<input
-						type="checkbox"
-						checked={enabledTools.has(tool.id)}
-						onchange={(event) => setTool(tool.id, event.currentTarget.checked)}
-					/>
-					<span>{tool.label}</span>
-				</label>
+			{#each tools as tool, index (tool.id)}
+				<div class="tool-row">
+					<label>
+						<input
+							type="checkbox"
+							checked={enabledTools.has(tool.id)}
+							onchange={(event) => setTool(tool.id, event.currentTarget.checked)}
+						/>
+						<span>{tool.label}</span>
+					</label>
+					<div class="reorder">
+						<button type="button" aria-label={`Move ${tool.label} up`} disabled={index === 0} onclick={() => moveTool(tool.id, -1)}>↑</button>
+						<button type="button" aria-label={`Move ${tool.label} down`} disabled={index === tools.length - 1} onclick={() => moveTool(tool.id, 1)}>↓</button>
+					</div>
+				</div>
 			{/each}
 		</fieldset>
 		<fieldset class="groups">
@@ -271,6 +240,10 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 0.25rem 0.75rem;
 	}
+	.tool-row { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; }
+	.tool-row label { flex: 1; }
+	.reorder { display: flex; gap: 2px; }
+	.reorder button { min-width: 28px; min-height: 28px; padding: 0; }
 	.groups legend, .tools legend { margin-bottom: 0.4rem; }
 	.groups label, .tools label {
 		display: flex;
@@ -298,7 +271,7 @@
 		color: var(--paper);
 	}
 	@media (pointer: coarse) {
-		.close, .layouts span, .groups label, .tools label, .groups input, .tools input { min-height: 44px; }
+		.close, .layouts span, .groups label, .tools label, .groups input, .tools input, .reorder button { min-height: 44px; }
 	}
 
 	@media (max-width: 420px) {
