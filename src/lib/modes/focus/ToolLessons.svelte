@@ -49,6 +49,11 @@
 		};
 	});
 
+	$effect(() => {
+		void session.version;
+		if (current?.tool === 'stamp' && !session.stamp) toolLessons.close();
+	});
+
 	function unavailableReason(tool: Tool): string | null {
 		void session.version;
 		return toolLessonUnavailableReason(session, tool);
