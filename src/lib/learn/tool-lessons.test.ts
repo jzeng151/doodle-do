@@ -24,12 +24,13 @@ describe('tool lesson catalog', () => {
 
 	it('explains prerequisites for lessons that cannot work on a blank canvas', () => {
 		const pixels = new Uint8Array(4);
-		const session = {
-			stamp: null,
+		const context = {
+			stamp: null as EditorSession['stamp'],
 			currentLayer: 0,
 			currentLayerLocked: false,
 			frame: { layers: [{ pixels, visible: true }] }
-		} as unknown as EditorSession;
+		};
+		const session = context as unknown as EditorSession;
 		expect(toolLessonUnavailableReason(session, 'move')).toContain('Draw something');
 		expect(toolLessonUnavailableReason(session, 'eraser')).toContain('Draw something');
 		expect(toolLessonUnavailableReason(session, 'eyedropper')).toContain('Draw something visible');
@@ -39,6 +40,14 @@ describe('tool lesson catalog', () => {
 		expect(toolLessonUnavailableReason(session, 'move')).toBeNull();
 		expect(toolLessonUnavailableReason(session, 'eraser')).toBeNull();
 		expect(toolLessonUnavailableReason(session, 'eyedropper')).toBeNull();
+
+		context.currentLayerLocked = true;
+		for (const tool of ['pencil', 'line', 'rectangle', 'ellipse', 'fill', 'move', 'eraser'] as Tool[]) {
+			expect(toolLessonUnavailableReason(session, tool)).toBe(`Unlock the active layer before learning ${TOOL_LESSONS.find((lesson) => lesson.tool === tool)!.title}.`);
+		}
+		expect(toolLessonUnavailableReason(session, 'stamp')).toBe('Make a stamp from a selection first.');
+		context.stamp = { width: 1, height: 1, pixels: new Uint8Array([1]) };
+		expect(toolLessonUnavailableReason(session, 'stamp')).toBe('Unlock the active layer before learning Stamp.');
 	});
 });
 

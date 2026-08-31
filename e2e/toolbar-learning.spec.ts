@@ -172,6 +172,18 @@ test('explains lessons that need artwork before they can start', async ({ page }
 	await expect(move).toContainText('Draw something on the active layer before learning Move.');
 });
 
+test('explains that drawing lessons need an unlocked active layer', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Essentials' })
+		.click();
+	await page.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	const pencil = page.getByRole('dialog', { name: 'Tool lessons' }).getByRole('listitem').first();
+	await expect(pencil.getByRole('button')).toBeDisabled();
+	await expect(pencil).toContainText('Unlock the active layer before learning Pencil.');
+});
+
 test('clears the active lesson when a new workspace replaces the old one', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
