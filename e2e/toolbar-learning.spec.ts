@@ -96,6 +96,34 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
+test('requires distinct endpoints for Line, Rectangle, and Ellipse lessons', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	for (const [button, lesson, task] of [
+		['Line', 'Line', 'Drag across the canvas to draw a line.'],
+		['Rect', 'Rectangle', 'Drag across the canvas to draw a rectangle.'],
+		['Ellipse', 'Ellipse', 'Drag across the canvas to draw an ellipse.']
+	] as const) {
+		await page.getByRole('button', { name: button, exact: true }).click();
+		await page.getByRole('button', { name: 'Learn', exact: true }).click();
+		await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
+		await expect(page.getByText(task)).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled();
+		await page.getByRole('button', { name: 'Undo' }).click();
+
+		await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+		await page.mouse.down();
+		await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+		await page.mouse.up();
+		await expect(page.getByText(`Done. You used ${lesson}.`)).toBeVisible();
+		await page.getByRole('button', { name: 'Undo' }).click();
+	}
+});
+
 test('keeps the lesson coach clear of an active tip on narrow screens', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 700 });
 	await page.addInitScript(() => localStorage.setItem('doodledo.toolbar', '{"layout":"full","chooserSeen":true}'));
