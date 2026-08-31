@@ -44,6 +44,11 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 	await expect(page.getByText('Done. You used Pencil.')).toBeVisible();
 	await expect.poll(() => page.evaluate(() => localStorage.getItem('doodledo.toolLessons'))).toContain('pencil');
+
+	await page.getByRole('button', { name: 'Loop', exact: true }).click();
+	await page.getByRole('button', { name: 'Next lesson' }).click();
+	await expect(page.getByRole('button', { name: 'Focus', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
 test('keeps every tool lesson reachable in a short viewport', async ({ page }) => {

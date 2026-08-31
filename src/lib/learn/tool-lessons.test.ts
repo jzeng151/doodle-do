@@ -16,6 +16,10 @@ describe('tool lesson catalog', () => {
 		expect(TOOL_LESSONS.map((lesson) => lesson.tool)).toEqual(tools);
 		expect(TOOL_LESSONS.find((lesson) => lesson.tool === 'stamp')?.transient).toBe(true);
 		expect(DEFAULT_TOOL_LESSONS.some((lesson) => lesson.tool === 'stamp')).toBe(false);
+		expect(TOOL_LESSONS.find((lesson) => lesson.tool === 'move')).toMatchObject({
+			description: 'Move the active layer.',
+			task: 'Drag the active layer to a new position.'
+		});
 	});
 
 	it('explains prerequisites for lessons that cannot work on a blank canvas', () => {
