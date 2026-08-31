@@ -222,6 +222,26 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 	await expect(page.getByText('Done. You used Line.')).toBeVisible();
 });
 
+test('completes a fork Eraser lesson when the action removes its last pixel', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Eraser', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await expect(forkPane.getByRole('button', { name: 'Eraser', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	const forkEditor = forkPane.locator('canvas.editor');
+	const forkBox = (await forkEditor.boundingBox())!;
+	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
+	await expect(page.getByText('Done. You used Eraser.')).toBeVisible();
+});
+
 test('keeps active Stamp lesson data through Compare creation, reset, and swap', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
