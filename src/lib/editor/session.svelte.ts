@@ -663,10 +663,12 @@ export class EditorSession {
 
 	endLasso(): void {
 		if (!this.lassoPath) return;
-		this.bakeMask(maskFromPolygon(this.lassoPath, this.doc.meta.width, this.doc.meta.height));
+		const mask = maskFromPolygon(this.lassoPath, this.doc.meta.width, this.doc.meta.height);
+		const hasArea = mask.reduce((selected, value) => selected + value, 0) > 1;
+		this.bakeMask(mask);
 		this.lassoPath = null;
 		this.overlayVersion++;
-		this.reportToolUse('lasso');
+		if (hasArea) this.reportToolUse('lasso');
 	}
 
 	// wand: the 4-connected same-color region on the active layer

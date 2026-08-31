@@ -169,6 +169,17 @@ test('completes the Lasso lesson with keyboard canvas controls', async ({ page }
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await expect(page.getByText('Draw a loop around part of the artwork.')).toBeVisible();
 
+	const box = (await editor.boundingBox())!;
+	const x = box.x + box.width / 2;
+	const y = box.y + box.height / 2;
+	await page.mouse.click(x, y);
+	await expect(page.getByText('Draw a loop around part of the artwork.')).toBeVisible();
+	await page.mouse.move(x + 24, y);
+	await page.mouse.down();
+	await page.mouse.move(x + 25, y + 1);
+	await page.mouse.up();
+	await expect(page.getByText('Draw a loop around part of the artwork.')).toBeVisible();
+
 	await editor.focus();
 	await page.keyboard.press('Enter');
 	for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) await page.keyboard.press(key);
