@@ -297,6 +297,36 @@ test('completes a fork Eraser lesson when the action removes its last pixel', as
 	await expect(page.getByText('Done. You used Eraser.')).toBeVisible();
 });
 
+test('closes an incomplete paint lesson when its active layer is locked', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Line', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
+	await page.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toHaveCount(0);
+});
+
+test('closes an incomplete Move lesson after another tool clears its layer', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await page.getByRole('button', { name: 'Eraser', exact: true }).click();
+	await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.mouse.down();
+	await expect(page.getByText('Drag the active layer to a new position.')).toBeVisible();
+	await page.mouse.up();
+	await expect(page.getByText('Drag the active layer to a new position.')).toHaveCount(0);
+});
+
 test('keeps active Stamp lesson data through Compare creation, reset, and swap', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
