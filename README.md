@@ -13,6 +13,8 @@ Doodle-Do is local-first: there are no accounts or uploads, autosaves stay in th
 - Onion skinning, mirror drawing, layers, bulk frame edits, and full undo/redo
 - Palette editing and locking with a 64-color cap and 1-bit transparency
 - 27 contextual, non-blocking animation tips that can be dismissed permanently
+- Essentials, Full, and browser-persisted Custom drawing-tool layouts
+- User-started tool lessons that complete after the matching canvas action
 - Local autosave using OPFS with an IndexedDB fallback
 - Offline support after the first load
 - Keyboard-driven editing and workspace navigation

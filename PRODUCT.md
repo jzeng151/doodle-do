@@ -37,11 +37,13 @@ walk cycle in under 30 minutes.
 
 Two mechanisms a neighboring tool could not truthfully copy:
 
-- **The teaching layer is built into the tool, not bolted on.** 26
+- **The teaching layer is built into the tool, not bolted on.** 27
   contextual tips (`src/lib/learn/tips.ts`) fire from real editing events,
   never modally, at most one at a time, each capped and individually
   dismissible forever. They teach animation principles ("draw where things
-  have moved to, not where they were"), not UI mechanics.
+  have moved to, not where they were"), not UI mechanics. Separate,
+  user-started Tool lessons teach each drawing tool through a real canvas
+  action.
 - **Three modes are pure views over one session, and the tool says out
   loud what each one is bad at.** Focus, Grid, and Loop share a document,
   frame, zoom, and palette; the switcher carries "great at / strains when"
@@ -72,6 +74,11 @@ Confirmed and shipped:
 
 - Tools: pencil, eraser, fill, eyedropper, and four selection tools
   (rectangle select, lasso, wand, polygon). Brush sizes 1-4px.
+- Essentials, Full, and Custom drawing-toolbar layouts persist across
+  projects in the browser. Hidden tools remain available through More tools
+  and keyboard shortcuts.
+- Tool lessons are optional, replayable tasks that complete when the user
+  performs the matching action on the canvas.
 - Mirror-draw across the centerline, including mirror-twin selections that
   move, rotate, flip, and extract symmetrically.
 - Onion skinning (previous frame red, next frame green) with an opacity

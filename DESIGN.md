@@ -40,6 +40,7 @@ Every public claim must be directly supported by shipped code or tests:
 
 - Three views—Focus, Grid, and Loop—share one editor session.
 - Twenty-seven contextual tips fire from editing actions, never modally, one at a time, and can be dismissed forever.
+- Essentials, Full, and Custom drawing-toolbar layouts persist in the browser. Tool lessons remain separate from contextual tips.
 - Work autosaves locally to OPFS with IndexedDB fallback. A `.doodledo` file on disk is the durable user-owned copy.
 - Import accepts `.doodledo` projects and horizontal strip PNGs, optionally with animation timing data.
 - Export produces a PNG sprite sheet, TexturePacker JSON-hash, `doodledo.json`, GIF, and zipped frame PNGs.
@@ -69,7 +70,7 @@ Uppercase and tracking belong to labels, chapter furniture, and panel captions. 
 
 The landing page reads as a chapter: masthead, hero panel, view table, teaching bubbles, output list, then the factual toolbox. Panels use full black borders and shared seams rather than floating cards.
 
-The editor keeps the production information architecture: title bar, tool row, active workspace, side panels, and frame strip. Screentone changes material and hierarchy without moving or hiding core functions.
+The editor keeps the production information architecture: title bar, tool row, active workspace, side panels, and frame strip. The drawing toolbar can use Essentials, Full, or Custom layouts. Hidden tools remain reachable through More tools, keyboard shortcuts, and Toolbar settings.
 
 At narrow widths, the canvas stays primary, the side rail moves below it, horizontal control groups scroll instead of disappearing, and tap targets remain at least 44px on coarse pointers.
 

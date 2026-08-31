@@ -3,7 +3,7 @@
 	// shared session — document, current frame, zoom, and palette persist
 	// across toggles because nothing here is rebuilt on switch.
 	import type { Doc } from '$lib/core/document';
-	import type { EditorSession } from '$lib/editor/session.svelte';
+	import type { EditorSession, Tool } from '$lib/editor/session.svelte';
 	import HeaderBar from './focus/HeaderBar.svelte';
 	import TipToast from './focus/TipToast.svelte';
 	import Toolbar from './focus/Toolbar.svelte';
@@ -11,11 +11,17 @@
 	import GridView from './grid/GridView.svelte';
 	import LoopView from './loop/LoopView.svelte';
 	import CompareView from './compare/CompareView.svelte';
+	import ToolLessons from './focus/ToolLessons.svelte';
 
 	let {
 		session,
 		onOpenDoc
 	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
+	let toolLessons: ToolLessons | undefined;
+
+	function startToolLesson(tool: Tool) {
+		toolLessons?.start(tool);
+	}
 
 	function onKeyDown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
@@ -155,7 +161,7 @@
 	<main id="editor-main" class="editor-content" tabindex="-1">
 		<h1 class="sr-only">Doodle-Do editor</h1>
 		{#if session.mode === 'focus' || session.mode === 'grid'}
-			<Toolbar {session} />
+			<Toolbar {session} onLearn={startToolLesson} onOpenToolLessons={() => toolLessons?.open()} />
 		{/if}
 		{#if session.mode === 'focus'}
 			<FocusView {session} />
@@ -168,6 +174,7 @@
 				<CompareView {session} />
 			{/key}
 		{/if}
+		<ToolLessons bind:this={toolLessons} {session} />
 		<TipToast />
 	</main>
 </div>

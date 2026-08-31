@@ -14,6 +14,8 @@
 	let dialogEl: HTMLDialogElement;
 	let fullButton: HTMLButtonElement | undefined;
 	let handled = false;
+	const titleId = $props.id();
+	const descriptionId = `${titleId}-description`;
 
 	const options: {
 		id: ToolbarLayout;
@@ -24,7 +26,7 @@
 		{
 			id: 'essentials',
 			name: 'Essentials',
-			description: 'Core drawing tools, active tool options, history, and canvas view.',
+			description: 'Core drawing tools, active tool options, history, canvas view, and onion skin.',
 			preview: [5, 3, 0, 0, 2, 0, 3]
 		},
 		{
@@ -76,13 +78,13 @@
 
 <dialog
 	bind:this={dialogEl}
-	aria-labelledby="toolbar-layout-title"
-	aria-describedby="toolbar-layout-description"
+	aria-labelledby={titleId}
+	aria-describedby={descriptionId}
 	onclose={handleClose}
 >
 	<header>
-		<h2 id="toolbar-layout-title">Choose your drawing toolbar</h2>
-		<p id="toolbar-layout-description">Start with a layout. You can change it any time from Toolbar settings.</p>
+		<h2 id={titleId}>Choose your drawing toolbar</h2>
+		<p id={descriptionId}>Start with a layout. You can change it any time from Toolbar settings.</p>
 	</header>
 
 	<div class="choices">

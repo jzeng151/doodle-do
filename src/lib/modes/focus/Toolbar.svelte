@@ -1,7 +1,25 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
+	import {
+		TOOLBAR_GROUP_IDS,
+		toolbarPreferences,
+		type ToolbarGroupId,
+		type ToolbarLayout,
+		type ToolbarToolId
+	} from '$lib/settings/toolbar';
+	import ToolbarLayoutDialog from './ToolbarLayoutDialog.svelte';
+	import ToolbarSettings from './ToolbarSettings.svelte';
 
-	let { session }: { session: EditorSession } = $props();
+	let {
+		session,
+		onLearn,
+		onOpenToolLessons
+	}: {
+		session: EditorSession;
+		onLearn?: (tool: Tool) => void;
+		onOpenToolLessons?: () => void;
+	} = $props();
 
 	const baseTools: { id: Tool; label: string; key: string; description: string }[] = [
 		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
@@ -20,6 +38,22 @@
 	const tools = $derived(session.stamp
 		? [...baseTools, { id: 'stamp' as Tool, label: 'Stamp', key: 'S', description: 'Place the captured selection stamp' }]
 		: baseTools);
+	let preferences = $state(toolbarPreferences.snapshot);
+	let layoutDialog: ToolbarLayoutDialog | undefined;
+	let toolbarSettings: ToolbarSettings | undefined;
+	let moreToolsEl: HTMLElement;
+	const moreToolsId = $props.id();
+	const visibleTools = $derived.by(() => {
+		const available = new Map(tools.map((tool) => [tool.id, tool]));
+		const ordered = preferences.toolOrder
+			.map((id) => available.get(id))
+			.filter((tool): tool is (typeof tools)[number] => !!tool);
+		return ordered.filter((tool) => toolbarPreferences.isToolVisible(tool.id as ToolbarToolId) || tool.id === session.tool);
+	});
+	const hiddenTools = $derived(tools.filter((tool) => !visibleTools.some((visible) => visible.id === tool.id)));
+	const activeTool = $derived(tools.find((tool) => tool.id === session.tool) ?? tools[0]);
+	const customGroups = $derived(TOOLBAR_GROUP_IDS.filter((id) => preferences.groupVisibility[id]));
+	const customTools = $derived(preferences.toolOrder.filter((id) => preferences.toolVisibility[id]));
 
 	const canUndo = $derived((session.version, session.bus.canUndo));
 	const canRedo = $derived((session.version, session.bus.canRedo));
@@ -38,11 +72,46 @@
 	function zoomIn() {
 		session.zoom = Math.min(24, session.zoom + (session.zoom < 1 ? 0.25 : 2));
 	}
+
+	function groupVisible(id: ToolbarGroupId): boolean {
+		void preferences;
+		return toolbarPreferences.isGroupVisible(id);
+	}
+
+	function chooseLayout(layout: ToolbarLayout) {
+		toolbarPreferences.chooseLayout(layout);
+		if (layout === 'custom') requestAnimationFrame(() => toolbarSettings?.open());
+	}
+
+	function setCustomGroups(groups: ToolbarGroupId[]) {
+		for (const id of TOOLBAR_GROUP_IDS) toolbarPreferences.setGroupVisible(id, groups.includes(id));
+	}
+
+	function setCustomTools(tools: ToolbarToolId[]) {
+		for (const id of preferences.toolOrder) toolbarPreferences.setToolVisible(id, tools.includes(id));
+	}
+
+	function resetToolbar() {
+		toolbarPreferences.reset();
+		toolbarPreferences.setChooserSeen();
+	}
+
+	function selectHiddenTool(tool: Tool) {
+		session.setTool(tool);
+		moreToolsEl.hidePopover();
+	}
+
+	onMount(() => {
+		const stop = toolbarPreferences.subscribe((next) => (preferences = next));
+		if (toolbarPreferences.needsChooser) requestAnimationFrame(() => layoutDialog?.open());
+		return stop;
+	});
 </script>
 
 <div class="toolbar">
+	{#if groupVisible('tools')}
 	<div class="group" role="group" aria-label="Tools">
-		{#each tools as t (t.id)}
+		{#each visibleTools as t (t.id)}
 			<button
 				class:active={session.tool === t.id}
 				aria-pressed={session.tool === t.id}
@@ -53,8 +122,13 @@
 				{t.label}
 			</button>
 		{/each}
+		{#if hiddenTools.length}
+			<button popovertarget={moreToolsId}>More tools</button>
+		{/if}
+		{#if onLearn}<button title={`Practice ${activeTool.label}`} onclick={() => onLearn?.(activeTool.id)}>Learn</button>{/if}
 	</div>
-	{#if SELECT_TOOLS.includes(session.tool)}
+	{/if}
+	{#if groupVisible('selection') && SELECT_TOOLS.includes(session.tool)}
 		<div class="group" role="group" aria-label="Selection mode">
 			{#each ['replace', 'add', 'subtract', 'intersect'] as mode}
 				<button
@@ -71,16 +145,17 @@
 			<button disabled={!session.canReselect} onclick={() => session.reselect()}>Reselect</button>
 		</div>
 	{/if}
-	{#if session.selectionMask && !session.selectionGestureActive}
+	{#if groupVisible('selection') && session.selectionMask && !session.selectionGestureActive}
 		<div class="group"><button onclick={() => session.captureSelectionStamp()}>Make stamp</button></div>
 	{/if}
-	{#if session.tool === 'stamp'}
+	{#if groupVisible('selection') && session.tool === 'stamp'}
 		<div class="group" role="group" aria-label="Stamp transform">
 			<button onclick={() => session.flipStamp()}>Flip stamp</button>
 			<button onclick={() => session.rotateStamp()}>Turn stamp</button>
 		</div>
 	{/if}
 
+	{#if groupVisible('tool-options')}
 	<div class="group" role="group" aria-label="Brush settings">
 		<label>
 			Size
@@ -154,7 +229,9 @@
 			</button>
 		{/if}
 	</div>
+	{/if}
 
+	{#if groupVisible('layer-transform')}
 	<div class="group" role="group" aria-label="Flip layer">
 		<button title="Flip layer horizontally" onclick={() => session.flip('horizontal')}>Flip H</button>
 		<button title="Flip layer vertically" onclick={() => session.flip('vertical')}>Flip V</button>
@@ -180,12 +257,16 @@
 			+15°
 		</button>
 	</div>
+	{/if}
 
+	{#if groupVisible('history')}
 	<div class="group" role="group" aria-label="History">
 		<button disabled={!canUndo} title="Undo (Ctrl+Z)" onclick={() => session.undo()}>Undo</button>
 		<button disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onclick={() => session.redo()}>Redo</button>
 	</div>
+	{/if}
 
+	{#if groupVisible('canvas-view')}
 	<div class="group" role="group" aria-label="Canvas view">
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
@@ -195,7 +276,9 @@
 		<span class="zoom">{zoomLabel}</span>
 		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
 	</div>
+	{/if}
 
+	{#if groupVisible('onion-skin')}
 	<div class="group onion" role="group" aria-label="Onion skin">
 		<button
 			class:active={session.onionEnabled}
@@ -236,7 +319,28 @@
 		</button>
 		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={() => session.onionNextRange, (value) => (session.onionNextRange = clampOnionRange(value))} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
 	</div>
+	{/if}
+
+	<div class="group">
+		<ToolbarSettings
+			bind:this={toolbarSettings}
+			layout={preferences.layout}
+			{customGroups}
+			{customTools}
+			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
+			onCustomGroupsChange={setCustomGroups}
+			onCustomToolsChange={setCustomTools}
+			onReset={resetToolbar}
+			{onOpenToolLessons}
+		/>
+	</div>
 </div>
+<section bind:this={moreToolsEl} id={moreToolsId} class="more-tools" popover="auto" aria-label="More drawing tools">
+	{#each hiddenTools as tool (tool.id)}
+		<button title={`${tool.description} (${tool.key})`} onclick={() => selectHiddenTool(tool.id)}>{tool.label}</button>
+	{/each}
+</section>
+<ToolbarLayoutDialog bind:this={layoutDialog} onChoose={chooseLayout} />
 
 <style>
 	.toolbar {
@@ -278,6 +382,17 @@
 	.onion-swatch { display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; vertical-align: -.05rem; }
 	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
 	.onion-swatch.next { background: var(--onion-next); }
+	.more-tools {
+		display: none;
+		max-width: min(30rem, calc(100vw - 1rem));
+		margin: .35rem 0;
+		padding: .5rem;
+		border: 3px solid var(--edge);
+		border-radius: 0;
+		background: var(--paper);
+		color: var(--ink);
+	}
+	.more-tools:popover-open { display: flex; flex-wrap: wrap; gap: 4px; }
 	.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 	@media (max-width: 720px) {
 		.toolbar { flex: none; }

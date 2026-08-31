@@ -8,29 +8,48 @@
 		| 'history'
 		| 'canvas-view'
 		| 'onion-skin';
+	export type ToolbarToolId =
+		| 'pencil'
+		| 'line'
+		| 'rectangle'
+		| 'ellipse'
+		| 'move'
+		| 'stamp'
+		| 'eraser'
+		| 'fill'
+		| 'eyedropper'
+		| 'select'
+		| 'lasso'
+		| 'wand'
+		| 'polygon';
 </script>
 
 <script lang="ts">
 	let {
 		layout,
 		customGroups,
+		customTools,
 		onLayoutChange,
 		onCustomGroupsChange,
+		onCustomToolsChange,
 		onReset,
 		onOpenToolLessons
 	}: {
 		layout: ToolbarLayout;
 		customGroups: readonly ToolbarGroupId[];
+		customTools: readonly ToolbarToolId[];
 		onLayoutChange: (layout: ToolbarLayout) => void;
 		onCustomGroupsChange: (groups: ToolbarGroupId[]) => void;
+		onCustomToolsChange: (tools: ToolbarToolId[]) => void;
 		onReset: () => void;
-		onOpenToolLessons: () => void;
+		onOpenToolLessons?: () => void;
 	} = $props();
 
 	let popoverEl: HTMLElement;
 	let isOpen = $state(false);
 	const popoverId = $props.id();
 	const enabledGroups = $derived(new Set(customGroups));
+	const enabledTools = $derived(new Set(customTools));
 
 	const layouts: { id: ToolbarLayout; label: string }[] = [
 		{ id: 'essentials', label: 'Essentials' },
@@ -45,6 +64,21 @@
 		{ id: 'history', label: 'Undo and redo' },
 		{ id: 'canvas-view', label: 'Canvas view' },
 		{ id: 'onion-skin', label: 'Onion skin' }
+	];
+	const tools: { id: ToolbarToolId; label: string }[] = [
+		{ id: 'pencil', label: 'Pencil' },
+		{ id: 'line', label: 'Line' },
+		{ id: 'rectangle', label: 'Rectangle' },
+		{ id: 'ellipse', label: 'Ellipse' },
+		{ id: 'move', label: 'Move' },
+		{ id: 'stamp', label: 'Stamp' },
+		{ id: 'eraser', label: 'Eraser' },
+		{ id: 'fill', label: 'Fill' },
+		{ id: 'eyedropper', label: 'Eyedropper' },
+		{ id: 'select', label: 'Select' },
+		{ id: 'lasso', label: 'Lasso' },
+		{ id: 'wand', label: 'Wand' },
+		{ id: 'polygon', label: 'Polygon' }
 	];
 
 	export function open() {
@@ -63,9 +97,13 @@
 		onCustomGroupsChange(groups.map((group) => group.id).filter((group) => group === id ? checked : enabledGroups.has(group)));
 	}
 
+	function setTool(id: ToolbarToolId, checked: boolean) {
+		onCustomToolsChange(tools.map((tool) => tool.id).filter((tool) => tool === id ? checked : enabledTools.has(tool)));
+	}
+
 	function openLessons() {
 		close();
-		onOpenToolLessons();
+		onOpenToolLessons?.();
 	}
 </script>
 
@@ -109,6 +147,19 @@
 	</fieldset>
 
 	{#if layout === 'custom'}
+		<fieldset class="tools">
+			<legend>Visible tools</legend>
+			{#each tools as tool (tool.id)}
+				<label>
+					<input
+						type="checkbox"
+						checked={enabledTools.has(tool.id)}
+						onchange={(event) => setTool(tool.id, event.currentTarget.checked)}
+					/>
+					<span>{tool.label}</span>
+				</label>
+			{/each}
+		</fieldset>
 		<fieldset class="groups">
 			<legend>Visible groups</legend>
 			{#each groups as group (group.id)}
@@ -126,17 +177,18 @@
 
 	<div class="actions">
 		<button type="button" onclick={onReset}>Reset toolbar defaults</button>
-		<button type="button" class="lessons" onclick={openLessons}>Open Tool Lessons</button>
+		{#if onOpenToolLessons}<button type="button" class="lessons" onclick={openLessons}>Open tool lessons</button>{/if}
 	</div>
 </section>
 
 <style>
 	.settings {
-		position-area: bottom span-left;
+		position: fixed;
+		inset: 1rem 1rem auto auto;
 		width: min(22rem, calc(100vw - 1rem));
-		max-height: min(34rem, calc(100dvh - 1rem));
+		max-height: calc(100dvh - 2rem);
 		box-sizing: border-box;
-		margin: 0.35rem 0;
+		margin: 0;
 		padding: 0;
 		overflow: auto;
 		background: var(--paper);
@@ -214,20 +266,20 @@
 		outline: 3px solid var(--ink);
 		outline-offset: 2px;
 	}
-	.groups {
+	.groups, .tools {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 0.25rem 0.75rem;
 	}
-	.groups legend { margin-bottom: 0.4rem; }
-	.groups label {
+	.groups legend, .tools legend { margin-bottom: 0.4rem; }
+	.groups label, .tools label {
 		display: flex;
 		align-items: center;
 		gap: 0.45rem;
 		min-height: 32px;
 		line-height: 1.25;
 	}
-	.groups input {
+	.groups input, .tools input {
 		width: 1.1rem;
 		height: 1.1rem;
 		min-height: 0;
@@ -236,7 +288,7 @@
 	}
 	.actions {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 		gap: 6px;
 		padding: 0.75rem;
 		border-top: 2px solid var(--edge);
@@ -253,6 +305,6 @@
 			width: auto;
 			margin: 0;
 		}
-		.groups, .actions { grid-template-columns: 1fr; }
+		.groups, .tools, .actions { grid-template-columns: 1fr; }
 	}
 </style>

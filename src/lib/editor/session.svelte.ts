@@ -133,6 +133,7 @@ export class EditorSession {
 	// current frame. Sorted, and always includes currentFrame when non-empty.
 	// Cleared by plain frame select, frame add/delete/reorder, mode switch.
 	bulkFrames = $state<number[]>([]);
+	private toolUseListeners: ((tool: Tool) => void)[] = [];
 
 	// selection (B5): the baked mask, in-progress gesture previews, and the
 	// floating buffer are view state until commit, when the whole move
@@ -242,6 +243,17 @@ export class EditorSession {
 	private invalidateStamp(): void {
 		this.stamp = null;
 		if (this.tool === 'stamp') this.tool = 'pencil';
+	}
+
+	onToolUse(listener: (tool: Tool) => void): () => void {
+		this.toolUseListeners.push(listener);
+		return () => {
+			this.toolUseListeners = this.toolUseListeners.filter((candidate) => candidate !== listener);
+		};
+	}
+
+	private reportToolUse(tool = this.tool): void {
+		for (const listener of this.toolUseListeners) listener(tool);
 	}
 
 	get frame() {
@@ -633,6 +645,7 @@ export class EditorSession {
 		this.bakeMask(maskFromRects([this.pendingRect], this.doc.meta.width, this.doc.meta.height));
 		this.pendingRect = null;
 		this.overlayVersion++;
+		this.reportToolUse('select');
 	}
 
 	// lasso: freehand path in float pixel coords, auto-closed on release
@@ -653,6 +666,7 @@ export class EditorSession {
 		this.bakeMask(maskFromPolygon(this.lassoPath, this.doc.meta.width, this.doc.meta.height));
 		this.lassoPath = null;
 		this.overlayVersion++;
+		this.reportToolUse('lasso');
 	}
 
 	// wand: the 4-connected same-color region on the active layer
@@ -665,6 +679,7 @@ export class EditorSession {
 		for (const i of region) mask[i] = 1;
 		this.bakeMask(mask);
 		this.overlayVersion++;
+		this.reportToolUse('wand');
 	}
 
 	// polygon: click places vertices; close by clicking the first vertex
@@ -683,6 +698,7 @@ export class EditorSession {
 		if (!this.polygonVerts) return;
 		if (this.polygonVerts.length >= 3) {
 			this.bakeMask(maskFromPolygon(this.polygonVerts, this.doc.meta.width, this.doc.meta.height));
+			this.reportToolUse('polygon');
 		}
 		this.polygonVerts = null;
 		this.overlayVersion++;
@@ -825,6 +841,7 @@ export class EditorSession {
 		const cmds = this.editTargets().map((frame) => stampCommand(this.doc, frame, this.currentLayer, this.stamp!, x, y, this.tiledDrawing)).filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
 		if (cmds.length === 1) this.bus.dispatch(cmds[0]);
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-selection-stamp', cmds));
+		if (cmds.length) this.reportToolUse('stamp');
 	}
 
 	flipStamp(): void { if (this.stamp) this.stamp = flipStamp(this.stamp); }
@@ -904,6 +921,7 @@ export class EditorSession {
 			return;
 		}
 		const sel = this.floating;
+		const movedLayer = this.tool === 'move' && this.wholeLayerMove;
 		const twin = this.floatingTwin;
 		const peers = this.floatingPeers;
 		this.floating = null;
@@ -924,6 +942,7 @@ export class EditorSession {
 			this.bus.emitChange({ frame: sel.frameIndex, layer: sel.layerIndex, rect: null });
 			for (const peer of peers) this.bus.emitChange({ frame: peer.main.frameIndex, layer: peer.main.layerIndex, rect: null });
 		}
+		if (movedLayer && cmds.length) this.reportToolUse('move');
 	}
 
 	cancelFloating(): void {
@@ -994,6 +1013,7 @@ export class EditorSession {
 		this.strokes = [];
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
+		if (cmds.length) this.reportToolUse();
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
@@ -1144,6 +1164,7 @@ export class EditorSession {
 		} else {
 			this.bus.dispatch(new CompositeCommand('bulk-fill', cmds));
 		}
+		this.reportToolUse('fill');
 	}
 
 	eyedrop(x: number, y: number, background = false): void {
@@ -1151,6 +1172,7 @@ export class EditorSession {
 		if (value !== 0) {
 			if (background) this.backgroundColorValue = value;
 			else this.colorValue = value;
+			this.reportToolUse('eyedropper');
 		}
 	}
 
