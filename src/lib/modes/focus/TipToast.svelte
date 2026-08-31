@@ -6,10 +6,24 @@
 
 	let current = $state(tips.current);
 	onMount(() => tips.onChange(() => (current = tips.current)));
+
+	function reportHeight(tip: HTMLElement) {
+		const workspace = tip.closest<HTMLElement>('.workspace');
+		if (!workspace) return;
+		const observer = new ResizeObserver(() => workspace.style.setProperty('--tip-height', `${tip.offsetHeight}px`));
+		observer.observe(tip);
+		workspace.style.setProperty('--tip-height', `${tip.offsetHeight}px`);
+		return {
+			destroy() {
+				observer.disconnect();
+				workspace.style.removeProperty('--tip-height');
+			}
+		};
+	}
 </script>
 
 {#if current}
-	<aside class="tip" role="status">
+	<aside use:reportHeight class="tip" role="status">
 		<span class="cue">Tip #{current.id.slice(1)}</span>
 		<p>{current.copy}</p>
 		<div class="tip-actions">

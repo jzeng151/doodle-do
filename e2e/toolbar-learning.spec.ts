@@ -96,6 +96,26 @@ test('completes a user-started lesson after a real canvas action', async ({ page
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 });
 
+test('keeps the lesson coach clear of an active tip on narrow screens', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 700 });
+	await page.addInitScript(() => localStorage.setItem('doodledo.toolbar', '{"layout":"full","chooserSeen":true}'));
+	await openFreshEditor(page);
+	const tip = page.locator('.tip');
+	await expect(tip).toBeVisible();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	const coach = page.locator('.coach');
+	await expect(coach).toBeVisible();
+	await tip.scrollIntoViewIfNeeded();
+
+	const tipBox = (await tip.boundingBox())!;
+	const coachBox = (await coach.boundingBox())!;
+	expect(coachBox.y + coachBox.height).toBeLessThanOrEqual(tipBox.y);
+	const dismiss = tip.getByRole('button', { name: 'Dismiss', exact: true });
+	await expect(dismiss).toBeInViewport();
+	await dismiss.click();
+	await expect(tip).toBeHidden();
+});
+
 test('keeps a context-sensitive lesson on the active frame and layer in Compare', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })

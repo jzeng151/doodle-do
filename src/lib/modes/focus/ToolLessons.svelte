@@ -157,7 +157,7 @@
 	.coach {
 		position: fixed;
 		right: 1rem;
-		bottom: 1rem;
+		bottom: calc(var(--tip-height, 0px) + 1rem);
 		z-index: 30;
 		display: grid;
 		width: min(22rem, calc(100vw - 2rem));
@@ -174,7 +174,7 @@
 	.cue { font-size: .625rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
 	.actions { display: flex; gap: 6px; margin-top: .35rem; }
 	@media (max-width: 620px) {
-		.coach { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); }
+		.coach { right: .5rem; bottom: calc(var(--tip-height, 0px) + .5rem); width: calc(100vw - 1rem); }
 		li { grid-template-columns: 1fr; }
 		li button { justify-self: start; }
 	}
