@@ -357,6 +357,55 @@ test('closes an active Stamp lesson when Apply as current discards its stamp', a
 	await expect(page.getByText('Place a captured stamp on the canvas.')).toHaveCount(0);
 });
 
+test('closes a paint lesson when Apply as current locks its layer', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await page.getByRole('button', { name: 'Line', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Apply as current' }).click();
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Unlock Layer 1' })).toBeVisible();
+	await expect(page.getByText('Drag across the canvas to draw a line.')).toHaveCount(0);
+});
+
+test('closes a Move lesson when Apply as current makes its layer blank', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await forkPane.getByRole('button', { name: 'Eraser', exact: true }).click();
+	const forkEditor = forkPane.locator('canvas.editor');
+	const forkBox = (await forkEditor.boundingBox())!;
+	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await expect(page.getByText('Drag the active layer to a new position.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Apply as current' }).click();
+	await expect(page.getByText('Drag the active layer to a new position.')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Focus', exact: true }).click();
+	await expect(page.getByText('Drag the active layer to a new position.')).toHaveCount(0);
+});
+
 test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })

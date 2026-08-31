@@ -87,6 +87,7 @@ export class EditorSession {
 	readonly compositor: Compositor;
 
 	version = $state(0);
+	documentReplacementVersion = $state(0);
 	currentFrame = $state(0);
 	currentLayer = $state(0);
 	mode = $state<Mode>('focus'); // workspace mode is view state (B7), never document state
@@ -204,6 +205,7 @@ export class EditorSession {
 			this.version++;
 		});
 		this.bus.onCommit((command, action) => {
+			if (command instanceof DocumentReplaceCommand) this.documentReplacementVersion++;
 			if ((command instanceof AnimationTagsCommand || command instanceof DocumentReplaceCommand || command instanceof FrameAddCommand || command instanceof FrameDeleteCommand || command instanceof FrameReorderCommand || command instanceof LinkedFrameAddCommand) && this.activeAnimationTagName) {
 				const active = this.doc.meta.tags?.find((tag) => tag.name === this.activeAnimationTagName);
 				this.selectAnimationTag(active ? active.name : '');
