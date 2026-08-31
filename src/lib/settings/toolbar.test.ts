@@ -32,6 +32,17 @@ describe('ToolbarPreferences', () => {
 		expect(preferences.needsChooser).toBe(false);
 	});
 
+	it('keeps existing installations on Full without opening the chooser', () => {
+		const storage = fakeStorage();
+		storage.setItem('doodledo.tips', JSON.stringify({ counts: { T01: 1 } }));
+
+		const preferences = new ToolbarPreferences(storage);
+
+		expect(preferences.snapshot.layout).toBe('full');
+		expect(preferences.needsChooser).toBe(false);
+		expect(storage.getItem('doodledo.toolbar')).toBeNull();
+	});
+
 	it('persists custom group visibility, tool visibility, and tool order', () => {
 		const storage = fakeStorage();
 		const preferences = new ToolbarPreferences(storage);

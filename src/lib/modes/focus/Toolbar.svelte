@@ -50,7 +50,9 @@
 			.filter((tool): tool is (typeof tools)[number] => !!tool);
 		return ordered.filter((tool) => toolbarPreferences.isToolVisible(tool.id as ToolbarToolId) || tool.id === session.tool);
 	});
-	const hiddenTools = $derived(tools.filter((tool) => !visibleTools.some((visible) => visible.id === tool.id)));
+	const hiddenTools = $derived(groupVisible('tools')
+		? tools.filter((tool) => !visibleTools.some((visible) => visible.id === tool.id))
+		: tools);
 	const activeTool = $derived(tools.find((tool) => tool.id === session.tool) ?? tools[0]);
 	const customGroups = $derived(TOOLBAR_GROUP_IDS.filter((id) => preferences.groupVisibility[id]));
 	const customTools = $derived(preferences.toolOrder.filter((id) => preferences.toolVisibility[id]));
@@ -122,11 +124,11 @@
 				{t.label}
 			</button>
 		{/each}
-		{#if hiddenTools.length}
-			<button popovertarget={moreToolsId}>More tools</button>
-		{/if}
 		{#if onLearn}<button title={`Practice ${activeTool.label}`} onclick={() => onLearn?.(activeTool.id)}>Learn</button>{/if}
 	</div>
+	{/if}
+	{#if hiddenTools.length}
+		<div class="group"><button popovertarget={moreToolsId}>More tools</button></div>
 	{/if}
 	{#if groupVisible('selection') && SELECT_TOOLS.includes(session.tool)}
 		<div class="group" role="group" aria-label="Selection mode">
