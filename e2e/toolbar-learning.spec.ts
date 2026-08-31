@@ -120,6 +120,36 @@ test('keeps a non-Pencil lesson active when the Compare fork is created and rese
 	await expect(page.getByText('Done. You used Line.')).toBeVisible();
 });
 
+test('copies the active Stamp lesson data into created and reset Compare forks', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await editor.focus();
+	await page.keyboard.press('m');
+	await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.35);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.45);
+	await page.mouse.up();
+	await page.getByRole('button', { name: 'Make stamp' }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Reset fork' }).click();
+	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+	const forkEditor = forkPane.locator('canvas.editor');
+	const forkBox = (await forkEditor.boundingBox())!;
+	await page.mouse.click(forkBox.x + forkBox.width * 0.7, forkBox.y + forkBox.height * 0.7);
+	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();
+});
+
 test('selection lessons start and advance in Replace mode', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
