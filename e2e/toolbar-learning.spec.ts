@@ -31,6 +31,22 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
+test.describe('with a coarse pointer', () => {
+	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+	test('keeps toolbar settings tap targets at least 44px tall', async ({ page }) => {
+		await page.addInitScript(() => localStorage.setItem('doodledo.toolbar', '{"layout":"custom","chooserSeen":true}'));
+		await openFreshEditor(page);
+		expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+		await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+		const settings = page.locator('.settings');
+
+		const checkbox = settings.getByLabel('Onion skin');
+		expect((await checkbox.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+		expect((await checkbox.locator('..').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+	});
+});
+
 test('disables Focus-only tools in the Grid More tools menu', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
