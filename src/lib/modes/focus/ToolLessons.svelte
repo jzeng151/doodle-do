@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
 	import { TOOL_LESSONS, toolLessons, toolLessonUnavailableReason } from '$lib/learn/tool-lessons';
 
@@ -23,15 +23,16 @@
 
 	$effect(() => {
 		void session.comparisonVersion;
+		const lesson = current;
 		const report = (tool: Tool) => toolLessons.reportAction(tool);
 		const fork = session.comparisonSession;
-		if (current && fork) {
-			if (SELECT_TOOLS.includes(current.tool)) fork.selectionMode = 'replace';
-			if (current.tool === 'stamp' && session.stamp) {
+		if (lesson && fork) untrack(() => {
+			if (SELECT_TOOLS.includes(lesson.tool)) fork.selectionMode = 'replace';
+			if (lesson.tool === 'stamp' && session.stamp) {
 				fork.stamp = { ...session.stamp, pixels: session.stamp.pixels.slice() };
 			}
-			fork.setTool(current.tool);
-		}
+			fork.setTool(lesson.tool);
+		});
 		const stopSession = session.onToolUse(report);
 		const stopFork = fork?.onToolUse(report);
 		return () => {
