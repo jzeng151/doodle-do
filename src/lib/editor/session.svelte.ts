@@ -358,6 +358,10 @@ export class EditorSession {
 		fork.commitFloating();
 		const currentDoc = structuredClone(this.doc);
 		const forkDoc = structuredClone(fork.doc);
+		const currentStamp = this.stamp ? { ...this.stamp, pixels: this.stamp.pixels.slice() } : null;
+		const forkStamp = fork.stamp ? { ...fork.stamp, pixels: fork.stamp.pixels.slice() } : null;
+		const currentTool = this.tool;
+		const forkTool = fork.tool;
 		this.selectionMask = fork.selectionMask = null;
 		this.previousSelectionMask = fork.previousSelectionMask = null;
 		this.invalidateStamp();
@@ -373,6 +377,10 @@ export class EditorSession {
 		fork.replaceMirrorAxes.set(forkCommand, { before: [fork.mirrorAxisX, fork.mirrorAxisY], after: [this.mirrorAxisX, this.mirrorAxisY], beforeSize: [fork.doc.meta.width, fork.doc.meta.height], afterSize: [this.doc.meta.width, this.doc.meta.height], scaled: true });
 		this.bus.dispatch(currentCommand);
 		fork.bus.dispatch(forkCommand);
+		this.stamp = forkStamp;
+		fork.stamp = currentStamp;
+		if (currentTool !== 'stamp' || this.stamp) this.tool = currentTool;
+		if (forkTool !== 'stamp' || fork.stamp) fork.tool = forkTool;
 	}
 
 	selectFrame(index: number): void {

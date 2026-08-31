@@ -128,7 +128,7 @@ test('keeps a context-sensitive lesson on the active frame and layer in Compare'
 	await expect(page.getByText('Done. You used Move.')).toBeVisible();
 });
 
-test('copies the active Stamp lesson data into created and reset Compare forks', async ({ page }) => {
+test('keeps active Stamp lesson data through Compare creation, reset, and swap', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
 		.getByRole('button', { name: 'Choose Full' })
@@ -150,6 +150,9 @@ test('copies the active Stamp lesson data into created and reset Compare forks',
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name: 'Reset fork' }).click();
+	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: 'Swap with fork' }).click();
+	await expect(page.locator('[data-editor-branch="current"]').getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
 	const forkEditor = forkPane.locator('canvas.editor');
