@@ -6,6 +6,7 @@
 	import { floatingFrameCanvas } from '../canvas';
 
 	let { session }: { session: EditorSession } = $props();
+	const headingId = $props.id();
 
 	let loopEl: HTMLCanvasElement;
 	let paused = $state(false);
@@ -68,8 +69,8 @@
 	});
 </script>
 
-<section class="loop-panel" aria-labelledby="animation-preview-heading">
-	<h2 id="animation-preview-heading">Animation preview</h2>
+<section class="loop-panel" aria-labelledby={headingId}>
+	<h2 id={headingId}>Animation preview</h2>
 	<canvas
 		bind:this={loopEl}
 		class="loop"

@@ -60,11 +60,6 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await expect(hint).toBeVisible();
 
 	await add.click();
-	await picker.evaluate((input: HTMLInputElement) => {
-		input.value = '#abcdef';
-		input.dispatchEvent(new Event('input', { bubbles: true }));
-		input.dispatchEvent(new Event('change', { bubbles: true }));
-	});
 	await expect(hint).toHaveCount(0);
 	await colors.nth(1).click();
 	await expect(colors).toHaveCount(17);

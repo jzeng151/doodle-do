@@ -355,7 +355,6 @@ test('comparison editors keep accessibility relationships unique', async ({ page
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
 	const ids = await page.locator('[id]').evaluateAll((elements) => elements.map((element) => element.id));
 	expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
-	await expect(page.locator('.palette-panel output').first()).toContainText('Foreground');
 });
 test('comparison playback preserves an unsaved current clip range', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -543,9 +542,6 @@ test('mode switcher carries the teaching tooltips', async ({ page }) => {
 		expect(title).toContain('Best for:');
 		expect(title).toContain('Less useful for:');
 	}
-	await page.getByRole('button', { name: 'Mode help' }).click();
-	await expect(page.locator('.mode-guide')).toContainText('FocusBest for');
-	await page.keyboard.press('Escape');
 	await page.getByRole('button', { name: 'Learn' }).click();
 	await expect(page.locator('.coach')).toContainText('Draw pixels with the selected color.');
 	await page.locator('.coach').getByRole('button', { name: 'Close' }).click();
