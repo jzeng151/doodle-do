@@ -35,11 +35,15 @@ function lesson(tool: Tool, title: string, shortcut: string, description: string
 export const TOOL_LESSONS: readonly ToolLesson[] = Object.values(LESSONS_BY_TOOL);
 export const DEFAULT_TOOL_LESSONS: readonly ToolLesson[] = TOOL_LESSONS.filter((lesson) => !lesson.transient);
 const ACTIVE_LAYER_TOOLS: readonly Tool[] = ['pencil', 'line', 'rectangle', 'ellipse', 'fill', 'stamp', 'move', 'eraser'];
+const PAINT_TOOLS: readonly Tool[] = ['pencil', 'line', 'rectangle', 'ellipse', 'fill'];
 
 export function toolLessonUnavailableReason(session: EditorSession, tool: Tool): string | null {
 	if (tool === 'stamp' && !session.stamp) return 'Make a stamp from a selection first.';
 	if (ACTIVE_LAYER_TOOLS.includes(tool) && session.currentLayerLocked) {
 		return `Unlock the active layer before learning ${LESSONS_BY_TOOL[tool].title}.`;
+	}
+	if (PAINT_TOOLS.includes(tool) && session.colorValue === 0) {
+		return `Choose a non-transparent foreground color before learning ${LESSONS_BY_TOOL[tool].title}.`;
 	}
 	if (tool === 'move' || tool === 'eraser') {
 		if (!session.frame.layers[session.currentLayer].pixels.some(Boolean)) {
