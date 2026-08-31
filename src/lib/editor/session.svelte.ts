@@ -163,6 +163,8 @@ export class EditorSession {
 	private strokes: { frame: number; builder: StrokeBuilder }[] = [];
 	private lineOrigin: { x: number; y: number } | null = null;
 	private shapeOrigin: { x: number; y: number } | null = null;
+	private lineHasDistinctEndpoint = false;
+	private shapeHasDistinctEndpoint = false;
 	private manualPaletteAdds = 0;
 	private resizeMirrorAxes = new WeakMap<ResizeCanvasCommand, AxisHistory>();
 	private replaceMirrorAxes = new WeakMap<DocumentReplaceCommand, AxisHistory>();
@@ -1029,13 +1031,19 @@ export class EditorSession {
 
 	strokeEnd(): void {
 		if (!this.strokes.length) return;
+		const reportGesture = this.tool === 'line'
+			? this.lineHasDistinctEndpoint
+			: this.tool === 'rectangle' || this.tool === 'ellipse'
+				? this.shapeHasDistinctEndpoint
+				: true;
 		const cmds = this.strokes
 			.map((s) => s.builder.end())
 			.filter((c): c is NonNullable<typeof c> => c !== null);
 		this.strokes = [];
+		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
 		if (cmds.length === 1) this.bus.dispatch(cmds[0], { applied: true });
 		else if (cmds.length) this.bus.dispatch(new CompositeCommand('bulk-stroke', cmds), { applied: true });
-		if (cmds.length) this.reportToolUse();
+		if (cmds.length && reportGesture) this.reportToolUse();
 	}
 
 	lineBegin(x: number, y: number, colorValue = this.colorValue, secondaryColorValue = this.backgroundColorValue): void {
@@ -1073,6 +1081,7 @@ export class EditorSession {
 		const end = constrained
 			? constrainLineEndpoint(this.lineOrigin.x, this.lineOrigin.y, x, y)
 			: { x, y };
+		this.lineHasDistinctEndpoint = end.x !== this.lineOrigin.x || end.y !== this.lineOrigin.y;
 		for (const s of this.strokes) {
 			const rect = s.builder.previewLineTo(end.x, end.y);
 			if (rect) this.bus.emitChange({ frame: s.frame, layer: this.currentLayer, rect });
@@ -1120,6 +1129,7 @@ export class EditorSession {
 			x: boundedTileEndpoint(this.shapeOrigin.x, x, this.doc.meta.width),
 			y: boundedTileEndpoint(this.shapeOrigin.y, y, this.doc.meta.height)
 		} : { x, y };
+		this.shapeHasDistinctEndpoint = end.x !== this.shapeOrigin.x || end.y !== this.shapeOrigin.y;
 		const bounds = this.tiledDrawing ? undefined : { ...this.doc.meta, padding: this.shapeFilled ? 0 : this.brushSize >> 1 };
 		const wrap = this.tiledDrawing ? this.doc.meta : undefined;
 		const points = this.tool === 'ellipse'
@@ -1144,6 +1154,7 @@ export class EditorSession {
 		this.strokes = [];
 		this.lineOrigin = null;
 		this.shapeOrigin = null;
+		this.lineHasDistinctEndpoint = this.shapeHasDistinctEndpoint = false;
 	}
 
 	get strokeActive(): boolean {
