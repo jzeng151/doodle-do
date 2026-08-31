@@ -104,6 +104,13 @@ describe('ToolLessonsEngine', () => {
 		expect(engine.isCompleted('pencil')).toBe(true);
 	});
 
+	it('advances a transient Stamp lesson to Eraser', () => {
+		const engine = new ToolLessonsEngine(fakeStorage());
+		engine.start('stamp');
+		engine.skip();
+		expect(engine.current?.tool).toBe('eraser');
+	});
+
 	it('persists completions and recovers from corrupt or invalid storage', () => {
 		const storage = fakeStorage();
 		const first = new ToolLessonsEngine(storage);
