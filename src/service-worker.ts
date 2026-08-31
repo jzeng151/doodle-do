@@ -66,7 +66,13 @@ sw.addEventListener('fetch', (event) => {
 			}
 			try {
 				const response = await fetch(event.request);
-				if (response.ok) cache.put(event.request, response.clone());
+				if (response.ok) {
+					try {
+						await cache.put(event.request, response.clone());
+					} catch (error) {
+						console.warn('runtime cache write failed', error);
+					}
+				}
 				return response;
 			} catch (err) {
 				const cached =

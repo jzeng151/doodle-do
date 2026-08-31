@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CommandBus } from '../core/commands';
 import { createDoc } from '../core/document';
 import type { EditorSession } from '../editor/session.svelte';
-import { executeAgentOperation } from './bridge';
+import { connectAgentBridge, executeAgentOperation } from './bridge';
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
 
 function session(): EditorSession {
 	const doc = createDoc({ width: 4, height: 4, palette: ['#000000'], frameCount: 1 });
@@ -110,5 +115,37 @@ describe('agent operation adapter', () => {
 			layer: 0,
 			edits: [{ x: 0, y: 0, value: 1 }]
 		})).toThrow(/finish the active user/);
+	});
+});
+
+describe('agent bridge transport', () => {
+	it('continues with the next operation after result reporting fails', async () => {
+		let operation: ((event: MessageEvent<string>) => void) | undefined;
+		class EventSourceStub {
+			addEventListener(_type: string, listener: (event: MessageEvent<string>) => void) {
+				operation = listener;
+			}
+			close() {}
+		}
+		const storage = new Map([['doodle-do-mcp-bridge', JSON.stringify({ token: 'secret', port: 43120 })]]);
+		vi.stubGlobal('window', { location: { href: 'http://localhost/canvas' } });
+		vi.stubGlobal('sessionStorage', {
+			getItem: (key: string) => storage.get(key) ?? null,
+			setItem: (key: string, value: string) => storage.set(key, value),
+			removeItem: (key: string) => storage.delete(key)
+		});
+		vi.stubGlobal('EventSource', EventSourceStub);
+		vi.stubGlobal('fetch', vi.fn()
+			.mockRejectedValueOnce(new Error('bridge stopped'))
+			.mockRejectedValueOnce(new Error('bridge still stopped'))
+			.mockResolvedValueOnce(new Response(null, { status: 200 })));
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		connectAgentBridge(() => session());
+		operation!(new MessageEvent('operation', { data: JSON.stringify({ protocolVersion: 1, id: 'first', operation: 'get_document', args: {} }) }));
+		operation!(new MessageEvent('operation', { data: JSON.stringify({ protocolVersion: 1, id: 'second', operation: 'get_document', args: {} }) }));
+
+		await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+		expect(JSON.parse((fetch as ReturnType<typeof vi.fn>).mock.calls[2][1].body)).toMatchObject({ id: 'second', ok: true });
 	});
 });
