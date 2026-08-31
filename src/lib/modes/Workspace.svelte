@@ -12,11 +12,13 @@
 	import LoopView from './loop/LoopView.svelte';
 	import CompareView from './compare/CompareView.svelte';
 	import ToolLessons from './focus/ToolLessons.svelte';
+	import { toolLessons as lessonState } from '$lib/learn/tool-lessons';
 
 	let {
 		session,
 		onOpenDoc
 	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
+	lessonState.close();
 	let toolLessons: ToolLessons | undefined;
 
 	function startToolLesson(tool: Tool) {

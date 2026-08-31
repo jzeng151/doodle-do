@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { EditorSession, Tool } from '$lib/editor/session.svelte';
-	import { TOOL_LESSONS, toolLessons } from '$lib/learn/tool-lessons';
+	import { TOOL_LESSONS, toolLessons, toolLessonUnavailableReason } from '$lib/learn/tool-lessons';
 
 	let { session }: { session: EditorSession } = $props();
 
@@ -26,12 +26,20 @@
 		};
 	});
 
+	function unavailableReason(tool: Tool): string | null {
+		void session.version;
+		return toolLessonUnavailableReason(session, tool);
+	}
+
 	export function open() {
 		if (!dialogEl.open) dialogEl.showModal();
 	}
 
 	export function start(tool: Tool) {
-		if (tool === 'stamp' && !session.stamp) return;
+		if (unavailableReason(tool)) {
+			open();
+			return;
+		}
 		session.setMode('focus');
 		session.setTool(tool);
 		toolLessons.start(tool);
@@ -39,7 +47,8 @@
 	}
 
 	function next() {
-		toolLessons.skip();
+		do toolLessons.skip();
+		while (toolLessons.current && unavailableReason(toolLessons.current.tool));
 		const nextLesson = toolLessons.current;
 		if (nextLesson) session.setTool(nextLesson.tool);
 	}
@@ -55,14 +64,16 @@
 	</header>
 	<ul>
 		{#each TOOL_LESSONS as lesson (lesson.tool)}
+			{@const unavailable = unavailableReason(lesson.tool)}
 			<li>
 				<div>
 					<strong>{lesson.title}</strong>
 					<span>{lesson.description} Shortcut: <kbd>{lesson.shortcut}</kbd></span>
+					{#if unavailable}<span>{unavailable}</span>{/if}
 				</div>
 				<button
-					disabled={lesson.tool === 'stamp' && !session.stamp}
-					title={lesson.tool === 'stamp' && !session.stamp ? 'Make a stamp from a selection first' : lesson.task}
+					disabled={!!unavailable}
+					title={unavailable ?? lesson.task}
 					onclick={() => start(lesson.tool)}
 				>
 					{completed.includes(lesson.tool) ? 'Replay' : 'Start'}
