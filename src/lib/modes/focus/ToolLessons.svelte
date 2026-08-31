@@ -32,8 +32,12 @@
 			fork.currentLayer = Math.min(session.currentLayer, fork.frame.layers.length - 1);
 			fork.colorValue = Math.min(session.colorValue, fork.doc.palette.length);
 			if (SELECT_TOOLS.includes(lesson.tool)) fork.selectionMode = 'replace';
-			if (lesson.tool === 'stamp' && session.stamp) {
-				fork.stamp = { ...session.stamp, pixels: session.stamp.pixels.slice() };
+			if (lesson.tool === 'stamp') {
+				const stamp = session.stamp;
+				if (stamp && !stamp.pixels.some((value) => value > fork.doc.palette.length)) {
+					fork.stamp = { ...stamp, pixels: stamp.pixels.slice() };
+				}
+				if (!fork.stamp) return;
 			}
 			fork.setTool(lesson.tool);
 		});
