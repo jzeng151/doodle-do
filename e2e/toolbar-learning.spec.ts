@@ -263,6 +263,31 @@ test('selection lessons start and advance in Replace mode', async ({ page }) => 
 	await expect(selectionMode.getByRole('button', { name: 'Replace', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('completes the Select lesson only after the marquee moves', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Select', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+
+	await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+	await expect(page.getByText('Done. You used Select.')).toBeHidden();
+
+	await editor.focus();
+	await page.keyboard.press('Enter');
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Done. You used Select.')).toBeHidden();
+
+	await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+	await page.mouse.up();
+	await expect(page.getByText('Done. You used Select.')).toBeVisible();
+});
+
 test('keeps every tool lesson reachable in a short viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 740, height: 320 });
 	await openFreshEditor(page);
