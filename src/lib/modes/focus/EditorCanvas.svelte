@@ -5,6 +5,7 @@
 	import { brushBounds, canvasPoint, floatingFrameCanvas } from '../canvas';
 
 	let { session, branch }: { session: EditorSession; branch?: 'current' | 'fork' } = $props();
+	const canvasHelpId = $props.id();
 
 	let scrollEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
@@ -631,7 +632,7 @@
 	onpointercancel={onCameraPointerUp}
 	onauxclick={(e) => e.preventDefault()}
 >
-	<p id="canvas-help" class="sr-only">
+	<p id={canvasHelpId} class="sr-only">
 		Arrow keys move the pixel cursor. Space or Enter uses the current tool. Alt plus arrow keys moves a
 		selection. Page Up and Page Down change frames. Tool letter shortcuts work while this canvas is focused.
 	</p>
@@ -644,7 +645,7 @@
 		data-tool={session.tool}
 		tabindex="0"
 		aria-label={`Editable pixel canvas, frame ${session.currentFrame + 1}, ${session.tool} tool`}
-		aria-describedby="canvas-help"
+		aria-describedby={canvasHelpId}
 		width={canvasW}
 		height={canvasH}
 		style={`width:${cssW}px;height:${cssH}px;--checker-size:${session.zoom * 2}px`}
