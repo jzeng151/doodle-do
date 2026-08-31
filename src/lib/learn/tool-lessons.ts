@@ -134,8 +134,8 @@ export class ToolLessonsEngine {
 
 	skip(): void {
 		if (!this.current) return;
-		const index = DEFAULT_TOOL_LESSONS.findIndex((lesson) => lesson.tool === this.current?.tool);
-		const next = DEFAULT_TOOL_LESSONS[index + 1];
+		const index = TOOL_LESSONS.findIndex((lesson) => lesson.tool === this.current?.tool);
+		const next = TOOL_LESSONS.slice(index + 1).find((lesson) => !lesson.transient);
 		this.current = next ?? null;
 		this.currentComplete = false;
 		this.notify();
