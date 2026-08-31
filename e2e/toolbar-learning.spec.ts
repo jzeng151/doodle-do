@@ -52,6 +52,7 @@ test.describe('with a coarse pointer', () => {
 		const checkbox = settings.getByLabel('Onion skin');
 		expect((await checkbox.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 		expect((await checkbox.locator('..').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+		expect((await settings.getByRole('button', { name: 'Close' }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
 	});
 });
 
