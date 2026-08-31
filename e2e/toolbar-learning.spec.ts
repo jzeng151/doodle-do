@@ -355,6 +355,41 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 	await expect(page.getByText('Done. You used Line.')).toBeVisible();
 });
 
+test('revalidates a subscribed fork lesson after frame and lock changes', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	const editor = page.locator('canvas.editor');
+	const box = (await editor.boundingBox())!;
+	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+	await page.getByRole('button', { name: 'Move', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	await page.getByRole('button', { name: 'Compare', exact: true }).click();
+
+	const currentPane = page.locator('[data-editor-branch="current"]');
+	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkFrames = forkPane.getByRole('group', { name: 'Frames' });
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await forkFrames.getByRole('button', { name: '2', exact: true }).click();
+	await expect(forkFrames.getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.getByText('Drag the active layer to a new position.')).toBeVisible();
+	await forkFrames.getByRole('button', { name: '1', exact: true }).click();
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await expect(currentPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+	const currentEditor = currentPane.locator('canvas.editor');
+	const currentBox = (await currentEditor.boundingBox())!;
+	await page.mouse.move(currentBox.x + currentBox.width * 0.4, currentBox.y + currentBox.height * 0.4);
+	await page.mouse.down();
+	await page.mouse.move(currentBox.x + currentBox.width * 0.6, currentBox.y + currentBox.height * 0.6);
+	await page.mouse.up();
+	await expect(page.getByText('Done. You used Move.')).toBeVisible();
+});
+
 test('completes a fork Eraser lesson when the action removes its last pixel', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
