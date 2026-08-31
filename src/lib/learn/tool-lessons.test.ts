@@ -28,6 +28,7 @@ describe('tool lesson catalog', () => {
 			stamp: null as EditorSession['stamp'],
 			currentLayer: 0,
 			currentLayerLocked: false,
+			colorValue: 1,
 			frame: { layers: [{ pixels, visible: true }] }
 		};
 		const session = context as unknown as EditorSession;
@@ -35,6 +36,11 @@ describe('tool lesson catalog', () => {
 		expect(toolLessonUnavailableReason(session, 'eraser')).toContain('Draw something');
 		expect(toolLessonUnavailableReason(session, 'eyedropper')).toContain('Draw something visible');
 		expect(toolLessonUnavailableReason(session, 'pencil')).toBeNull();
+		context.colorValue = 0;
+		for (const tool of ['pencil', 'line', 'rectangle', 'ellipse', 'fill'] as Tool[]) {
+			expect(toolLessonUnavailableReason(session, tool)).toContain('Choose a non-transparent foreground color');
+		}
+		context.colorValue = 1;
 
 		pixels[0] = 1;
 		expect(toolLessonUnavailableReason(session, 'move')).toBeNull();
