@@ -286,6 +286,38 @@ test('completes the Lasso lesson with keyboard canvas controls', async ({ page }
 	await expect(page.getByText('Done. You used Lasso.')).toBeVisible();
 });
 
+test('completes the Polygon lesson only for a nondegenerate keyboard selection', async ({ page }) => {
+	await openFreshEditor(page);
+	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
+		.getByRole('button', { name: 'Choose Full' })
+		.click();
+	await page.getByRole('button', { name: 'Polygon', exact: true }).click();
+	await page.getByRole('button', { name: 'Learn', exact: true }).click();
+	const editor = page.locator('canvas.editor');
+	await editor.focus();
+
+	for (let i = 0; i < 3; i++) await page.keyboard.press('Space');
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Done. You used Polygon.')).toBeHidden();
+
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Space');
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Done. You used Polygon.')).toBeHidden();
+
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowLeft');
+	await page.keyboard.press('ArrowLeft');
+	await page.keyboard.press('Space');
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Done. You used Polygon.')).toBeVisible();
+});
+
 test('explains lessons that need artwork before they can start', async ({ page }) => {
 	await openFreshEditor(page);
 	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
