@@ -3,6 +3,7 @@
 	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
 	import {
 		TOOLBAR_GROUP_IDS,
+		TOOLBAR_TOOLS,
 		toolbarPreferences,
 		type ToolbarGroupId,
 		type ToolbarLayout,
@@ -21,23 +22,9 @@
 		onOpenToolLessons?: () => void;
 	} = $props();
 
-	const baseTools: { id: Tool; label: string; key: string; description: string }[] = [
-		{ id: 'pencil', label: 'Pencil', key: 'B', description: 'Draw pixels with the selected color' },
-		{ id: 'line', label: 'Line', key: 'N', description: 'Draw a straight line; hold Shift to constrain its angle' },
-		{ id: 'rectangle', label: 'Rect', key: 'R', description: 'Draw a rectangle' },
-		{ id: 'ellipse', label: 'Ellipse', key: 'C', description: 'Draw an ellipse' },
-		{ id: 'move', label: 'Move', key: 'V', description: 'Move the active layer' },
-		{ id: 'eraser', label: 'Eraser', key: 'E', description: 'Remove pixels from the current layer' },
-		{ id: 'fill', label: 'Fill', key: 'G', description: 'Fill a connected area with the selected color' },
-		{ id: 'eyedropper', label: 'Pick', key: 'I', description: 'Pick a color from the canvas' },
-		{ id: 'select', label: 'Select', key: 'M', description: 'Select a rectangular area' },
-		{ id: 'lasso', label: 'Lasso', key: 'L', description: 'Draw a freehand selection' },
-		{ id: 'wand', label: 'Wand', key: 'W', description: 'Select connected pixels of the same color' },
-		{ id: 'polygon', label: 'Polygon', key: 'P', description: 'Select an area by placing points' }
-	];
-	const tools = $derived(session.stamp
-		? [...baseTools, { id: 'stamp' as Tool, label: 'Stamp', key: 'S', description: 'Place the captured selection stamp' }]
-		: baseTools);
+	const baseTools = TOOLBAR_TOOLS.filter(({ id }) => id !== 'stamp');
+	const stampTool = TOOLBAR_TOOLS.find(({ id }) => id === 'stamp')!;
+	const tools = $derived(session.stamp ? [...baseTools, stampTool] : baseTools);
 	let preferences = $state(toolbarPreferences.snapshot);
 	let layoutDialog: ToolbarLayoutDialog | undefined;
 	let toolbarSettings: ToolbarSettings | undefined;
@@ -97,6 +84,10 @@
 		for (const id of preferences.toolOrder) toolbarPreferences.setToolVisible(id, tools.includes(id));
 	}
 
+	function setToolOrder(tools: ToolbarToolId[]) {
+		toolbarPreferences.setToolOrder(tools);
+	}
+
 	function resetToolbar() {
 		toolbarPreferences.reset();
 		toolbarPreferences.setChooserSeen();
@@ -128,7 +119,7 @@
 				title={`${t.description} (${t.key})${toolDisabled(t.id) ? '. Focus mode only' : ''}`}
 				onclick={() => session.setTool(t.id)}
 			>
-				{t.label}
+				{t.shortLabel}
 			</button>
 		{/each}
 		{#if onLearn}<button title={`Practice ${activeTool.label}`} onclick={() => onLearn?.(activeTool.id)}>Learn</button>{/if}
@@ -336,9 +327,11 @@
 			layout={preferences.layout}
 			{customGroups}
 			{customTools}
+			toolOrder={preferences.toolOrder}
 			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
 			onCustomGroupsChange={setCustomGroups}
 			onCustomToolsChange={setCustomTools}
+			onToolOrderChange={setToolOrder}
 			onReset={resetToolbar}
 			{onOpenToolLessons}
 		/>
@@ -350,7 +343,7 @@
 			disabled={toolDisabled(tool.id)}
 			title={`${tool.description} (${tool.key})${toolDisabled(tool.id) ? '. Focus mode only' : ''}`}
 			onclick={() => selectHiddenTool(tool.id)}
-		>{tool.label}</button>
+		>{tool.shortLabel}</button>
 	{/each}
 </section>
 <ToolbarLayoutDialog bind:this={layoutDialog} onChoose={chooseLayout} />

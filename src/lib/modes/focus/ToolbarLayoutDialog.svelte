@@ -1,8 +1,5 @@
-<script module lang="ts">
-	export type ToolbarLayout = 'essentials' | 'full' | 'custom';
-</script>
-
 <script lang="ts">
+	import { TOOLBAR_LAYOUT_OPTIONS, type ToolbarLayout } from '$lib/settings/toolbar';
 	let {
 		onChoose,
 		onSkip = () => {}
@@ -17,31 +14,7 @@
 	const titleId = $props.id();
 	const descriptionId = `${titleId}-description`;
 
-	const options: {
-		id: ToolbarLayout;
-		name: string;
-		description: string;
-		preview: number[];
-	}[] = [
-		{
-			id: 'essentials',
-			name: 'Essentials',
-			description: 'Core drawing tools, active tool options, history, canvas view, and onion skin.',
-			preview: [5, 3, 0, 0, 2, 0, 3]
-		},
-		{
-			id: 'full',
-			name: 'Full',
-			description: 'Every drawing control, exactly as the toolbar works now.',
-			preview: [5, 3, 4, 2, 2, 3, 3]
-		},
-		{
-			id: 'custom',
-			name: 'Custom',
-			description: 'Choose which toolbar groups stay within reach.',
-			preview: [5, 0, 4, 0, 2, 3, 0]
-		}
-	];
+	const options = TOOLBAR_LAYOUT_OPTIONS;
 
 	export function open() {
 		if (dialogEl.open) return;
@@ -99,7 +72,7 @@
 					<div class="canvas"></div>
 				</div>
 				<div class="copy">
-					<h3>{option.name}</h3>
+					<h3>{option.label}</h3>
 					<p>{option.description}</p>
 				</div>
 				<button
@@ -107,7 +80,7 @@
 					class:recommended={option.id === 'essentials'}
 					onclick={() => choose(option.id)}
 				>
-					Choose {option.name}
+					Choose {option.label}
 				</button>
 			</section>
 		{/each}

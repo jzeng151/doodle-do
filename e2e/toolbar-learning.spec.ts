@@ -31,6 +31,24 @@ test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) 
 	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
+test('reorders tools in a custom toolbar and restores the order', async ({ page }) => {
+	await page.addInitScript(() => {
+		if (!localStorage.getItem('doodledo.toolbar')) {
+			localStorage.setItem('doodledo.toolbar', '{"layout":"custom","chooserSeen":true}');
+		}
+	});
+	await openFreshEditor(page);
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	const settings = page.locator('.settings');
+	await settings.getByRole('button', { name: 'Move Line up' }).click();
+	await settings.getByRole('button', { name: 'Close' }).click();
+	const tools = page.getByRole('group', { name: 'Tools' }).getByRole('button');
+	await expect(tools.nth(0)).toHaveAccessibleName('Line');
+	await expect(tools.nth(1)).toHaveAccessibleName('Pencil');
+	await page.reload();
+	await expect(page.getByRole('group', { name: 'Tools' }).getByRole('button').nth(0)).toHaveAccessibleName('Line');
+});
+
 for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as const) {
 	test(`keeps Select effective after switching from ${layout} with ${mode} to Essentials`, async ({ page }) => {
 		await openFreshEditor(page);
