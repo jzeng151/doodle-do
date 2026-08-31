@@ -75,6 +75,10 @@ export class PixelDiffCommand implements Command {
 		return this.indices.length;
 	}
 
+	get writesNonTransparentPixels(): boolean {
+		return this.after.some((value) => value !== 0);
+	}
+
 	do(doc: Doc): void {
 		const pixels = doc.frames[this.frameIndex].layers[this.layerIndex].pixels;
 		for (let i = 0; i < this.indices.length; i++) pixels[this.indices[i]] = this.after[i];

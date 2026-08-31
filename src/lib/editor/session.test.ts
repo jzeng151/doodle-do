@@ -57,6 +57,24 @@ describe('freehand tool reporting', () => {
 });
 
 describe('paint tool reporting', () => {
+	it.each(['pencil', 'fill'] as const)('%s ignores a one-pixel dither that only writes transparency', (tool) => {
+		const session = new EditorSession(createDoc({ width: 1, height: 1, palette: ['#000000'] }));
+		session.frame.layers[0].pixels[0] = 1;
+		session.ditherEnabled = true;
+		session.tool = tool;
+		const reported: Tool[] = [];
+		session.onToolUse((usedTool) => reported.push(usedTool));
+
+		if (tool === 'pencil') {
+			session.strokeBegin(0, 0, 0, 1);
+			session.strokeEnd();
+		} else session.fill(0, 0, 0, 1);
+
+		expect(session.frame.layers[0].pixels[0]).toBe(0);
+		expect(session.bus.canUndo).toBe(true);
+		expect(reported).toEqual([]);
+	});
+
 	it.each(paintTools)('%s ignores transparent secondary paint but credits visible paint', (tool) => {
 		const erased = new EditorSession(createDoc({ width: 2, height: 2, palette: ['#000000'] }));
 		erased.frame.layers[0].pixels.fill(1);
