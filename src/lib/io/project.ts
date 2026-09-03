@@ -127,7 +127,7 @@ export function parseProject(text: string): Doc {
 					const pixels = decodeBase64(rawLayer.pixels as string);
 					if (pixels.length !== width * height) fail(`frame ${f} layer ${l} pixel size mismatch`);
 					for (const v of pixels) {
-						if (v > palette.length) fail(`frame ${f} layer ${l} has out-of-palette pixels`);
+						if (v > rawPalette.length) fail(`frame ${f} layer ${l} has out-of-palette pixels`);
 					}
 					return {
 						name: typeof rawLayer.name === 'string' ? rawLayer.name : `Layer ${l + 1}`,

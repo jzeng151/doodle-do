@@ -132,5 +132,7 @@ describe('project file round-trip', () => {
 	it('repairs legacy documents with an empty palette', () => {
 		const raw = JSON.parse(serializeProject(createDoc({ width: 2, height: 2, palette: [] })));
 		expect(parseProject(JSON.stringify(raw)).palette).toEqual([DEFAULT_PALETTE[0]]);
+		raw.frames[0].layers[0].pixels = btoa(String.fromCharCode(1, 0, 0, 0));
+		expect(() => parseProject(JSON.stringify(raw))).toThrow(/out-of-palette/);
 	});
 });
