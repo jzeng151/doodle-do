@@ -36,7 +36,7 @@ describe('attachAutosave', () => {
 			const pending = started.length === 1 ? first : second;
 			return pending.promise.then(() => { stored.push(doc.meta.name); });
 		});
-		attachAutosave(bus, undefined, () => structuredClone(bus.doc), write);
+		attachAutosave(bus, undefined, () => structuredClone(bus.doc), { write });
 
 		bus.dispatch(command('older'));
 		await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
@@ -54,10 +54,35 @@ describe('attachAutosave', () => {
 		vi.useFakeTimers();
 		const bus = new CommandBus(createDoc({ width: 1, height: 1, palette: ['#000000'] }));
 		const write = vi.fn().mockResolvedValue(undefined);
-		const detach = attachAutosave(bus, undefined, () => structuredClone(bus.doc), write);
+		const detach = attachAutosave(bus, undefined, () => structuredClone(bus.doc), { write });
 		bus.dispatch(command('latest'));
 		detach();
 		await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
 		expect(write.mock.calls[0][0].meta.name).toBe('latest');
+	});
+
+	it('orders replacement sessions after old writes without saving discarded pending work', async () => {
+		vi.useFakeTimers();
+		const oldBus = new CommandBus(createDoc({ name: 'old', width: 1, height: 1, palette: ['#000000'] }));
+		const nextBus = new CommandBus(createDoc({ name: 'replacement', width: 1, height: 1, palette: ['#000000'] }));
+		const first = deferred();
+		const stored: string[] = [];
+		const write = vi.fn((doc: Doc) => {
+			if (doc.meta.name === 'older') return first.promise.then(() => { stored.push(doc.meta.name); });
+			stored.push(doc.meta.name);
+			return Promise.resolve();
+		});
+		const detachOld = attachAutosave(oldBus, undefined, () => structuredClone(oldBus.doc), { write });
+
+		oldBus.dispatch(command('older'));
+		await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
+		oldBus.dispatch(command('discarded'));
+		detachOld(false);
+		attachAutosave(nextBus, undefined, () => structuredClone(nextBus.doc), { write, saveInitial: true });
+		expect(write.mock.calls.map(([doc]) => doc.meta.name)).toEqual(['older']);
+
+		first.resolve();
+		await vi.waitFor(() => expect(stored).toEqual(['older', 'replacement']));
+		expect(write.mock.calls.map(([doc]) => doc.meta.name)).toEqual(['older', 'replacement']);
 	});
 });
