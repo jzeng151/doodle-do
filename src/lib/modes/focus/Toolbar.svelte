@@ -30,16 +30,16 @@
 	let toolbarSettings: ToolbarSettings | undefined;
 	let moreToolsEl: HTMLElement;
 	const moreToolsId = $props.id();
-	const visibleTools = $derived.by(() => {
+	const orderedTools = $derived.by(() => {
 		const available = new Map(tools.map((tool) => [tool.id, tool]));
-		const ordered = preferences.toolOrder
+		return preferences.toolOrder
 			.map((id) => available.get(id))
 			.filter((tool): tool is (typeof tools)[number] => !!tool);
-		return ordered.filter((tool) => toolbarPreferences.isToolVisible(tool.id as ToolbarToolId) || tool.id === session.tool);
 	});
+	const visibleTools = $derived(orderedTools.filter((tool) => toolbarPreferences.isToolVisible(tool.id as ToolbarToolId) || tool.id === session.tool));
 	const hiddenTools = $derived(groupVisible('tools')
-		? tools.filter((tool) => !visibleTools.some((visible) => visible.id === tool.id))
-		: tools);
+		? orderedTools.filter((tool) => !visibleTools.some((visible) => visible.id === tool.id))
+		: orderedTools);
 	const activeTool = $derived(tools.find((tool) => tool.id === session.tool) ?? tools[0]);
 	const customGroups = $derived(TOOLBAR_GROUP_IDS.filter((id) => preferences.groupVisibility[id]));
 	const customTools = $derived(preferences.toolOrder.filter((id) => preferences.toolVisibility[id]));
