@@ -10,6 +10,7 @@ const OPFS_FILE = 'autosave.doodledo';
 const IDB_NAME = 'doodledo';
 const IDB_STORE = 'autosave';
 export const AUTOSAVE_DEBOUNCE_MS = 500;
+const writeQueues = new WeakMap<(doc: Doc) => Promise<void>, Promise<void>>();
 
 async function opfsSupported(): Promise<FileSystemDirectoryHandle | null> {
 	try {
@@ -89,24 +90,25 @@ export function attachAutosave(
 	bus: CommandBus,
 	onSaved?: () => void,
 	snapshot: () => Doc = () => bus.doc,
-	write: (doc: Doc) => Promise<void> = writeAutosave
-): () => void {
+	options: { write?: (doc: Doc) => Promise<void>; saveInitial?: boolean } = {}
+): (flushPending?: boolean) => void {
+	const { write = writeAutosave, saveInitial = false } = options;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let generation = 0;
 	let pendingGeneration: number | undefined;
-	let writes = Promise.resolve();
 
 	const flush = () => {
 		if (pendingGeneration === undefined) return;
 		const savedGeneration = pendingGeneration;
 		pendingGeneration = undefined;
 		const doc = snapshot();
-		writes = writes
+		const writes = (writeQueues.get(write) ?? Promise.resolve())
 			.then(() => write(doc))
 			.then(() => {
 				if (savedGeneration === generation) onSaved?.();
 			})
 			.catch((error) => console.warn('autosave failed', error));
+		writeQueues.set(write, writes);
 	};
 
 	const detach = bus.onCommit(() => {
@@ -115,9 +117,18 @@ export function attachAutosave(
 		clearTimeout(timer);
 		timer = setTimeout(flush, AUTOSAVE_DEBOUNCE_MS);
 	});
-	return () => {
-		clearTimeout(timer);
+	if (saveInitial) {
+		generation++;
+		pendingGeneration = generation;
 		flush();
+	}
+	return (flushPending = true) => {
+		clearTimeout(timer);
+		if (flushPending) flush();
+		else {
+			generation++;
+			pendingGeneration = undefined;
+		}
 		detach();
 	};
 }

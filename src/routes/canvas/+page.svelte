@@ -11,12 +11,13 @@
 	const T15_UNSAVED_MS = 20 * 60_000;
 
 	let session = $state<EditorSession | null>(null);
-	let detachAutosave: (() => void) | null = null;
+	let detachAutosave: ((flushPending?: boolean) => void) | null = null;
 
 	function startSession(doc: Doc, isNew: boolean) {
-		detachAutosave?.();
+		const replacing = session !== null;
+		detachAutosave?.(false);
 		const next = new EditorSession(doc);
-		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()), () => next.autosaveSnapshot());
+		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()), () => next.autosaveSnapshot(), { saveInitial: replacing });
 		session = next;
 		if (isNew) tips.fire('T01');
 	}
