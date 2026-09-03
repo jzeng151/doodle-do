@@ -47,6 +47,13 @@ test('reorders tools in a custom toolbar and restores the order', async ({ page 
 	await expect(tools.nth(1)).toHaveAccessibleName('Pencil');
 	await page.reload();
 	await expect(page.getByRole('group', { name: 'Tools' }).getByRole('button').nth(0)).toHaveAccessibleName('Line');
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	await settings.getByLabel('Drawing tools').uncheck();
+	await settings.getByRole('button', { name: 'Close' }).click();
+	await page.getByRole('button', { name: 'More tools' }).click();
+	const hiddenTools = page.getByLabel('More drawing tools').getByRole('button');
+	await expect(hiddenTools.nth(0)).toHaveAccessibleName('Line');
+	await expect(hiddenTools.nth(1)).toHaveAccessibleName('Pencil');
 });
 
 for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as const) {
