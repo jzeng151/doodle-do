@@ -13,11 +13,20 @@
 	let session = $state<EditorSession | null>(null);
 	let detachAutosave: ((flushPending?: boolean) => void) | null = null;
 
-	function startSession(doc: Doc, isNew: boolean) {
+	function startSession(doc: Doc, isNew: boolean, recovered = false) {
 		const replacing = session !== null;
 		detachAutosave?.(false);
 		const next = new EditorSession(doc);
-		detachAutosave = attachAutosave(next.bus, () => (next.autosavedAt = new Date()), () => next.autosaveSnapshot(), { saveInitial: replacing });
+		if (recovered) next.unsavedCommits = 1;
+		next.autosavePending = replacing;
+		detachAutosave = attachAutosave(next.bus, () => {
+			next.autosavedAt = new Date();
+			next.autosavePending = false;
+			next.autosaveError = '';
+		}, () => next.autosaveSnapshot(), { saveInitial: replacing, onError: (error) => {
+			next.autosavePending = false;
+			next.autosaveError = error instanceof Error ? error.message : String(error);
+		} });
 		session = next;
 		if (isNew) tips.fire('T01');
 	}
@@ -28,7 +37,7 @@
 
 	onMount(() => {
 		const disconnectAgent = connectAgentBridge(() => session);
-		loadAutosave().then((saved) => startSession(saved ?? createDefaultDoc(), !saved));
+		loadAutosave().then((saved) => startSession(saved ?? createDefaultDoc(), !saved, !!saved));
 
 		let lastReminder = 0;
 		const timer = setInterval(() => {

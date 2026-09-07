@@ -25,6 +25,7 @@ import {
 	PaletteReplaceCommand,
 	PaletteSwapCommand,
 	ResizeCanvasCommand,
+	RenameDocumentCommand,
 	UnlinkFrameCommand
 } from '../core/structural';
 import { Compositor } from '../render/compositor';
@@ -120,6 +121,8 @@ export class EditorSession {
 	onionNextRange = $state(1);
 	onionOpacity = $state(0.35);
 	autosavedAt = $state<Date | null>(null);
+	autosavePending = $state(false);
+	autosaveError = $state('');
 	// playback range (view state, B7): null = all frames; clamped on read
 	loopRange = $state<{ start: number; end: number } | null>(null);
 	loopPlaybackSpeed = $state(1);
@@ -240,6 +243,8 @@ export class EditorSession {
 				this.backgroundColorValue = Math.min(this.backgroundColorValue, doc.palette.length);
 			}
 			this.unsavedCommits++;
+			this.autosavePending = true;
+			this.autosaveError = '';
 		});
 	}
 
@@ -1315,6 +1320,10 @@ export class EditorSession {
 		this.bulkFrames = []; // indices shift; the edit set doesn't survive
 		this.bus.dispatch(new FrameReorderCommand(this.currentFrame, to));
 		this.currentFrame = to;
+	}
+
+	rename(name: string): void {
+		if (name !== this.doc.meta.name) this.bus.dispatch(new RenameDocumentCommand(this.doc.meta.name, name));
 	}
 
 	setFps(fps: number): void {

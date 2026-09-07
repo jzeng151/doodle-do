@@ -64,7 +64,7 @@
 		</div>
 	{/if}
 	<div class="actions">
-		<button title="Add blank frame" onclick={() => session.addFrame(false)}>New</button>
+		<button title="Add blank frame" onclick={() => session.addFrame(false)}>Add frame</button>
 		<button title="Duplicate the frame, then nudge pixels for smoother motion" onclick={() => session.addFrame(true)}>
 			Duplicate
 		</button>
@@ -146,9 +146,11 @@
 	}
 	.actions {
 		display: flex;
+		overflow-x: auto;
 		gap: 4px;
 		align-items: center;
 	}
+	.actions button { white-space: nowrap; flex-shrink: 0; }
 	.actions label {
 		margin-left: auto;
 		display: flex;

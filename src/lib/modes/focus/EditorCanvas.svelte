@@ -54,6 +54,9 @@
 
 	function repaint() {
 		if (!canvasEl) return;
+		// Resizing clears the bitmap. Keep sizing and painting in the same update.
+		if (canvasEl.width !== canvasW) canvasEl.width = canvasW;
+		if (canvasEl.height !== canvasH) canvasEl.height = canvasH;
 		const ctx = canvasEl.getContext('2d')!;
 		ctx.imageSmoothingEnabled = false;
 		ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
@@ -648,8 +651,6 @@
 		tabindex="0"
 		aria-label={`Editable pixel canvas, frame ${session.currentFrame + 1}, ${session.tool} tool`}
 		aria-describedby={canvasHelpId}
-		width={canvasW}
-		height={canvasH}
 		style={`width:${cssW}px;height:${cssH}px;--checker-size:${session.zoom * 2}px`}
 		onfocus={() => ((keyboardFocused = true), repaint())}
 		onblur={() => ((keyboardFocused = false), repaint())}
@@ -664,6 +665,7 @@
 
 <style>
 	.scroll {
+		position: relative;
 		overflow: auto; /* pan = scroll */
 		display: grid;
 		place-items: center;

@@ -501,7 +501,10 @@ test('B5: a floating selection commits on mode switch', async ({ page }) => {
 	await gotoApp(page);
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
-	const z = 12;
+	const border = await editor.evaluate((el) => el.clientLeft);
+	const z = (box.width - 2 * border) / 32;
+	box.x += border;
+	box.y += border;
 	// dot at (8,8)
 	await page.mouse.move(box.x + 8.5 * z, box.y + 8.5 * z);
 	await page.mouse.down();

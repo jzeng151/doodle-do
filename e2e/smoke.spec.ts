@@ -244,7 +244,8 @@ test('keyboard pencil indicator matches the brush size', async ({ page }) => {
 test('pointer pixels and transparency grid align with the drawable canvas', async ({ page }) => {
 	await gotoApp(page);
 	const editor = page.locator('canvas.editor');
-	await expect(editor).toHaveCSS('background-size', '24px 24px');
+	const checker = await editor.evaluate((canvas) => Number.parseFloat(canvas.style.width) / 16);
+	await expect(editor).toHaveCSS('background-size', `${checker}px ${checker}px`);
 	const box = (await editor.boundingBox())!;
 	const border = await editor.evaluate((canvas) => canvas.clientLeft);
 

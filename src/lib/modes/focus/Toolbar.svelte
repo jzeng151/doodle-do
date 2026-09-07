@@ -109,6 +109,28 @@
 </script>
 
 <div class="toolbar">
+	<div class="quick-controls">
+	{#if groupVisible('history')}
+	<div class="group" role="group" aria-label="History">
+		<button disabled={!canUndo} title="Undo (Ctrl+Z)" onclick={() => session.undo()}>Undo</button>
+		<button disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onclick={() => session.redo()}>Redo</button>
+	</div>
+	{/if}
+
+	{#if groupVisible('canvas-view')}
+	<div class="group" role="group" aria-label="Canvas view">
+		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
+			Grid
+		</button>
+		<button aria-pressed={session.tiledDrawing} class:active={session.tiledDrawing} title="Wrap drawing at canvas edges and show a repeat preview" onclick={() => { session.lineEnd(); session.shapeEnd(); session.tiledDrawing = !session.tiledDrawing; }}>Tile</button>
+		<button aria-label="Zoom out" title="Zoom out" onclick={zoomOut}>−</button>
+		<span class="zoom">{zoomLabel}</span>
+		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
+	</div>
+	{/if}
+
+	</div>
+	<div class="tool-controls">
 	{#if groupVisible('tools')}
 	<div class="group" role="group" aria-label="Tools">
 		{#each visibleTools as t (t.id)}
@@ -259,25 +281,6 @@
 	</div>
 	{/if}
 
-	{#if groupVisible('history')}
-	<div class="group" role="group" aria-label="History">
-		<button disabled={!canUndo} title="Undo (Ctrl+Z)" onclick={() => session.undo()}>Undo</button>
-		<button disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onclick={() => session.redo()}>Redo</button>
-	</div>
-	{/if}
-
-	{#if groupVisible('canvas-view')}
-	<div class="group" role="group" aria-label="Canvas view">
-		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
-			Grid
-		</button>
-		<button aria-pressed={session.tiledDrawing} class:active={session.tiledDrawing} title="Wrap drawing at canvas edges and show a repeat preview" onclick={() => { session.lineEnd(); session.shapeEnd(); session.tiledDrawing = !session.tiledDrawing; }}>Tile</button>
-		<button aria-label="Zoom out" title="Zoom out" onclick={zoomOut}>−</button>
-		<span class="zoom">{zoomLabel}</span>
-		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
-	</div>
-	{/if}
-
 	{#if groupVisible('onion-skin')}
 	<div class="group onion" role="group" aria-label="Onion skin">
 		<button
@@ -336,6 +339,7 @@
 			{onOpenToolLessons}
 		/>
 	</div>
+	</div>
 </div>
 <section bind:this={moreToolsEl} id={moreToolsId} class="more-tools" popover="auto" aria-label="More drawing tools">
 	{#each hiddenTools as tool (tool.id)}
@@ -351,12 +355,24 @@
 <style>
 	.toolbar {
 		display: flex;
-		flex-wrap: nowrap;
+		flex-wrap: wrap;
 		gap: 0.25rem;
 		padding: 0.5rem 0.75rem;
 		border-bottom: 2px solid var(--edge);
 		background: var(--paper);
 		align-items: center;
+		flex-shrink: 0;
+	}
+	.quick-controls, .tool-controls {
+		display: flex;
+		align-items: center;
+		gap: .25rem;
+	}
+	.quick-controls { flex-wrap: wrap; }
+	.tool-controls {
+		position: relative;
+		flex: 1 1 18rem;
+		min-width: 0;
 		overflow-x: auto;
 	}
 	.group {
