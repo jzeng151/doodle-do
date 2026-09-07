@@ -6,12 +6,14 @@
 	let { onCreate }: { onCreate: (width: number, height: number) => void } = $props();
 
 	let dialogEl: HTMLDialogElement;
+	let error = $state('');
 	let customW = $state(32);
 	let customH = $state(32);
 
 	const PRESETS = [16, 32, 48, 64];
 
 	export function open() {
+		error = '';
 		dialogEl.showModal();
 	}
 
@@ -22,6 +24,10 @@
 
 	function createCustom(e: Event) {
 		e.preventDefault();
+		if (!Number.isFinite(customW) || !Number.isFinite(customH)) {
+			error = 'Enter a width and height in pixels.';
+			return;
+		}
 		const w = Math.min(MAX_CANVAS, Math.max(1, Math.round(customW)));
 		const h = Math.min(MAX_CANVAS, Math.max(1, Math.round(customH)));
 		dialogEl.close();
@@ -38,6 +44,7 @@
 			</button>
 		{/each}
 	</div>
+	{#if error}<p role="alert">{error}</p>{/if}
 	<!-- novalidate: out-of-range sizes clamp to the cap instead of blocking -->
 	<form class="custom" novalidate onsubmit={createCustom}>
 		<label>

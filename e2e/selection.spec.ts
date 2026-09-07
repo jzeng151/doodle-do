@@ -1,7 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const ZOOM = 12; // session default
-
 // alpha at the center of document pixel (x, y) on the editor canvas
 function pixelOpaque([x, y]: [number, number]) {
 	const canvas = document.querySelector('canvas.editor') as HTMLCanvasElement;
@@ -21,8 +19,11 @@ function pixelAlpha([x, y]: [number, number]) {
 }
 
 async function mouseOnPixel(page: Page, x: number, y: number) {
-	const box = (await page.locator('canvas.editor').boundingBox())!;
-	await page.mouse.move(box.x + (x + 0.5) * ZOOM, box.y + (y + 0.5) * ZOOM);
+	const canvas = page.locator('canvas.editor');
+	const box = (await canvas.boundingBox())!;
+	const border = await canvas.evaluate((el) => el.clientLeft);
+	const zoom = (box.width - 2 * border) / 32;
+	await page.mouse.move(box.x + border + (x + 0.5) * zoom, box.y + border + (y + 0.5) * zoom);
 }
 
 test('select, move, commit as one undo step', async ({ page }) => {
@@ -175,9 +176,11 @@ test('rotate handle turns a selection 90 degrees with shift snap', async ({ page
 	// grab the rotate handle: HANDLE_OFFSET=16 css px above the bbox top-edge
 	// midpoint (mirrors EditorCanvas.svelte); bbox = (10,16,5,1), mid = (12.5,16)
 	const box = (await page.locator('canvas.editor').boundingBox())!;
-	const midX = box.x + 12.5 * ZOOM;
-	const centerY = box.y + 16.5 * ZOOM;
-	await page.mouse.move(midX, box.y + 16 * ZOOM - 16);
+	const border = await page.locator('canvas.editor').evaluate((el) => el.clientLeft);
+	const zoom = (box.width - 2 * border) / 32;
+	const midX = box.x + border + 12.5 * zoom;
+	const centerY = box.y + border + 16.5 * zoom;
+	await page.mouse.move(midX, box.y + border + 16 * zoom - 16);
 	await page.mouse.down();
 	// with shift held, drag a quarter turn to snap to exactly 90 degrees
 	await page.keyboard.down('Shift');

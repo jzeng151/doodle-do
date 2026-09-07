@@ -518,7 +518,7 @@ test('keeps active Stamp lesson data through Compare creation, reset, and swap',
 
 	const forkEditor = forkPane.locator('canvas.editor');
 	const forkBox = (await forkEditor.boundingBox())!;
-	await page.mouse.click(forkBox.x + forkBox.width * 0.7, forkBox.y + forkBox.height * 0.7);
+	await forkEditor.click({ position: { x: forkBox.width * 0.7, y: forkBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();
 });
 
@@ -624,14 +624,14 @@ test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page 
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveCount(0);
 	const forkEditor = forkPane.locator('canvas.editor');
 	const forkBox = (await forkEditor.boundingBox())!;
-	await page.mouse.click(forkBox.x + forkBox.width * 0.7, forkBox.y + forkBox.height * 0.7);
+	await forkEditor.click({ position: { x: forkBox.width * 0.7, y: forkBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toHaveCount(0);
 
 	const currentPane = page.locator('[data-editor-branch="current"]');
 	await expect(currentPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	const currentEditor = currentPane.locator('canvas.editor');
 	const currentBox = (await currentEditor.boundingBox())!;
-	await page.mouse.click(currentBox.x + currentBox.width * 0.7, currentBox.y + currentBox.height * 0.7);
+	await currentEditor.click({ position: { x: currentBox.width * 0.7, y: currentBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();
 });
 
@@ -714,9 +714,13 @@ test('completes the Lasso lesson with keyboard canvas controls', async ({ page }
 	const y = box.y + box.height / 2;
 	await page.mouse.click(x, y);
 	await expect(page.getByText('Draw a loop around part of the artwork.')).toBeVisible();
-	await page.mouse.move(x + 24, y);
+	const border = await editor.evaluate((canvas) => canvas.clientLeft);
+	const zoom = (box.width - 2 * border) / 32;
+	const tinyX = box.x + border + 18.25 * zoom;
+	const tinyY = box.y + border + 16.25 * zoom;
+	await page.mouse.move(tinyX, tinyY);
 	await page.mouse.down();
-	await page.mouse.move(x + 25, y + 1);
+	await page.mouse.move(tinyX + 1, tinyY + 1);
 	await page.mouse.up();
 	await expect(page.getByText('Draw a loop around part of the artwork.')).toBeVisible();
 
@@ -820,7 +824,7 @@ test('clears the active lesson when a new workspace replaces the old one', async
 	await page.getByRole('button', { name: 'Next lesson' }).click();
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 
-	await page.getByRole('banner').getByRole('button', { name: 'New', exact: true }).click();
+	await page.getByRole('banner').getByRole('button', { name: 'New animation', exact: true }).click();
 	await page.getByRole('button', { name: 'Discard and continue' }).click();
 	await page.getByRole('dialog', { name: 'New animation' }).getByRole('button', { name: '32×32' }).click();
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeHidden();

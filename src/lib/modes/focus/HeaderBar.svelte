@@ -19,11 +19,13 @@
 	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
 
 	let busy = $state(false);
+	let busyLabel = $state('');
 	let error = $state('');
 	let newDialog: NewDocDialog;
 	let resizeDialog: ResizeDialog;
 	let confirm: ConfirmDialog;
 	let tipsHidden = $state(false);
+	const documentName = $derived((session.version, session.doc.meta.name));
 
 	// Guard against silently discarding work not saved to disk (unsavedCommits
 	// resets only on "Save project"). Applies to both New and Open — each
@@ -41,6 +43,7 @@
 
 	async function run(label: string, fn: () => Promise<void>) {
 		busy = true;
+		busyLabel = `${label} in progress…`;
 		error = '';
 		try {
 			session.lineEnd();
@@ -51,6 +54,7 @@
 			error = `${label} failed: ${e instanceof Error ? e.message : e}`;
 		} finally {
 			busy = false;
+			busyLabel = '';
 		}
 	}
 
@@ -85,9 +89,11 @@
 
 	const saveClick = () =>
 		run('Save', async () => {
-			if (!(await saveProjectToDisk(session.doc))) return;
-			session.savedToDiskAt = new Date(); // resets the T15 reminder clock
-			session.unsavedCommits = 0;
+			const savingSession = session;
+			const commits = savingSession.unsavedCommits;
+			if (!(await saveProjectToDisk(savingSession.doc))) return;
+			savingSession.savedToDiskAt = new Date(); // resets the T15 reminder clock
+			savingSession.unsavedCommits -= commits;
 		});
 	async function openClick() {
 		session.lineEnd();
@@ -115,8 +121,7 @@
 	}
 
 	function rename(e: Event) {
-		// doc name is meta, not pixel data — not undoable, straight write is fine here
-		session.doc.meta.name = (e.currentTarget as HTMLInputElement).value;
+		session.rename((e.currentTarget as HTMLInputElement).value);
 	}
 </script>
 
@@ -125,12 +130,19 @@
 		<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
 	</a>
 	<ModeSwitcher {session} />
-	<input class="name" value={session.doc.meta.name} onchange={rename} aria-label="Document name" />
+	<input class="name" value={documentName} onchange={rename} aria-label="Document name" />
 	<span class="status" aria-live="polite">
-		{#if error}{error}{:else if session.autosavedAt}autosaved {session.autosavedAt.toLocaleTimeString()}{/if}
+		{#if error}{error}{:else if busyLabel}{busyLabel}{:else}
+			{#if session.autosaveError}Autosave failed: {session.autosaveError}. Save a project file.
+			{:else if session.autosavePending}Autosaving…
+			{:else if session.autosavedAt}Browser autosaved {session.autosavedAt.toLocaleTimeString()}{/if}
+			{#if (session.unsavedCommits > 0 || session.savedToDiskAt) && (session.autosaveError || session.autosavePending || session.autosavedAt)} · {/if}
+			{#if session.unsavedCommits > 0}Not saved to disk
+			{:else if session.savedToDiskAt}Project saved{/if}
+		{/if}
 	</span>
-	<div class="actions">
-		<button onclick={newClick}>New</button>
+	<div class="actions" aria-busy={busy}>
+		<button onclick={newClick}>New animation</button>
 		<button onclick={() => resizeDialog.open(session.doc.meta.width, session.doc.meta.height)} title="Change the canvas size">
 			Resize
 		</button>
@@ -175,6 +187,7 @@
 <style>
 	.bar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.5rem 0.85rem;
@@ -199,9 +212,8 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		opacity: 0.7;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		flex-basis: 14rem;
+		overflow-wrap: anywhere;
 	}
 	.actions {
 		display: flex;

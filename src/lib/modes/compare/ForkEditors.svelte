@@ -36,9 +36,11 @@
 
 	const saveFork = () =>
 		run('Save', async () => {
-			if (!(await saveProjectToDisk(fork.doc, forkName()))) return;
-			fork.savedToDiskAt = new Date();
-			fork.unsavedCommits = 0;
+			const savingFork = fork;
+			const commits = savingFork.unsavedCommits;
+			if (!(await saveProjectToDisk(savingFork.doc, forkName()))) return;
+			savingFork.savedToDiskAt = new Date();
+			savingFork.unsavedCommits -= commits;
 		});
 
 	const exportForkSheet = () =>

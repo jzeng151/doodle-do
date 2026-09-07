@@ -7,6 +7,7 @@
 		$props();
 
 	let dialogEl: HTMLDialogElement;
+	let error = $state('');
 	let w = $state(32);
 	let h = $state(32);
 	let mode = $state<'crop' | 'scale' | 'scale2x'>('crop');
@@ -16,11 +17,16 @@
 	export function open(currentW: number, currentH: number) {
 		w = currentW;
 		h = currentH;
+		error = '';
 		dialogEl.showModal();
 	}
 
 	function apply(e: Event) {
 		e.preventDefault();
+		if (!Number.isFinite(w) || !Number.isFinite(h)) {
+			error = 'Enter a width and height in pixels.';
+			return;
+		}
 		const nw = Math.min(MAX_CANVAS, Math.max(1, Math.round(w)));
 		const nh = Math.min(MAX_CANVAS, Math.max(1, Math.round(h)));
 		dialogEl.close();
@@ -50,6 +56,7 @@
 			<button type="button" onclick={() => ((w = size), (h = size))}>{size}×{size}</button>
 		{/each}
 	</div>
+	{#if error}<p role="alert">{error}</p>{/if}
 	<!-- novalidate: out-of-range sizes clamp to the cap instead of blocking -->
 	<form class="custom" novalidate onsubmit={apply}>
 		<label>

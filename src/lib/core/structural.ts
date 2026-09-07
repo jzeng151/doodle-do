@@ -325,6 +325,18 @@ export class ResizeCanvasCommand implements Command {
 	}
 }
 
+export class RenameDocumentCommand implements Command {
+	readonly kind = 'document-name';
+	readonly byteSize: number;
+	constructor(private readonly before: string, private readonly after: string) {
+		this.byteSize = (before.length + after.length) * 2 + 64;
+	}
+	do(doc: Doc): void { doc.meta.name = this.after; }
+	undo(doc: Doc): void { doc.meta.name = this.before; }
+	serialize(): unknown { return { kind: this.kind, before: this.before, after: this.after }; }
+	dirty(): DirtyRegion { return { frame: null, rect: null, metadata: true }; }
+}
+
 export class FpsCommand implements Command {
 	readonly kind = 'fps';
 	readonly byteSize = 64;

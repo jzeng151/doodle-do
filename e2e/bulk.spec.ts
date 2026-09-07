@@ -1,7 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const ZOOM = 12; // session default
-
 // alpha at the center of document pixel (x, y) on the editor canvas
 function pixelOpaque([x, y]: [number, number]) {
 	const canvas = document.querySelector('canvas.editor') as HTMLCanvasElement;
@@ -13,8 +11,11 @@ function pixelOpaque([x, y]: [number, number]) {
 }
 
 async function mouseOnPixel(page: Page, x: number, y: number) {
-	const box = (await page.locator('canvas.editor').boundingBox())!;
-	await page.mouse.move(box.x + (x + 0.5) * ZOOM, box.y + (y + 0.5) * ZOOM);
+	const canvas = page.locator('canvas.editor');
+	const box = (await canvas.boundingBox())!;
+	const border = await canvas.evaluate((el) => el.clientLeft);
+	const zoom = (box.width - 2 * border) / 32;
+	await page.mouse.move(box.x + border + (x + 0.5) * zoom, box.y + border + (y + 0.5) * zoom);
 }
 
 function frameOption(page: Page, index: number) {

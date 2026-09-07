@@ -90,7 +90,7 @@ export function attachAutosave(
 	bus: CommandBus,
 	onSaved?: () => void,
 	snapshot: () => Doc = () => bus.doc,
-	options: { write?: (doc: Doc) => Promise<void>; saveInitial?: boolean } = {}
+	options: { write?: (doc: Doc) => Promise<void>; saveInitial?: boolean; onError?: (error: unknown) => void } = {}
 ): (flushPending?: boolean) => void {
 	const { write = writeAutosave, saveInitial = false } = options;
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -107,7 +107,10 @@ export function attachAutosave(
 			.then(() => {
 				if (savedGeneration === generation) onSaved?.();
 			})
-			.catch((error) => console.warn('autosave failed', error));
+			.catch((error) => {
+				console.warn('autosave failed', error);
+				if (savedGeneration === generation) options.onError?.(error);
+			});
 		writeQueues.set(write, writes);
 	};
 
