@@ -9,6 +9,100 @@ function ink(canvas: HTMLCanvasElement) {
 	return canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data.some((value, i) => i % 4 === 3 && value > 0);
 }
 
+async function cancelClose(page: Page) {
+	const warning = page.waitForEvent('dialog');
+	await page.close({ runBeforeUnload: true });
+	const dialog = await warning;
+	expect(dialog.type()).toBe('beforeunload');
+	await dialog.dismiss();
+	expect(page.isClosed()).toBe(false);
+}
+
+async function mockSuccessfulSave(page: Page) {
+	await page.evaluate(() => {
+		Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: async () => ({
+			createWritable: async () => ({ write: async () => {}, close: async () => {} })
+		}) });
+	});
+}
+
+for (const saved of [false, true]) {
+	test(`${saved ? 'saved' : 'clean'} projects close without a warning`, async ({ page }) => {
+		await editor(page);
+		// A real interaction makes the browser eligible to show an unload warning.
+		await page.getByLabel('Document name').click();
+		if (saved) {
+			await page.getByRole('button', { name: 'Add layer', exact: true }).click();
+			await mockSuccessfulSave(page);
+			await page.getByRole('button', { name: 'Save project' }).click();
+			await expect(page.locator('.status')).toContainText('Project saved');
+		}
+		const warnings: string[] = [];
+		page.on('dialog', async (dialog) => {
+			warnings.push(dialog.type());
+			await dialog.accept();
+		});
+		const closed = page.waitForEvent('close');
+		await page.close({ runBeforeUnload: true });
+		await closed;
+		expect(warnings).toEqual([]);
+	});
+}
+
+test('closing warns even after autosave, and allows staying or leaving', async ({ page }) => {
+	await editor(page);
+	await page.getByRole('button', { name: 'Add layer', exact: true }).click();
+	await expect(page.locator('.status')).toContainText('autosaved');
+	await cancelClose(page);
+	await expect(page.getByLabel('Layer 2 opacity')).toBeVisible();
+	const warning = page.waitForEvent('dialog');
+	await page.close({ runBeforeUnload: true });
+	const dialog = await warning;
+	expect(dialog.type()).toBe('beforeunload');
+	const closed = page.waitForEvent('close');
+	await dialog.accept();
+	await closed;
+});
+
+test('unfinished drawing and floating selections warn on close', async ({ page }) => {
+	await editor(page);
+	await page.getByRole('button', { name: 'Line', exact: true }).click();
+	const canvas = page.locator('canvas.editor');
+	await canvas.focus();
+	await page.keyboard.press('Space');
+	await page.keyboard.press('ArrowRight');
+	await cancelClose(page);
+	await expect(page.locator('.status')).toContainText('Not saved to disk');
+	await mockSuccessfulSave(page);
+	await page.getByRole('button', { name: 'Save project' }).click();
+	await expect(page.locator('.status')).toContainText('Project saved');
+	await canvas.focus();
+	await page.keyboard.press('Control+a');
+	await page.keyboard.press('Alt+ArrowRight');
+	await expect(page.locator('.status')).toContainText('Project saved');
+	await cancelClose(page);
+});
+
+test('unsaved fork edits share New, Open, and close protection across modes', async ({ page }) => {
+	await editor(page);
+	const modes = page.getByRole('group', { name: 'Workspace mode' });
+	await modes.getByRole('button', { name: 'Compare', exact: true }).click();
+	const fork = page.locator('[data-editor-branch="fork"]');
+	await fork.getByRole('button', { name: 'Add layer', exact: true }).click();
+	await modes.getByRole('button', { name: 'Focus', exact: true }).click();
+	for (const name of ['New animation', 'Open']) {
+		await page.getByRole('banner').getByRole('button', { name, exact: true }).click();
+		await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
+		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	}
+	await cancelClose(page);
+	await modes.getByRole('button', { name: 'Compare', exact: true }).click();
+	await mockSuccessfulSave(page);
+	await fork.getByRole('button', { name: 'Save project', exact: true }).click();
+	await expect(fork.getByRole('button', { name: 'Save project', exact: true })).toBeEnabled();
+	expect(await page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+});
+
 test('96px rabbit strip stays visible after auto-fit, zoom, and frame changes', async ({ page }) => {
 	await page.setViewportSize({ width: 969, height: 753 });
 	await editor(page);
@@ -40,6 +134,7 @@ test('cancelled and failed disk saves preserve discard protection', async ({ pag
 		await page.getByRole('banner').getByRole('button', { name: /^New/ }).click();
 		await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
 		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await cancelClose(page);
 	}
 });
 
@@ -61,6 +156,8 @@ test('rename autosaves and recovered work still needs a disk save', async ({ pag
 	await expect(page.getByLabel('Document name')).toHaveValue('Renamed rabbit');
 	await page.getByRole('banner').getByRole('button', { name: /^New/ }).click();
 	await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await cancelClose(page);
 });
 
 test('empty dimensions cannot create or resize a canvas', async ({ page }) => {
@@ -90,11 +187,7 @@ test('toolbar history and zoom stay in view without page overflow', async ({ pag
 test('successful saves clear protection only for the version written', async ({ page }) => {
 	await editor(page);
 	await page.getByRole('button', { name: 'Add layer', exact: true }).click();
-	await page.evaluate(() => {
-		Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: async () => ({
-			createWritable: async () => ({ write: async () => {}, close: async () => {} })
-		}) });
-	});
+	await mockSuccessfulSave(page);
 	await page.getByRole('button', { name: 'Save project' }).click();
 	await expect(page.locator('.status')).toContainText('Project saved');
 	await page.getByRole('banner').getByRole('button', { name: 'New animation' }).click();
@@ -114,6 +207,8 @@ test('successful saves clear protection only for the version written', async ({ 
 	await expect(page.locator('.status')).toContainText('Not saved to disk');
 	await page.getByRole('banner').getByRole('button', { name: 'New animation' }).click();
 	await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await cancelClose(page);
 });
 
 test('autosave failures remain visible with a recovery action', async ({ page }) => {
