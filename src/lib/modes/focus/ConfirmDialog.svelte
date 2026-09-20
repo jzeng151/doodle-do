@@ -22,7 +22,7 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl} aria-labelledby="confirm-title" aria-describedby="confirm-message" onclose={() => decide(false)}>
+<dialog bind:this={dialogEl} aria-labelledby="confirm-title" aria-describedby="confirm-message" onclose={() => { if (!dialogEl.open) decide(false); }}>
 	<h2 id="confirm-title">Discard changes?</h2>
 	<p id="confirm-message">{message}</p>
 	<div class="row">
