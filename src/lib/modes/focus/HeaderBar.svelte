@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { downloadBlob, openFromDisk, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
@@ -25,12 +25,15 @@
 	let newDialog: NewDocDialog;
 	let resizeDialog: ResizeDialog;
 	let confirm: ConfirmDialog;
+	let confirmingLeave = false;
+	let allowNavigation = false;
 	let tipsHidden = $state(false);
 	const documentName = $derived((session.version, session.doc.meta.name));
 
 	// Browser autosave does not replace an explicit "Save project" to disk.
 	const DISCARD_NEW = "You have changes that aren't saved to disk. Start a new animation anyway?";
 	const DISCARD_OPEN = "You have changes that aren't saved to disk. Open another file anyway?";
+	const DISCARD_LEAVE = "You have changes that aren't saved to disk. Leave the editor anyway?";
 
 	function hasUnsavedWork(): boolean {
 		return [session, session.comparisonSession].some((editor) => {
@@ -41,9 +44,26 @@
 		});
 	}
 
-	beforeNavigate((navigation) => {
-		// Closing or reloading requires the browser's native warning dialog.
-		if (navigation.type === 'leave' && hasUnsavedWork()) navigation.cancel();
+	beforeNavigate(async (navigation) => {
+		if (allowNavigation) {
+			allowNavigation = false;
+			return;
+		}
+		if (!navigation.willUnload && navigation.to?.route.id === navigation.from?.route.id) return;
+		if (!hasUnsavedWork()) return;
+		navigation.cancel();
+		// Closing or reloading uses the browser's native warning dialog.
+		if (navigation.type === 'leave' || !navigation.to || confirmingLeave) return;
+		confirmingLeave = true;
+		try {
+			if (!(await confirm.open(DISCARD_LEAVE))) return;
+			allowNavigation = true;
+			if (navigation.type === 'popstate') history.go(navigation.delta);
+			else if (navigation.willUnload) location.assign(navigation.to.url);
+			else await goto(navigation.to.url);
+		} finally {
+			confirmingLeave = false;
+		}
 	});
 
 	onMount(() => {

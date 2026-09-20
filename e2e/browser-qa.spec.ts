@@ -64,6 +64,51 @@ test('closing warns even after autosave, and allows staying or leaving', async (
 	await closed;
 });
 
+for (const action of ['Home', 'Back']) {
+	test(`${action} warns before leaving the editor and resumes only after confirmation`, async ({ page }) => {
+		await page.goto('/');
+		await page.getByRole('button', { name: 'Start drawing', exact: true }).first().click();
+		await page.getByRole('button', { name: 'Add layer', exact: true }).click();
+		const historyLength = await page.evaluate(() => history.length);
+		const leave = () => action === 'Home'
+			? page.getByRole('link', { name: 'Doodle-Do home' }).click()
+			: page.evaluate(() => history.back());
+		for (const cancel of ['Cancel', 'Escape']) {
+			await leave();
+			const warning = page.getByRole('dialog', { name: 'Discard changes?' });
+			await expect(warning).toContainText('Leave the editor anyway?');
+			await expect(page).toHaveURL(/\/canvas$/);
+			if (cancel === 'Cancel') await warning.getByRole('button', { name: cancel, exact: true }).click();
+			else await page.keyboard.press('Escape');
+			await expect(warning).not.toBeVisible();
+			await expect(page.getByLabel('Layer 2 opacity')).toBeVisible();
+		}
+		await leave();
+		await page.getByRole('button', { name: 'Discard and continue' }).click();
+		await expect(page).toHaveURL('/');
+		if (action === 'Back') {
+			expect(await page.evaluate(() => history.length)).toBe(historyLength);
+			await page.goForward();
+			await expect(page.locator('canvas.editor')).toBeVisible();
+			await page.getByRole('link', { name: 'Doodle-Do home' }).click();
+			await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
+		}
+	});
+}
+
+test('clean and saved projects can navigate home without a warning', async ({ page }) => {
+	await editor(page);
+	await page.getByRole('link', { name: 'Doodle-Do home' }).click();
+	await expect(page).toHaveURL('/');
+	await page.getByRole('button', { name: 'Start drawing', exact: true }).first().click();
+	await page.getByRole('button', { name: 'Add layer', exact: true }).click();
+	await mockSuccessfulSave(page);
+	await page.getByRole('button', { name: 'Save project' }).click();
+	await expect(page.locator('.status')).toContainText('Project saved');
+	await page.getByRole('link', { name: 'Doodle-Do home' }).click();
+	await expect(page).toHaveURL('/');
+});
+
 test('unfinished drawing and floating selections warn on close', async ({ page }) => {
 	await editor(page);
 	await page.getByRole('button', { name: 'Line', exact: true }).click();
