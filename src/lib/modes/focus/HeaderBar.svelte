@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { beforeNavigate } from '$app/navigation';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { downloadBlob, openFromDisk, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
@@ -27,11 +28,24 @@
 	let tipsHidden = $state(false);
 	const documentName = $derived((session.version, session.doc.meta.name));
 
-	// Guard against silently discarding work not saved to disk (unsavedCommits
-	// resets only on "Save project"). Applies to both New and Open — each
-	// replaces the session the same way.
+	// Browser autosave does not replace an explicit "Save project" to disk.
 	const DISCARD_NEW = "You have changes that aren't saved to disk. Start a new animation anyway?";
 	const DISCARD_OPEN = "You have changes that aren't saved to disk. Open another file anyway?";
+
+	function hasUnsavedWork(): boolean {
+		return [session, session.comparisonSession].some((editor) => {
+			if (!editor) return false;
+			editor.lineEnd();
+			editor.shapeEnd();
+			return editor.unsavedCommits > 0 || editor.floating !== null;
+		});
+	}
+
+	beforeNavigate((navigation) => {
+		// Closing or reloading requires the browser's native warning dialog.
+		if (navigation.type === 'leave' && hasUnsavedWork()) navigation.cancel();
+	});
+
 	onMount(() => {
 		tipsHidden = tips.hideAll;
 		return tips.onChange(() => (tipsHidden = tips.hideAll));
@@ -96,9 +110,7 @@
 			savingSession.unsavedCommits -= commits;
 		});
 	async function openClick() {
-		session.lineEnd();
-		session.shapeEnd();
-		if ((session.unsavedCommits > 0 || session.floating) && !(await confirm.open(DISCARD_OPEN))) return;
+		if (hasUnsavedWork() && !(await confirm.open(DISCARD_OPEN))) return;
 		run('Open', async () => {
 			const doc = await openFromDisk();
 			if (doc) onOpenDoc(doc);
@@ -106,9 +118,7 @@
 	}
 
 	async function newClick() {
-		session.lineEnd();
-		session.shapeEnd();
-		if ((session.unsavedCommits > 0 || session.floating) && !(await confirm.open(DISCARD_NEW))) return;
+		if (hasUnsavedWork() && !(await confirm.open(DISCARD_NEW))) return;
 		newDialog.open();
 	}
 
