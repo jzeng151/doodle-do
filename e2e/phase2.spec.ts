@@ -7,6 +7,7 @@ async function gotoApp(page: Page) {
 
 test('new-document presets create the chosen canvas size', async ({ page }) => {
 	await gotoApp(page);
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	await page.getByRole('button', { name: '16×16' }).click();
 	// editor canvas is doc width × zoom (12)
@@ -15,6 +16,7 @@ test('new-document presets create the chosen canvas size', async ({ page }) => {
 
 test('custom size clamps to the 512 cap', async ({ page }) => {
 	await gotoApp(page);
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	const dialog = page.locator('dialog');
 	await dialog.locator('input').first().fill('600');
@@ -47,6 +49,7 @@ test('tips: fire on triggers, cap per session, dismiss forever, hide all', async
 	await expect(toast).toHaveCount(0);
 
 	// global toggle off blocks new tips (T02 via selecting frame 2)
+	await page.getByRole('button', { name: 'Help', exact: true }).click();
 	await page.getByRole('button', { name: 'Tips' }).click();
 	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
 	await expect(toast).toHaveCount(0);
@@ -55,6 +58,7 @@ test('tips: fire on triggers, cap per session, dismiss forever, hide all', async
 test('frame PNGs export as a zip', async ({ page }) => {
 	await gotoApp(page);
 	const downloadPromise = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Export', exact: true }).click();
 	await page.getByRole('button', { name: 'Export frames' }).click();
 	const download = await downloadPromise;
 	expect(download.suggestedFilename()).toMatch(/-frames\.zip$/);

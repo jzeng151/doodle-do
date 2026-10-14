@@ -6,6 +6,19 @@ vi.stubGlobal('$state', <T>(value: T) => value);
 
 const paintTools = ['pencil', 'line', 'rectangle', 'ellipse', 'fill'] as const;
 
+it('renames a layer with undo and rejects blank names', () => {
+	const session = new EditorSession(createDoc({ width: 4, height: 4, palette: ['#000000'] }));
+	const original = session.frame.layers[0].name;
+	session.renameLayer(0, ' Wings ');
+	expect(session.frame.layers[0].name).toBe('Wings');
+	session.renameLayer(0, '  ');
+	expect(session.frame.layers[0].name).toBe('Wings');
+	session.undo();
+	expect(session.frame.layers[0].name).toBe(original);
+	session.redo();
+	expect(session.frame.layers[0].name).toBe('Wings');
+});
+
 it.each([1, 4, 7, 8, 32])('Grid zoom never shrinks a %dpx canvas when increasing', (size) => {
 	const session = new EditorSession(createDoc({ width: size, height: size, palette: ['#000000'] }));
 	const initial = session.gridZoom;

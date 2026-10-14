@@ -1452,6 +1452,16 @@ export class EditorSession {
 		this.bulkFrames = [];
 	}
 
+	renameLayer(index: number, name: string): void {
+		this.lineEnd();
+		this.shapeEnd();
+		this.commitFloating();
+		const layer = this.frame.layers[index];
+		const next = name.trim();
+		if (!layer || !next || layer.name === next) return;
+		this.bus.dispatch(new LayerPropertyCommand(this.currentFrame, index, 'name', layer.name, next));
+	}
+
 	setLayerLocked(index: number, locked: boolean): void {
 		this.lineEnd();
 		this.shapeEnd();

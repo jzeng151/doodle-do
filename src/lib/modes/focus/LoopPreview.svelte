@@ -81,16 +81,6 @@
 	></canvas>
 	<div class="controls">
 		<button onclick={togglePlay}>{paused ? 'Play' : 'Pause'}</button>
-		<label>
-			FPS
-			<input
-				type="number"
-				min="1"
-				max="24"
-				value={session.doc.meta.fps}
-				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
-			/>
-		</label>
 		<button
 			class:active={session.showPreviewBackground}
 			aria-pressed={session.showPreviewBackground}
@@ -104,11 +94,12 @@
 
 <style>
 	.loop-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+		display: grid;
+		grid-template-columns: 76px 1fr;
+		gap: 4px;
 	}
 	h2 {
+		position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
 		font-size: 0.6875rem;
 		margin: 0;
 		text-transform: uppercase;
@@ -120,7 +111,7 @@
 	}
 	.loop {
 		image-rendering: pixelated;
-		width: 128px;
+		width: 72px;
 		height: auto; /* keep the canvas aspect for non-square documents */
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 2px solid var(--edge);
@@ -130,17 +121,9 @@
 	}
 	.controls {
 		display: flex;
-		gap: 0.5rem;
+		gap: 4px;
 		align-items: center;
 		justify-content: center;
 		flex-wrap: wrap;
-	}
-	input[type='number'] {
-		width: 3.5em;
-	}
-	label {
-		display: flex;
-		gap: 0.35em;
-		align-items: center;
 	}
 </style>

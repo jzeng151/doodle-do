@@ -122,7 +122,7 @@ test('keyboard shapes preview until the second activation', async ({ page }) => 
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowDown');
 	await page.keyboard.press('Space');
-	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	await page.getByRole('banner').getByRole('button', { name: 'Save project' }).focus();
 	expect(await locatorHasInk(editor)).toBe(true);
 	await page.keyboard.press('Control+z');
 	expect(await locatorHasInk(editor)).toBe(false);
@@ -316,6 +316,7 @@ test('comparison replacement preserves lossy mirror axis round trips', async ({ 
 	await page.getByRole('button', { name: 'Mirror X' }).click();
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: '16×16' }).click();

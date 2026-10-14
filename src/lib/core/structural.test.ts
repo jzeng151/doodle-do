@@ -319,3 +319,8 @@ describe('palette commands', () => {
 		expect(doc.frames[0].layers[0].pixels[0]).toBe(2);
 	});
 });
+
+it('counts retained layer names toward the undo memory budget', () => {
+	expect(new LayerPropertyCommand(0, 0, 'name', 'old', 'new name').byteSize).toBe(64 + 22);
+	expect(new LayerPropertyCommand(0, 0, 'opacity', undefined, .4).byteSize).toBe(64);
+});

@@ -13,6 +13,7 @@ async function gotoApp(page: Page) {
 
 async function openFiles(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) {
 	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('button', { name: 'Open' }).click();
 	await (await chooser).setFiles(files);
 }
@@ -53,7 +54,7 @@ test('open dispatches a strip PNG + manifest to the importer', async ({ page }) 
 	await expect(frames).toHaveCount(3);
 	// document takes the PNG's name and the manifest's timing
 	await expect(page.getByLabel('Document name')).toHaveValue('hop');
-	await expect(page.locator('.actions input[type="number"]')).toHaveValue('220');
+	await expect(page.getByLabel('Frame duration in milliseconds')).toHaveValue('220');
 	// pixels landed
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 });
@@ -66,7 +67,7 @@ test('open dispatches a lone PNG to the importer with default timing', async ({ 
 
 	await expect(page.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(3);
 	// no per-frame duration set — input empty, placeholder shows the fps default
-	await expect(page.locator('.actions input[type="number"]')).toHaveValue('');
+	await expect(page.getByLabel('Frame duration in milliseconds')).toHaveValue('');
 });
 
 test('opening an oversized image reduces zoom to fit the viewport', async ({ page }) => {

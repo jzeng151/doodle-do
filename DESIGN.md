@@ -70,7 +70,7 @@ Uppercase and tracking belong to labels, chapter furniture, and panel captions. 
 
 The landing page reads as a chapter: masthead, hero panel, view table, teaching bubbles, output list, then the factual toolbox. Panels use full black borders and shared seams rather than floating cards.
 
-The editor keeps the production information architecture: title bar, tool row, active workspace, side panels, and frame strip. The drawing toolbar can use Essentials, Full, or Custom layouts. Hidden tools remain reachable through More tools, keyboard shortcuts, and Toolbar settings.
+The editor keeps the production information architecture: title bar, tool row, active workspace, side panels, and frame strip. New editors start with Essentials without a setup dialog. Full and Custom layouts remain in Toolbar settings. File and Export menus group document actions; palette and layer menus hold occasional operations. Hidden tools remain reachable through More tools, keyboard shortcuts, and Toolbar settings.
 
 At narrow widths, the canvas stays primary, the side rail moves below it, horizontal control groups scroll instead of disappearing, and tap targets remain at least 44px on coarse pointers.
 

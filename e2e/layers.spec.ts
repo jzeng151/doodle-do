@@ -31,6 +31,7 @@ test('merge down flattens two layers as one undo step', async ({ page }) => {
 	const layers = page.locator('.layers .name');
 	await expect(layers).toHaveCount(2);
 
+	await page.getByRole('button', { name: 'More layer actions' }).click();
 	await page.getByTitle('Merge into layer below').click();
 	await expect(layers).toHaveCount(1);
 	expect(await page.evaluate(pixelOpaque, [8, 8] as [number, number])).toBe(true);
@@ -50,6 +51,7 @@ test('send layer to frame copies it onto the target frame', async ({ page }) => 
 
 	await drawDot(page, 8, 8); // frame 1, layer 1
 
+	await page.getByRole('button', { name: 'More layer actions' }).click();
 	await page.getByTitle('Send layer to another frame').click();
 	await page.getByRole('spinbutton', { name: 'Frame', exact: true }).fill('2');
 	await page.getByRole('button', { name: 'Copy' }).click();

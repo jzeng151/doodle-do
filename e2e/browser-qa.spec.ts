@@ -136,6 +136,7 @@ test('unsaved fork edits share New, Open, and close protection across modes', as
 	await fork.getByRole('button', { name: 'Add layer', exact: true }).click();
 	await modes.getByRole('button', { name: 'Focus', exact: true }).click();
 	for (const name of ['New animation', 'Open']) {
+		await page.getByRole('button', { name: 'File', exact: true }).click();
 		await page.getByRole('banner').getByRole('button', { name, exact: true }).click();
 		await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
 		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -152,6 +153,7 @@ test('96px rabbit strip stays visible after auto-fit, zoom, and frame changes', 
 	await page.setViewportSize({ width: 969, height: 753 });
 	await editor(page);
 	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('button', { name: 'Open', exact: true }).click();
 	await (await chooser).setFiles('e2e/fixtures/eating.png');
 	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
@@ -176,6 +178,7 @@ test('cancelled and failed disk saves preserve discard protection', async ({ pag
 		}, error);
 		await page.getByRole('button', { name: 'Save project' }).click();
 		if (error === 'NotAllowedError') await expect(page.locator('.status')).toContainText('Save failed');
+		await page.getByRole('button', { name: 'File', exact: true }).click();
 		await page.getByRole('banner').getByRole('button', { name: /^New/ }).click();
 		await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
 		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -199,6 +202,7 @@ test('rename autosaves and recovered work still needs a disk save', async ({ pag
 	})).toBe('Renamed rabbit');
 	await page.reload();
 	await expect(page.getByLabel('Document name')).toHaveValue('Renamed rabbit');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: /^New/ }).click();
 	await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -208,6 +212,7 @@ test('rename autosaves and recovered work still needs a disk save', async ({ pag
 test('empty dimensions cannot create or resize a canvas', async ({ page }) => {
 	await editor(page);
 	for (const action of [/^New/, /^Resize$/]) {
+		await page.getByRole('button', { name: 'File', exact: true }).click();
 		await page.getByRole('banner').getByRole('button', { name: action }).click();
 		const dialog = page.getByRole('dialog');
 		await dialog.getByLabel('Width in pixels').fill('');
@@ -235,6 +240,7 @@ test('successful saves clear protection only for the version written', async ({ 
 	await mockSuccessfulSave(page);
 	await page.getByRole('button', { name: 'Save project' }).click();
 	await expect(page.locator('.status')).toContainText('Project saved');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New animation' }).click();
 	await expect(page.getByRole('dialog', { name: 'New animation', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -250,6 +256,7 @@ test('successful saves clear protection only for the version written', async ({ 
 	await page.getByRole('button', { name: 'Add layer', exact: true }).click();
 	await page.evaluate(() => window.dispatchEvent(new Event('qa-finish-save')));
 	await expect(page.locator('.status')).toContainText('Not saved to disk');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New animation' }).click();
 	await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();

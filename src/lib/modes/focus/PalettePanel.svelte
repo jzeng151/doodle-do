@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ActionMenu from '../ActionMenu.svelte';
 	import { MAX_PALETTE } from '$lib/core/document';
 	import type { EditorSession, ReplaceScope } from '$lib/editor/session.svelte';
 	import { downloadBlob } from '$lib/io/files';
@@ -116,6 +117,11 @@
 <section class="palette-panel">
 	<header>
 		<h2>Palette</h2>
+	<div class="active-colors" aria-label="Active colors">
+		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
+		<span class="active-color background" class:transparent={session.backgroundColorValue === 0} style={session.backgroundColorValue ? `background:${palette[session.backgroundColorValue - 1]}` : ''} title="Background color"></span>
+		<button title="Swap foreground and background colors (X)" onclick={() => session.swapActiveColors()}>Swap</button>
+	</div>
 		<button
 			class:active={session.paletteLocked}
 			aria-pressed={session.paletteLocked}
@@ -128,11 +134,6 @@
 			{session.paletteLocked ? 'Locked' : 'Lock'}
 		</button>
 	</header>
-	<div class="active-colors" aria-label="Active colors">
-		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
-		<span class="active-color background" class:transparent={session.backgroundColorValue === 0} style={session.backgroundColorValue ? `background:${palette[session.backgroundColorValue - 1]}` : ''} title="Background color"></span>
-		<button title="Swap foreground and background colors (X)" onclick={() => session.swapActiveColors()}>Swap</button>
-	</div>
 
 	<div class="swatches">
 		<button
@@ -179,6 +180,12 @@
 		>
 			Add
 		</button>
+	<ActionMenu label="Palette options" buttonText="Options">
+		<button disabled={session.paletteLocked} onclick={importPalette}>Import</button>
+		<button onclick={() => exportPalette('gpl')}>Export GPL</button>
+		<button onclick={() => exportPalette('hex')}>Export HEX</button>
+		<button disabled={session.paletteLocked} onclick={() => session.createPaletteFromArtwork()}>From artwork</button>
+		<button aria-expanded={rangeOpen} aria-controls={rangeControlsId} onclick={() => (rangeOpen = !rangeOpen)}>Ramp / Sort</button>
 		<button
 			disabled={session.paletteLocked || palette.length <= 1 || session.colorValue === 0}
 			title="Remove selected color"
@@ -196,6 +203,7 @@
 		>
 			Replace
 		</button>
+	</ActionMenu>
 	</div>
 
 	{#if replaceOpen}
@@ -213,13 +221,6 @@
 			{#if replaceStatus}<p class="hint" aria-live="polite">{replaceStatus}</p>{/if}
 		</div>
 	{/if}
-	<div class="palette-io" role="group" aria-label="Palette files">
-		<button disabled={session.paletteLocked} onclick={importPalette}>Import</button>
-		<button onclick={() => exportPalette('gpl')}>Export GPL</button>
-		<button onclick={() => exportPalette('hex')}>Export HEX</button>
-		<button disabled={session.paletteLocked} onclick={() => session.createPaletteFromArtwork()}>From artwork</button>
-		<button aria-expanded={rangeOpen} aria-controls={rangeControlsId} onclick={() => (rangeOpen = !rangeOpen)}>Ramp / Sort</button>
-	</div>
 	{#if rangeOpen}
 		<div id={rangeControlsId} class="replace-options">
 			<label>Start<select bind:value={rangeStart}>{#each palette as hex, i}<option value={i}>{i + 1}: {hex}</option>{/each}</select></label>
@@ -262,19 +263,23 @@
 		letter-spacing: 0.14em;
 	}
 	.swatches {
+		max-height: 144px;
+		overflow-y: auto;
 		display: grid;
-		grid-template-columns: repeat(6, 22px);
+		grid-template-columns: repeat(auto-fit, minmax(24px, 1fr));
 		gap: 3px;
 		margin: 0.4rem 0;
 	}
-	.active-colors { display: flex; align-items: center; gap: .35rem; margin-top: .4rem; }
-	.active-color { width: 28px; height: 28px; border: 2px solid var(--ink); }
+	.active-colors { display: flex; align-items: center; gap: 2px; margin-right: 6px; }
+	.active-color { width: 24px; height: 24px; border: 2px solid var(--ink); }
 	.active-color.transparent { background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px; }
-	.active-color.background { margin-left: -14px; margin-top: 12px; }
+	.active-color.background { margin-left: -14px; margin-top: 6px; }
 	.active-colors button { margin-left: auto; }
 	.swatch {
-		width: 22px;
-		height: 22px;
+		width: 100%;
+		min-width: 24px;
+		min-height: 24px;
+		height: 24px;
 		padding: 0;
 		border: 1px solid var(--edge);
 		cursor: pointer;
@@ -298,7 +303,6 @@
 	.replace-options { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .5rem; border-top: 2px solid var(--ink); }
 	.replace-options label { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: .35rem; font-size: .75rem; }
 	.replace-options select { min-width: 0; }
-	.palette-io { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .5rem; }
 	.hint {
 		font-size: 0.75rem;
 		margin: 0 0 0.4rem;
@@ -312,7 +316,9 @@
 		pointer-events: none;
 	}
 	@media (pointer: coarse) {
-		.swatches { grid-template-columns: repeat(auto-fit, 44px); }
-		.swatch { width: 44px; }
+		.swatches {
+		max-height: 144px;
+		overflow-y: auto; grid-template-columns: repeat(auto-fit, 44px); }
+		.swatch { width: 44px; min-height: 44px; height: 44px; }
 	}
 </style>

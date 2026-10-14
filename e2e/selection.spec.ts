@@ -495,6 +495,7 @@ test('reselect availability updates and resets after canvas resize', async ({ pa
 	await page.keyboard.press('Escape');
 	await expect(reselect).toBeEnabled();
 
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('button', { name: '16×16' }).click();
 	await page.locator('dialog').getByRole('button', { name: 'Resize' }).click();

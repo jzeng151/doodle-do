@@ -478,19 +478,21 @@ export class LayerVisibilityCommand implements Command {
 
 export class LayerPropertyCommand implements Command {
 	readonly kind: string;
-	readonly byteSize = 64;
+	readonly byteSize: number;
 
 	constructor(
 		private readonly frameIndex: number,
 		private readonly layerIndex: number,
-		private readonly property: 'locked' | 'opacity',
-		private readonly before: boolean | number | undefined,
-		private readonly after: boolean | number | undefined
+		private readonly property: 'locked' | 'opacity' | 'name',
+		private readonly before: boolean | number | string | undefined,
+		private readonly after: boolean | number | string | undefined
 	) {
 		this.kind = `layer-${property}`;
+		this.byteSize = 64 + (typeof before === 'string' ? before.length * 2 : 0)
+			+ (typeof after === 'string' ? after.length * 2 : 0);
 	}
 
-	private set(doc: Doc, value: boolean | number | undefined): void {
+	private set(doc: Doc, value: boolean | number | string | undefined): void {
 		Object.assign(doc.frames[this.frameIndex].layers[this.layerIndex], { [this.property]: value });
 	}
 

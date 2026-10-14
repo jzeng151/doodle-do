@@ -50,12 +50,14 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await add.click();
 	await expect(colors).toHaveCount(17);
 	await expect(colors.last()).toHaveAttribute('aria-pressed', 'true');
+	await palette.getByRole('button', { name: 'Palette options' }).click();
 	await remove.click();
 	await expect(colors).toHaveCount(16);
 	await expect(hint).toHaveCount(0);
 
 	await colors.first().click();
 	await drawStroke(page);
+	await palette.getByRole('button', { name: 'Palette options' }).click();
 	await remove.click();
 	await expect(hint).toBeVisible();
 
@@ -66,6 +68,7 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 	await expect(colors.first()).toHaveAttribute('aria-label', 'Color #140c1c');
 
 	await colors.first().click();
+	await palette.getByRole('button', { name: 'Palette options' }).click();
 	await remove.click();
 	await colors.nth(1).click();
 	await expect(colors).toHaveCount(16);
@@ -76,12 +79,14 @@ test('palette removal deletes unused colors and isolates remap state', async ({ 
 test('palette changes reset replace-color endpoints', async ({ page }) => {
 	await gotoApp(page);
 	const palette = page.locator('.palette-panel');
+	await palette.getByRole('button', { name: 'Palette options' }).click();
 	await palette.getByRole('button', { name: 'Replace', exact: true }).click();
 	const from = palette.getByLabel('From');
 	const to = palette.getByLabel('To');
 	await from.selectOption('10');
 	await to.selectOption('11');
 	await palette.locator('.swatch:not(.eraser)').first().click();
+	await palette.getByRole('button', { name: 'Palette options' }).click();
 	await palette.getByRole('button', { name: 'Remove', exact: true }).click();
 	await expect(from).toHaveValue('1');
 	await expect(to).toHaveValue('2');
@@ -145,6 +150,7 @@ test('sprite sheet export downloads PNG + TexturePacker JSON + doodledo JSON', a
 
 	const downloads: string[] = [];
 	page.on('download', (d) => downloads.push(d.suggestedFilename()));
+	await page.getByRole('button', { name: 'Export', exact: true }).click();
 	await page.getByRole('button', { name: 'Export sheet' }).click();
 	await expect.poll(() => downloads.length, { timeout: 10000 }).toBe(3);
 	expect(downloads.some((n) => n.endsWith('.png'))).toBe(true);
@@ -156,6 +162,7 @@ test('GIF export produces a real GIF89a', async ({ page }) => {
 	await drawStroke(page);
 
 	const downloadPromise = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Export', exact: true }).click();
 	await page.getByRole('button', { name: 'Export GIF' }).click();
 	const download = await downloadPromise;
 	expect(download.suggestedFilename()).toMatch(/\.gif$/);
@@ -169,7 +176,7 @@ test('GIF export produces a real GIF89a', async ({ page }) => {
 
 test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	await gotoApp(page);
-	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	await page.getByRole('banner').getByRole('button', { name: 'Save project' }).focus();
 	await page.keyboard.press('e');
 	await expect(page.getByRole('button', { name: /Eraser/ })).toHaveAttribute('aria-pressed', 'false');
 
@@ -181,7 +188,7 @@ test('keyboard: tools and undo shortcuts', async ({ page }) => {
 	await expect(page.getByRole('button', { name: /Pencil/ })).toHaveAttribute('aria-pressed', 'true');
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press(' ');
-	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	await page.getByRole('banner').getByRole('button', { name: 'Save project' }).focus();
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(true);
 
 	await page.keyboard.press('Control+z');
@@ -199,7 +206,7 @@ test('swapping active colors finalizes a keyboard line preview', async ({ page }
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('x');
 	await page.keyboard.press('Control+z');
-	await page.getByRole('banner').getByRole('button', { name: 'New' }).focus();
+	await page.getByRole('banner').getByRole('button', { name: 'Save project' }).focus();
 	expect(await page.evaluate(canvasHasInk, 'canvas.editor')).toBe(false);
 });
 
@@ -273,6 +280,7 @@ test('mouse wheel zooms and middle-drag pans the canvas', async ({ page }) => {
 	await page.mouse.wheel(0, -100);
 	await expect(zoom).not.toHaveText(beforeZoom!);
 
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '64×64' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
@@ -398,6 +406,7 @@ test('public surfaces keep accessible names and selected-control contrast', asyn
 	await expect(pencil).toHaveCSS('background-color', 'rgb(233, 229, 217)');
 	await expect(pencil).toHaveCSS('color', 'rgb(17, 17, 17)');
 
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await expect(page.getByRole('dialog', { name: 'Resize canvas' })).toBeVisible();
 });
