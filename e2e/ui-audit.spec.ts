@@ -189,3 +189,19 @@ test('fork save shortcut suggests a separate filename', async ({ page }) => {
  await page.keyboard.press('Control+s');
  await expect.poll(() => page.evaluate(() => (window as typeof window & { suggestedName?: string }).suggestedName)).toBe('Untitled-fork.doodledo');
 });
+
+
+for (const [width, height] of [[16, 64], [64, 16]]) {
+ test(`keeps ${width}×${height} animation previews compact`, async ({ page }) => {
+  await page.goto('/canvas');
+  await page.getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('button', { name: 'New animation', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Width in pixels').fill(String(width));
+  await dialog.getByLabel('Height in pixels').fill(String(height));
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  expect((await page.locator('canvas.loop').boundingBox())!.height).toBeLessThanOrEqual(76);
+  expect((await page.locator('.strip-panel').boundingBox())!.height).toBeLessThan(200);
+  expect((await page.getByRole('region', { name: 'Canvas viewport' }).boundingBox())!.height).toBeGreaterThan(200);
+ });
+}

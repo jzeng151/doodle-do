@@ -11,6 +11,7 @@
 	let choosingFrames = $state(false);
 	let thumbEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	const fps = $derived((session.version, session.doc.meta.fps));
 	// thumbnail buffer size tracks the canvas dimensions across a resize
 	const thumbW = $derived((session.version, session.doc.meta.width));
 	const thumbH = $derived((session.version, session.doc.meta.height));
@@ -79,7 +80,7 @@
 				type="number"
 				min="1"
 				max="24"
-				value={(session.version, session.doc.meta.fps)}
+				value={fps}
 				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
 			/>
 		</label>
@@ -174,6 +175,8 @@
 		image-rendering: pixelated;
 		width: 48px;
 		height: auto;
+		max-height: 48px;
+		object-fit: contain;
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px;
 	}
 	.timing { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

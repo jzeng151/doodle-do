@@ -111,7 +111,9 @@
 	.loop {
 		image-rendering: pixelated;
 		width: 72px;
-		height: auto; /* keep the canvas aspect for non-square documents */
+		height: auto;
+		max-height: 72px;
+		object-fit: contain;
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 2px solid var(--edge);
 	}
