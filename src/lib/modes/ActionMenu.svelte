@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	let { label, buttonText = label, children }: { label: string; buttonText?: string; children: Snippet } = $props();
+	let { label, buttonText = label, closeOnAction = true, children }: { label: string; buttonText?: string; closeOnAction?: boolean; children: Snippet } = $props();
 	const id = $props.id();
 	let trigger: HTMLButtonElement;
 	let menu: HTMLDivElement;
@@ -19,7 +19,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions (Only native button clicks are delegated; the group adds no interaction.) -->
 <div bind:this={menu} {id} popover="auto" class="action-menu" role="group" aria-label={label}
 	onbeforetoggle={position} ontoggle={(e) => (expanded = e.newState === 'open')}
-	onclick={(e) => { if ((e.target as HTMLElement).closest('button:not(:disabled)')) menu.hidePopover(); }}
+	onclick={(e) => { if (closeOnAction && (e.target as HTMLElement).closest('button:not(:disabled)')) menu.hidePopover(); }}
 	onkeydown={(e) => { if (e.key === 'Escape') trigger.focus(); }}>
 	{@render children()}
 </div>

@@ -38,7 +38,7 @@ Canonical product copy lives in `src/lib/content/product.ts`. UI components impo
 
 Every public claim must be directly supported by shipped code or tests:
 
-- Three views—Focus, Grid, and Loop—share one editor session.
+- Focus, Grid, and Loop share one editor session. Compare keeps an independent fork or a loaded comparison alongside it.
 - Twenty-seven contextual tips fire from editing actions, never modally, one at a time, and can be dismissed forever.
 - Essentials, Full, and Custom drawing-toolbar layouts persist in the browser. Tool lessons remain separate from contextual tips.
 - Work autosaves locally to OPFS with IndexedDB fallback. A `.doodledo` file on disk is the durable user-owned copy.
@@ -72,7 +72,9 @@ The landing page reads as a chapter: masthead, hero panel, view table, teaching 
 
 The editor keeps the production information architecture: title bar, tool row, active workspace, side panels, and frame strip. New editors start with Essentials without a setup dialog. Full and Custom layouts remain in Toolbar settings. File and Export menus group document actions; palette and layer menus hold occasional operations. Hidden tools remain reachable through More tools, keyboard shortcuts, and Toolbar settings.
 
-At narrow widths, the canvas stays primary, the side rail moves below it, horizontal control groups scroll instead of disappearing, and tap targets remain at least 44px on coarse pointers.
+The tool row contains drawing tools and view controls; active tool options occupy a separate row. The timeline groups playback, FPS, per-frame duration overrides, onion skinning, and a compact live preview. Its scope note distinguishes current-frame actions from multi-frame painting. Loop keeps transport and filmstrip visible, with saved clip settings collapsed below preview controls.
+
+Compare shows real document names and save states, one inspector for the active A/B editor, optional linked zoom, and shared playback controls. Loading B protects unsaved comparison edits. On phones, A/B switches between editors; controls wrap, the canvas keeps usable height, and the inspector follows it. Tap targets remain at least 44px on coarse pointers.
 
 ## Shape and borders
 

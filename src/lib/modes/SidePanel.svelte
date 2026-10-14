@@ -3,7 +3,6 @@
 	// layers, and palette — all bound to the same session.
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import LayerPanel from './focus/LayerPanel.svelte';
-	import LoopPreview from './focus/LoopPreview.svelte';
 	import PalettePanel from './focus/PalettePanel.svelte';
 	import TilePreview from './focus/TilePreview.svelte';
 
@@ -13,7 +12,6 @@
 <aside>
 	<PalettePanel {session} />
 	<LayerPanel {session} />
-	<LoopPreview {session} />
 	{#if session.tiledDrawing}<TilePreview {session} />{/if}
 </aside>
 

@@ -16,6 +16,8 @@
 	let currentFrame = $state(0);
 	let forkFrame = $state(0);
 
+	const currentName = $derived((session.version, session.doc.meta.name));
+	const comparisonName = $derived((fork.version, fork.doc.meta.name));
 	const currentCount = $derived((session.version, session.doc.frames.length));
 	const currentScale = $derived((session.version, previewScale(session.doc)));
 	const currentWidth = $derived((session.version, session.doc.meta.width * currentScale));
@@ -66,6 +68,16 @@
 	function stop() {
 		currentPlayer.stop();
 		forkPlayer.stop();
+	}
+
+	function restartBoth() {
+		stop();
+		currentComplete = forkComplete = false;
+		currentPlayer.reset();
+		forkPlayer.reset();
+		seekStart(currentPlayer, session);
+		seekStart(forkPlayer, fork);
+		if (playing) start();
 	}
 
 	function togglePlay() {
@@ -146,10 +158,11 @@
 	<header class="compare-header">
 		<div>
 			<h2 id="compare-heading">Animation comparison</h2>
-			<p>Play both edited versions together before choosing your next move.</p>
+			<p>Both start together and keep their own frame timing.</p>
 		</div>
 		<div class="controls">
 			<button onclick={togglePlay}>{playing ? 'Pause both' : 'Play both'}</button>
+			<button onclick={restartBoth}>Restart both</button>
 			<label>
 				Speed
 				<select
@@ -178,7 +191,7 @@
 	<div class="split">
 		<figure>
 			<figcaption>
-				<strong>Current</strong>
+				<strong>A · {currentName}</strong>
 				<span>{currentFrame + 1} / {currentCount} · Live document</span>
 			</figcaption>
 			<div class="viewport">
@@ -195,8 +208,8 @@
 
 		<figure>
 			<figcaption>
-				<strong>Fork</strong>
-				<span>{forkFrame + 1} / {forkCount} · Fork edits</span>
+				<strong>B · {comparisonName}{session.comparisonFromFile ? '' : ' (fork)'}</strong>
+				<span>{forkFrame + 1} / {forkCount} · {session.comparisonFromFile ? 'Loaded comparison' : 'Fork edits'}</span>
 			</figcaption>
 			<div class="viewport">
 				<canvas

@@ -26,13 +26,19 @@ async function drawOn(page: Page, locator: ReturnType<Page['locator']>, from = 0
 	await page.mouse.up();
 }
 
+async function openClipSettings(page: Page) {
+	if (!(await page.locator('.saved-settings').evaluate((el: HTMLDetailsElement) => el.open)))
+		await page.getByText('Saved clip settings', { exact: true }).click();
+}
+
 const switcher = (page: Page) => page.getByRole('group', { name: 'Workspace mode' });
 
 test('Phase 3 gate: mode switches preserve document, frame, and zoom', async ({ page }) => {
 	await gotoApp(page);
 	await drawOn(page, page.locator('canvas.editor'));
 	await page.getByTitle('Zoom in').click();
-	await page.getByTitle('Zoom in').click(); // 12 → 16
+	await page.getByTitle('Zoom in').click();
+	const focusWidth = await page.locator('canvas.editor').getAttribute('width');
 	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
 
 	await switcher(page).getByRole('button', { name: 'Grid' }).click();
@@ -49,8 +55,8 @@ test('Phase 3 gate: mode switches preserve document, frame, and zoom', async ({ 
 	await expect(page.locator('.counter')).toBeVisible();
 
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
-	// zoom persisted: 32px doc at 16× = 512
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', '512');
+	// Zoom persists across the mode changes.
+	await expect(page.locator('canvas.editor')).toHaveAttribute('width', focusWidth!);
 	// frame selection persisted
 	await expect(
 		page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1)
@@ -142,14 +148,14 @@ test('selection shortcuts stay in editable selection views and target the fork p
 	await page.getByRole('group', { name: 'Editable frames' }).locator('canvas').first().focus();
 	await page.keyboard.press('Control+a');
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
-	await expect(page.getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+	await expect(page.getByRole('button', { name: 'Rotate selection left 15 degrees' })).toHaveCount(0);
 
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
 	const panes = page.locator('.editor-pane');
 	await panes.nth(1).getByRole('button', { name: 'Select', exact: true }).click();
 	await page.keyboard.press('Control+a');
 	await expect(panes.nth(1).getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeEnabled();
-	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toBeDisabled();
+	await expect(panes.first().getByRole('button', { name: 'Rotate selection left 15 degrees' })).toHaveCount(0);
 });
 
 test('comparison playback commits a pending layer move', async ({ page }) => {
@@ -170,6 +176,7 @@ test('comparison playback commits a pending layer move', async ({ page }) => {
 test('linked frame thumbnails retain a pending selection preview', async ({ page }) => {
 	await gotoApp(page);
 	await drawOn(page, page.locator('canvas.editor'), 0.25, 0.25);
+	await page.getByRole('button', { name: 'More frame actions' }).click();
 	await page.getByTitle('Duplicate with shared cel pixels').click();
 	await page.getByRole('button', { name: 'Select', exact: true }).click();
 	await page.getByRole('button', { name: 'All', exact: true }).click();
@@ -227,6 +234,7 @@ test('loop mode: scrubber, counter, and play/pause', async ({ page }) => {
 test('saving a renamed clip replaces the selected clip', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await openClipSettings(page);
 	const name = page.getByLabel('Name', { exact: true });
 	await name.fill('walk');
 	await page.getByRole('button', { name: 'Save clip' }).click();
@@ -242,6 +250,7 @@ test('saving a renamed clip replaces the selected clip', async ({ page }) => {
 test('editing a selected clip preserves its identity and integer range', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('walk');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.getByLabel('Loop range start').evaluate((input: HTMLInputElement) => {
@@ -264,7 +273,9 @@ test('reduced-motion reverse clips initialize at their end frame', async ({ page
 	await page.getByRole('group', { name: 'Frames' }).getByRole('button').nth(1).click();
 	await drawOn(page, page.locator('canvas.editor'));
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('reverse');
+	await openClipSettings(page);
 	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await switcher(page).getByRole('button', { name: 'Focus' }).click();
@@ -278,6 +289,7 @@ test('active clips follow frame structure changes', async ({ page }) => {
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range start').fill('2');
 	await page.getByLabel('Loop range end').fill('2');
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('idle');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.locator('.film-frame').first().click();
@@ -292,11 +304,14 @@ test('active clips follow frame structure changes', async ({ page }) => {
 test('comparison fork keeps its saved clip playback settings', async ({ page }) => {
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('walk');
+	await openClipSettings(page);
 	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('reverse');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
+	await openClipSettings(page);
 	await page.getByLabel('Animation tags').getByLabel('Direction').selectOption('forward');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
@@ -342,6 +357,7 @@ test('comparison fork starts with the active clip', async ({ page }) => {
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range start').fill('2');
 	await page.getByLabel('Loop range end').fill('2');
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('idle');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await switcher(page).getByRole('button', { name: 'Compare' }).click();
@@ -362,6 +378,7 @@ test('comparison playback preserves an unsaved current clip range', async ({ pag
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range end').fill('1');
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('idle');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.getByLabel('Loop range end').fill('2');
@@ -377,11 +394,13 @@ test('reused comparison forks follow the current clip selection', async ({ page 
 	await gotoApp(page);
 	await switcher(page).getByRole('button', { name: 'Loop' }).click();
 	await page.getByLabel('Loop range end').fill('1');
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('first');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.getByLabel('Clip').selectOption('');
 	await page.getByLabel('Loop range start').fill('2');
 	await page.getByLabel('Loop range end').fill('2');
+	await openClipSettings(page);
 	await page.getByLabel('Name', { exact: true }).fill('second');
 	await page.getByRole('button', { name: 'Save clip' }).click();
 	await page.getByLabel('Clip').selectOption('first');
@@ -445,19 +464,21 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 
 	await editors.nth(1).getByRole('button', { name: 'Duplicate', exact: true }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
-	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
+	await expect(editors.nth(1).getByText('3 frames · Not saved to disk')).toBeVisible();
 	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();
 	await expect(editors.nth(0).getByText('3 frames · Save/export target')).toBeVisible();
-	await expect(editors.nth(1).getByText('2 frames · Session only')).toBeVisible();
+	await expect(editors.nth(1).getByText('2 frames · Not saved to disk')).toBeVisible();
 	expect(await locatorHasInk(currentCanvas)).toBe(true);
 	expect(await locatorHasInk(forkCanvas)).toBe(false);
 	await editors.nth(0).getByRole('button', { name: 'Swap with fork' }).click();
 	await expect(editors.nth(0).getByText('2 frames · Save/export target')).toBeVisible();
-	await expect(editors.nth(1).getByText('3 frames · Session only')).toBeVisible();
+	await expect(editors.nth(1).getByText('3 frames · Not saved to disk')).toBeVisible();
 
+	await editors.nth(1).getByRole('button', { name: 'Export comparison' }).click();
 	for (const name of ['Save project', 'Export sheet', 'Export GIF', 'Export frames']) {
 		await expect(editors.nth(1).getByRole('button', { name })).toBeVisible();
 	}
+	await page.keyboard.press('Escape');
 	await page.evaluate(() => {
 		const target = window as typeof window & { savedForkName?: string };
 		Object.defineProperty(window, 'showSaveFilePicker', {
@@ -495,7 +516,7 @@ test('compare mode edits an independent fork and opens playback comparison', asy
 
 	await page.getByRole('button', { name: 'Edit side by side' }).click();
 	await expect(page.locator('.editor-pane')).toHaveCount(2);
-	await expect(page.getByText('3 frames · Session only')).toBeVisible();
+	await expect(page.getByText('3 frames · Project saved')).toBeVisible();
 });
 
 test('B5: a floating selection commits on mode switch', async ({ page }) => {

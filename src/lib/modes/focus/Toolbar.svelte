@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ActionMenu from '../ActionMenu.svelte';
 	import { onMount } from 'svelte';
 	import { SELECT_TOOLS, type EditorSession, type Tool } from '$lib/editor/session.svelte';
 	import {
@@ -49,7 +50,6 @@
 	const mirrorDrawingTools: Tool[] = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'];
 	const supportsDrawingMirror = $derived(mirrorDrawingTools.includes(session.tool));
 	const supportsSelectionMirror = $derived(SELECT_TOOLS.includes(session.tool));
-	const clampOnionRange = (value: number) => Math.max(1, Math.min(8, Math.round(value) || 1));
 
 	function zoomOut() {
 		if (session.mode === 'grid') {
@@ -119,10 +119,12 @@
 
 	{#if groupVisible('canvas-view')}
 	<div class="group" role="group" aria-label="Canvas view">
+		<ActionMenu label="Canvas options" buttonText="View">
 		<button aria-pressed={session.showGrid} class:active={session.showGrid} onclick={() => (session.showGrid = !session.showGrid)}>
 			Grid
 		</button>
 		<button aria-pressed={session.tiledDrawing} class:active={session.tiledDrawing} title="Wrap drawing at canvas edges and show a repeat preview" onclick={() => { session.lineEnd(); session.shapeEnd(); session.tiledDrawing = !session.tiledDrawing; }}>Tile</button>
+		</ActionMenu>
 		<button aria-label="Zoom out" title="Zoom out" onclick={zoomOut}>−</button>
 		<span class="zoom">{zoomLabel}</span>
 		<button aria-label="Zoom in" title="Zoom in" onclick={zoomIn}>+</button>
@@ -150,6 +152,23 @@
 	{#if hiddenTools.length}
 		<div class="group"><button popovertarget={moreToolsId}>More tools</button></div>
 	{/if}
+	<div class="group">
+		<ToolbarSettings
+			bind:this={toolbarSettings}
+			layout={preferences.layout}
+			{customGroups}
+			{customTools}
+			toolOrder={preferences.toolOrder}
+			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
+			onCustomGroupsChange={setCustomGroups}
+			onCustomToolsChange={setCustomTools}
+			onToolOrderChange={setToolOrder}
+			onReset={resetToolbar}
+			{onOpenToolLessons}
+		/>
+	</div>
+	</div>
+	<div class="context-controls" role="group" aria-label="Active tool options">
 	{#if groupVisible('selection') && SELECT_TOOLS.includes(session.tool)}
 		<div class="group" role="group" aria-label="Selection mode">
 			{#each ['replace', 'add', 'subtract', 'intersect'] as mode}
@@ -179,6 +198,7 @@
 
 	{#if groupVisible('tool-options')}
 	<div class="group" role="group" aria-label="Brush settings">
+		{#if supportsDrawingMirror}
 		<label>
 			Size
 			<select bind:value={session.brushSize} onchange={() => { session.lineEnd(); session.shapeEnd(); }}>
@@ -187,6 +207,7 @@
 				{/each}
 			</select>
 		</label>
+		{/if}
 		{#if supportsDrawingMirror || supportsSelectionMirror}
 			<button
 				class:active={session.mirrorX}
@@ -259,6 +280,7 @@
 		<button title="Flip layer vertically" onclick={() => session.flip('vertical')}>Flip V</button>
 	</div>
 
+	{#if session.hasSelection}
 	<div class="group" role="group" aria-label="Rotate selection">
 		<button aria-label="Turn selection left 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation left" onclick={() => session.rotateSelectionQuarter(-1)}>↶90°</button>
 		<button aria-label="Turn selection right 90 degrees" disabled={!session.hasSelection} title="Snap to the next 90-degree orientation right" onclick={() => session.rotateSelectionQuarter(1)}>↷90°</button>
@@ -280,65 +302,8 @@
 		</button>
 	</div>
 	{/if}
-
-	{#if groupVisible('onion-skin')}
-	<div class="group onion" role="group" aria-label="Onion skin">
-		<button
-			class:active={session.onionEnabled}
-			aria-pressed={session.onionEnabled}
-			title="Onion skin: previous frame red, next frame green"
-			onclick={() => session.toggleOnion()}
-		>
-			Onion
-		</button>
-		<input
-			type="range"
-			min="0.1"
-			max="0.8"
-			step="0.05"
-			bind:value={session.onionOpacity}
-			disabled={!session.onionEnabled}
-			title="Onion skin opacity"
-			aria-label="Onion skin opacity"
-		/>
-		<button
-			class:active={session.onionPreviousEnabled}
-			aria-pressed={session.onionPreviousEnabled}
-			disabled={!session.onionEnabled}
-			title="Show the previous frame onion skin"
-			onclick={() => (session.onionPreviousEnabled = !session.onionPreviousEnabled)}
-		>
-			<i class="onion-swatch previous" aria-hidden="true"></i>Previous
-		</button>
-		<label title="Number of previous frames"><span class="sr-only">Previous onion frames</span><input type="number" min="1" max="8" bind:value={() => session.onionPreviousRange, (value) => (session.onionPreviousRange = clampOnionRange(value))} disabled={!session.onionEnabled || !session.onionPreviousEnabled} /></label>
-		<button
-			class:active={session.onionNextEnabled}
-			aria-pressed={session.onionNextEnabled}
-			disabled={!session.onionEnabled}
-			title="Show the next frame onion skin"
-			onclick={() => (session.onionNextEnabled = !session.onionNextEnabled)}
-		>
-			<i class="onion-swatch next" aria-hidden="true"></i>Next
-		</button>
-		<label title="Number of next frames"><span class="sr-only">Next onion frames</span><input type="number" min="1" max="8" bind:value={() => session.onionNextRange, (value) => (session.onionNextRange = clampOnionRange(value))} disabled={!session.onionEnabled || !session.onionNextEnabled} /></label>
-	</div>
 	{/if}
 
-	<div class="group">
-		<ToolbarSettings
-			bind:this={toolbarSettings}
-			layout={preferences.layout}
-			{customGroups}
-			{customTools}
-			toolOrder={preferences.toolOrder}
-			onLayoutChange={(layout) => toolbarPreferences.setLayout(layout)}
-			onCustomGroupsChange={setCustomGroups}
-			onCustomToolsChange={setCustomTools}
-			onToolOrderChange={setToolOrder}
-			onReset={resetToolbar}
-			{onOpenToolLessons}
-		/>
-	</div>
 	</div>
 </div>
 <section bind:this={moreToolsEl} id={moreToolsId} class="more-tools" popover="auto" aria-label="More drawing tools">
@@ -362,7 +327,7 @@
 		align-items: center;
 		flex-shrink: 0;
 	}
-	.quick-controls, .tool-controls {
+	.quick-controls, .tool-controls, .context-controls {
 		display: flex;
 		align-items: center;
 		gap: .25rem;
@@ -372,11 +337,16 @@
 		position: relative;
 		flex: 1 1 18rem;
 		min-width: 0;
-		overflow-x: auto;
+		flex-wrap: wrap;
 	}
+	.context-controls { width: 100%; flex-wrap: wrap; border-top: 1px solid var(--gray); padding-top: 4px; }
+	.context-controls:empty { display: none; }
+	.tool-controls :global([aria-label="Tools"]) { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
 	.group {
 		display: flex;
 		flex: none;
+		max-width: 100%;
+		flex-wrap: wrap;
 		gap: 2px;
 		align-items: center;
 	}
@@ -395,14 +365,6 @@
 		align-items: center;
 	}
 	label input[type='number'] { width: 4rem; }
-	.onion input {
-		width: 72px;
-		accent-color: var(--ink);
-	}
-	.onion input[type='number'] { width: 3.25rem; }
-	.onion-swatch { display: inline-block; width: .65rem; height: .65rem; margin-right: .3rem; vertical-align: -.05rem; }
-	.onion-swatch.previous { background: color-mix(in srgb, var(--onion-prev) 55%, var(--paper)); }
-	.onion-swatch.next { background: var(--onion-next); }
 	.more-tools {
 		display: none;
 		max-width: min(30rem, calc(100vw - 1rem));
@@ -414,7 +376,6 @@
 		color: var(--ink);
 	}
 	.more-tools:popover-open { display: flex; flex-wrap: wrap; gap: 4px; }
-	.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 	@media (max-width: 720px) {
 		.toolbar { flex: none; }
 	}

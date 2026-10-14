@@ -1,12 +1,17 @@
 <script lang="ts">
+	import LoopPreview from './LoopPreview.svelte';
+	import OnionControls from './OnionControls.svelte';
+	import ActionMenu from '../ActionMenu.svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { floatingFrameCanvas } from '../canvas';
 
 	// thumbs=false renders only the action row (grid mode shows the frames itself)
 	let { session, thumbs = true }: { session: EditorSession; thumbs?: boolean } = $props();
 
+	let choosingFrames = $state(false);
 	let thumbEls: (HTMLCanvasElement | undefined)[] = $state([]);
 	const frameCount = $derived((session.version, session.doc.frames.length));
+	const fps = $derived((session.version, session.doc.meta.fps));
 	// thumbnail buffer size tracks the canvas dimensions across a resize
 	const thumbW = $derived((session.version, session.doc.meta.width));
 	const thumbH = $derived((session.version, session.doc.meta.height));
@@ -42,6 +47,8 @@
 </script>
 
 <section class="strip-panel">
+	<div class="thumb-area">
+	<LoopPreview {session} />
 	{#if thumbs}
 		<div class="strip" role="group" aria-label="Frames">
 			{#each { length: frameCount } as _, i (i)}
@@ -53,7 +60,7 @@
 					title="Click: select. Ctrl-click: bulk-edit set. Shift-click: range."
 					onclick={(e) => {
 						if (e.shiftKey) session.selectBulkRange(i);
-						else if (e.ctrlKey || e.metaKey) session.toggleBulkFrame(i);
+						else if (choosingFrames || e.ctrlKey || e.metaKey) session.toggleBulkFrame(i);
 						else session.selectFrame(i);
 					}}
 				>
@@ -63,13 +70,40 @@
 			{/each}
 		</div>
 	{/if}
+	</div>
+	<div class="timing" role="group" aria-label="Animation timing">
+		<button onclick={() => (session.previewPaused = !session.previewPaused)}>{session.previewPaused ? 'Play' : 'Pause'}</button>
+
+		<label>
+			FPS
+			<input
+				type="number"
+				min="1"
+				max="24"
+				value={fps}
+				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
+			/>
+		</label>
+		<label title="Overrides FPS for this frame only; leave blank to use FPS">
+			Frame {session.currentFrame + 1} ms
+			<input
+				type="number"
+				aria-label="Frame duration in milliseconds"
+				min="20"
+				step="10"
+				placeholder={String(defaultDurationMs)}
+				value={frameDuration}
+				onchange={durationInput}
+			/>
+		</label>
+		<span class="duration-help">Blank uses FPS</span>
+		<OnionControls {session} />
+	</div>
 	<div class="actions">
 		<button title="Add blank frame" onclick={() => session.addFrame(false)}>Add frame</button>
 		<button title="Duplicate the frame, then nudge pixels for smoother motion" onclick={() => session.addFrame(true)}>
 			Duplicate
 		</button>
-		<button title="Duplicate with shared cel pixels" onclick={() => session.addLinkedFrame()}>Linked duplicate</button>
-		<button disabled={!currentFrameLinked} title="Make this frame independent" onclick={() => session.unlinkCurrentFrame()}>Unlink</button>
 		<button
 			title="Delete frame"
 			disabled={frameCount <= 1}
@@ -77,6 +111,9 @@
 		>
 			Delete
 		</button>
+		<ActionMenu label="More frame actions" buttonText="More">
+		<button title="Duplicate with shared cel pixels" onclick={() => session.addLinkedFrame()}>Linked duplicate</button>
+		<button disabled={!currentFrameLinked} title="Make this frame independent" onclick={() => session.unlinkCurrentFrame()}>Unlink</button>
 		<button aria-label="Move frame earlier" title="Move frame earlier" disabled={session.currentFrame === 0} onclick={() => session.moveFrame(-1)}>
 			←
 		</button>
@@ -88,28 +125,10 @@
 		>
 			→
 		</button>
-		<label>
-			FPS
-			<input
-				type="number"
-				min="1"
-				max="24"
-				value={session.doc.meta.fps}
-				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
-			/>
-		</label>
-		<label title="Per-frame duration; blank uses the global FPS">
-			ms
-			<input
-				type="number"
-				aria-label="Frame duration in milliseconds"
-				min="20"
-				step="10"
-				placeholder={String(defaultDurationMs)}
-				value={frameDuration}
-				onchange={durationInput}
-			/>
-		</label>
+		</ActionMenu>
+		{#if thumbs}<button aria-pressed={choosingFrames} onclick={() => (choosingFrames = !choosingFrames)}>Choose frames</button>{/if}
+		<span class="scope">Frame actions affect frame {session.currentFrame + 1} only.{session.bulkFrames.length ? ` Paint and transforms affect ${session.bulkFrames.length} selected frames.` : ''}</span>
+		{#if session.bulkFrames.length}<button onclick={() => (session.bulkFrames = [])}>Clear frame selection</button>{/if}
 	</div>
 </section>
 
@@ -122,7 +141,11 @@
 		border-top: 4px solid var(--edge);
 		background: var(--paper);
 	}
+	.thumb-area { display: flex; gap: 8px; min-width: 0; }
+	.thumb-area :global(.loop-panel) { flex: none; width: 184px; }
 	.strip {
+		min-width: 0;
+		align-items: flex-start;
 		display: flex;
 		gap: 6px;
 		overflow-x: auto;
@@ -152,21 +175,20 @@
 		image-rendering: pixelated;
 		width: 48px;
 		height: auto;
+		max-height: 48px;
+		object-fit: contain;
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px;
 	}
+	.timing { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+	.timing label { display: flex; align-items: center; gap: 4px; }
+	.duration-help, .scope { color: var(--gray); font-size: .6875rem; }
 	.actions {
 		display: flex;
-		overflow-x: auto;
+		flex-wrap: wrap;
 		gap: 4px;
 		align-items: center;
 	}
 	.actions button { white-space: nowrap; flex-shrink: 0; }
-	.actions label {
-		margin-left: auto;
-		display: flex;
-		gap: 0.35em;
-		align-items: center;
-	}
 	input[type='number'] {
 		width: 4.5em;
 	}

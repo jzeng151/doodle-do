@@ -130,7 +130,10 @@ export class EditorSession {
 	loopRepeatCount = $state(0);
 	activeAnimationTagName = $state('');
 	showPreviewBackground = $state(true);
+	previewPaused = $state(false);
 	comparisonSession: EditorSession | null = null;
+	comparisonActiveSide = $state<'current' | 'fork'>('current');
+	comparisonFromFile = $state(false);
 	comparisonVersion = $state(0);
 	// bulk edit set: frame indices mutations fan out to; empty = just the
 	// current frame. Sorted, and always includes currentFrame when non-empty.
@@ -299,7 +302,7 @@ export class EditorSession {
 		if (mode !== 'focus' && mode !== 'compare' && SELECT_TOOLS.includes(this.tool)) this.tool = 'pencil';
 		if (mode === 'compare') {
 			if (!this.comparisonSession) this.resetComparisonFork();
-			else {
+			else if (!this.comparisonFromFile) {
 				const name = this.activeAnimationTagName;
 				this.comparisonSession.selectAnimationTag(
 					name && this.comparisonSession.doc.meta.tags?.some((tag) => tag.name === name) ? name : ''
@@ -309,6 +312,14 @@ export class EditorSession {
 		this.mode = mode;
 		if (mode === 'loop') tips.fire('T21'); // playback range
 		if (mode === 'compare') tips.fire('T27'); // independent editable fork
+	}
+
+	loadComparison(doc: Doc): void {
+		this.comparisonSession = new EditorSession(doc);
+		this.comparisonSession.mode = 'compare';
+		this.comparisonFromFile = true;
+		this.comparisonActiveSide = 'fork';
+		this.comparisonVersion++;
 	}
 
 	resetComparisonFork(): void {
@@ -327,6 +338,7 @@ export class EditorSession {
 		fork.mirrorAxisX = this.mirrorAxisX;
 		fork.mirrorAxisY = this.mirrorAxisY;
 		this.comparisonSession = fork;
+		this.comparisonFromFile = false;
 		this.comparisonVersion++;
 	}
 

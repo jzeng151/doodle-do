@@ -19,7 +19,7 @@ async function draw(page: Page) {
 test('resize changes an existing canvas via a preset', async ({ page }) => {
 	await gotoApp(page);
 	// default doc is 32×32
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(32 * ZOOM));
+	await expect(page.getByRole('group', { name: 'Canvas size and scale' })).toContainText('32 × 32 px');
 	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '48×48' }).click();
@@ -158,7 +158,7 @@ test('New warns before discarding unsaved work, but not on a clean doc', async (
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	await expect(page.getByText("aren't saved to disk")).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel' }).click();
-	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(32 * ZOOM));
+	await expect(page.getByRole('group', { name: 'Canvas size and scale' })).toContainText('32 × 32 px');
 
 	// confirming discards and opens the size picker → a fresh 16×16 doc
 	await page.getByRole('button', { name: 'File', exact: true }).click();

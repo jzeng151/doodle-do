@@ -2,6 +2,8 @@
 	// Reusable confirm. open(message) resolves true on confirm, false on cancel
 	// or Escape. In-app <dialog> (not native confirm) so it stays stylable and
 	// Playwright-drivable, per the project's testability stance.
+	const titleId = $props.id();
+	const messageId = `${titleId}-message`;
 	let dialogEl: HTMLDialogElement;
 	let message = $state('');
 	let resolver: ((ok: boolean) => void) | null = null;
@@ -22,9 +24,9 @@
 	}
 </script>
 
-<dialog bind:this={dialogEl} aria-labelledby="confirm-title" aria-describedby="confirm-message" oncancel={(event) => { event.preventDefault(); decide(false); }} onclose={() => { if (!dialogEl.open) decide(false); }}>
-	<h2 id="confirm-title">Discard changes?</h2>
-	<p id="confirm-message">{message}</p>
+<dialog bind:this={dialogEl} aria-labelledby={titleId} aria-describedby={messageId} oncancel={(event) => { event.preventDefault(); decide(false); }} onclose={() => { if (!dialogEl.open) decide(false); }}>
+	<h2 id={titleId}>Discard changes?</h2>
+	<p id={messageId}>{message}</p>
 	<div class="row">
 		<button class="danger" onclick={() => decide(true)}>Discard and continue</button>
 		<button onclick={() => decide(false)}>Cancel</button>

@@ -155,7 +155,8 @@
 		if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
 		event.preventDefault();
 		const target = event.target as HTMLElement;
-		const editor = session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
+		const branch = target.closest('[data-editor-branch]')?.getAttribute('data-editor-branch') ?? session.comparisonActiveSide;
+		const editor = session.mode === 'compare' && branch === 'fork'
 			? session.comparisonSession ?? session : session;
 		if (target.matches('input, select, textarea')) target.blur();
 		void saveClick(editor);
@@ -176,7 +177,7 @@
 
 <svelte:window onkeydown={saveShortcut} />
 
-<header class="bar">
+<header class="bar" data-editor-branch="current">
 	<a class="home" href="/" aria-label="Doodle-Do home">
 		<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
 	</a>
