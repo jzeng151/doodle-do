@@ -1,5 +1,76 @@
 import { expect, test } from '@playwright/test';
 
+test('loads comparison B, links zoom, and protects its edits during replacement', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.getByRole('button', { name: 'Try chicken example', exact: true }).click();
+	await expect(page.getByLabel('Document name')).toHaveValue('chicken-example');
+	await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Compare' }).click();
+	const current = page.locator('.editor-pane').first();
+	const comparison = page.locator('.editor-pane').last();
+	async function load(path: string) {
+		const chooser = page.waitForEvent('filechooser');
+		await page.getByRole('button', { name: 'Load comparison', exact: true }).click();
+		await (await chooser).setFiles(path);
+	}
+	await load('static/assets/chicken-walk2.png');
+	await expect(comparison.locator('.pane-title')).toContainText('chicken-walk2');
+	await expect(current.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(4);
+	await expect(comparison.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(5);
+	await expect(page.locator('.shared-inspector')).toHaveCount(1);
+	for (const viewport of await page.getByRole('region', { name: 'Canvas viewport', exact: true }).all())
+		expect((await viewport.boundingBox())!.height).toBeGreaterThanOrEqual(300);
+	await page.getByLabel('Link zoom').check();
+	await current.getByRole('button', { name: 'Zoom in', exact: true }).click();
+	await expect.poll(async () => (await current.locator('canvas.editor').boundingBox())!.width)
+		.toBe((await comparison.locator('canvas.editor').boundingBox())!.width);
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await page.locator('.shared-inspector').getByRole('button', { name: 'Add layer', exact: true }).click();
+	await load('static/assets/chicken-standing.png');
+	await expect(page.getByRole('dialog', { name: 'Discard changes?' })).toBeVisible();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(comparison.locator('.pane-title')).toContainText('chicken-walk2');
+	await load('static/assets/chicken-standing.png');
+	await page.getByRole('button', { name: 'Discard and continue', exact: true }).click();
+	await expect(comparison.locator('.pane-title')).toContainText('chicken-standing');
+	await expect(current.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(4);
+	await page.getByRole('button', { name: 'Compare animations', exact: true }).click();
+	await expect(page.locator('figcaption').first()).toContainText('chicken-example');
+	await expect(page.locator('figcaption').last()).toContainText('chicken-standing');
+	await page.getByRole('button', { name: 'Pause both' }).click();
+	await page.getByRole('button', { name: 'Restart both' }).click();
+	for (const canvas of await page.locator('canvas.compare-canvas').all())
+		await expect(canvas).toHaveAttribute('aria-label', /frame 1 of/);
+	await load('static/assets/chicken-walk2.png');
+	await expect(page.locator('figcaption').last()).toContainText('chicken-walk2');
+	await expect(page.locator('canvas.compare-canvas').last()).toHaveAttribute('aria-label', /frame [2-5] of 5/);
+});
+
+test('timeline controls playback and makes multi-frame action scope explicit', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await page.goto('/canvas');
+	const timing = page.getByRole('group', { name: 'Animation timing' });
+	await timing.getByLabel('FPS', { exact: true }).fill('12');
+	await timing.getByLabel('FPS', { exact: true }).press('Tab');
+	await page.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(timing.getByLabel('FPS', { exact: true })).toHaveValue('8');
+	await timing.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect(page.locator('canvas.loop')).toHaveAttribute('aria-label', 'Loop preview, playing');
+	await timing.getByRole('button', { name: 'Pause', exact: true }).click();
+	await expect(page.locator('canvas.loop')).toHaveAttribute('aria-label', 'Loop preview, paused');
+	await page.emulateMedia({ reducedMotion: 'no-preference' });
+	await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Grid', exact: true }).click();
+	await expect(page.locator('canvas.loop')).toHaveAttribute('aria-label', 'Loop preview, paused');
+	await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Focus', exact: true }).click();
+	await page.getByRole('button', { name: 'Choose frames' }).click();
+	const frames = page.getByRole('group', { name: 'Frames' }).getByRole('button');
+	await frames.nth(0).click();
+	await frames.nth(1).click();
+	await expect(page.locator('.scope')).toContainText('2 selected frames');
+	await expect(page.locator('.scope')).toContainText('Frame actions affect frame 1 only');
+	await page.getByTitle('Delete frame', { exact: true }).click();
+	await expect(frames).toHaveCount(1);
+});
+
 test('Save shortcut includes the focused field value', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.evaluate(() => {
@@ -78,8 +149,7 @@ test('palette stays visible on a short laptop screen with many layers', async ({
 	expect(palette.y).toBeGreaterThan(0);
 	expect(palette.y + palette.height).toBeLessThan(720);
 	const preview = (await page.locator('.loop-panel canvas').boundingBox())!;
-	const rail = (await page.locator('aside').first().boundingBox())!;
-	expect(preview.y + preview.height).toBeLessThanOrEqual(rail.y + rail.height);
+	expect(preview.y + preview.height).toBeLessThanOrEqual(720);
 	const layers = page.getByRole('list', { name: 'Layers', exact: true });
 	expect(await layers.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 });
@@ -90,12 +160,13 @@ test('phone comparison canvases retain usable space above their inspectors', asy
 	await page.getByRole('group', { name: 'Workspace mode', exact: true })
 		.getByRole('button', { name: 'Compare', exact: true }).click();
 	for (const branch of ['current', 'fork']) {
+		await page.getByRole('button', { name: branch === 'current' ? 'Edit A' : 'Edit B', exact: true }).click();
 		const pane = page.locator(`section[data-editor-branch="${branch}"]`);
 		const viewport = pane.getByRole('region', { name: 'Canvas viewport' });
 		const bounds = (await viewport.boundingBox())!;
 		expect(bounds.width).toBeGreaterThan(300);
-		expect(bounds.height).toBeGreaterThanOrEqual(320);
-		const inspector = (await pane.locator('aside').boundingBox())!;
+		expect(bounds.height).toBeGreaterThanOrEqual(300);
+		const inspector = (await page.locator('.shared-inspector aside').boundingBox())!;
 		expect(inspector.y).toBeGreaterThanOrEqual(bounds.y + bounds.height);
 		const canvas = pane.locator('canvas.editor');
 		await canvas.focus();

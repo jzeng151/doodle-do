@@ -47,7 +47,7 @@ test('merge down flattens two layers as one undo step', async ({ page }) => {
 test('send layer to frame copies it onto the target frame', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
-	await page.getByRole('button', { name: 'Onion' }).click(); // onion ghosts would read as opaque pixels
+	await page.getByRole('button', { name: 'Onion', exact: true }).click(); // onion ghosts would read as opaque pixels
 
 	await drawDot(page, 8, 8); // frame 1, layer 1
 

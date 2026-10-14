@@ -29,7 +29,7 @@
 		const target = e.target as HTMLElement;
 		if (target.closest('input, select, textarea, [contenteditable="true"]')) return;
 		const editingSession =
-			session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
+			session.mode === 'compare' && (target.closest('[data-editor-branch]')?.getAttribute('data-editor-branch') ?? session.comparisonActiveSide) === 'fork'
 				? (session.comparisonSession ?? session)
 				: session;
 		const selectionView = session.mode === 'focus' || (session.mode === 'compare' && !!target.closest('#fork-editors'));
@@ -172,9 +172,7 @@
 		{:else if session.mode === 'loop'}
 			<LoopView {session} />
 		{:else}
-			{#key session.comparisonVersion}
-				<CompareView {session} />
-			{/key}
+			<CompareView {session} />
 		{/if}
 		<ToolLessons bind:this={toolLessons} {session} />
 		<TipToast />
@@ -223,5 +221,6 @@
 	}
 	@media (max-width: 860px) {
 		.workspace { overflow: auto; }
+		.editor-content { flex: none; }
 	}
 </style>

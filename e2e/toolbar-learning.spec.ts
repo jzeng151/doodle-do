@@ -120,8 +120,8 @@ test('resets selection mode in both Compare panes when either chooses Essentials
 	);
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 
-	const currentPane = page.locator('[data-editor-branch="current"]');
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const currentPane = page.locator('section[data-editor-branch="current"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	for (const [pane, mode] of [[currentPane, 'Subtract'], [forkPane, 'Intersect']] as const) {
 		await pane.getByRole('button', { name: 'Select', exact: true }).click();
 		const controls = pane.getByRole('group', { name: 'Selection mode' });
@@ -322,9 +322,10 @@ test('resyncs a reused Compare fork before activating a context-sensitive lesson
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	await forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '1', exact: true }).click();
-	await forkPane.getByRole('button', { name: 'Transparent', exact: true }).click();
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await page.locator('.shared-inspector').getByRole('button', { name: 'Transparent', exact: true }).click();
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Move', exact: true }).click();
@@ -332,10 +333,13 @@ test('resyncs a reused Compare fork before activating a context-sensitive lesson
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	await expect(forkPane.getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	await expect(forkPane.getByRole('button', { name: 'Transparent', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await expect(page.locator('.shared-inspector').getByRole('button', { name: 'Layer 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await expect(page.locator('.shared-inspector').getByRole('button', { name: 'Transparent', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
 	const forkEditor = forkPane.locator('canvas.editor');
+	await forkEditor.scrollIntoViewIfNeeded();
 	const forkBox = (await forkEditor.boundingBox())!;
 	await page.mouse.move(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
 	await page.mouse.down();
@@ -351,11 +355,13 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const currentPane = page.locator('[data-editor-branch="current"]');
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const currentPane = page.locator('section[data-editor-branch="current"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	const forkEditor = forkPane.locator('canvas.editor');
-	const forkBox = (await forkEditor.boundingBox())!;
 	await forkPane.getByRole('button', { name: 'Eraser', exact: true }).click();
+	await forkEditor.scrollIntoViewIfNeeded();
+	await forkEditor.scrollIntoViewIfNeeded();
+	const forkBox = (await forkEditor.boundingBox())!;
 	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
 
@@ -365,6 +371,7 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 	await expect(currentPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'false');
 	const currentEditor = currentPane.locator('canvas.editor');
+	await currentEditor.scrollIntoViewIfNeeded();
 	const currentBox = (await currentEditor.boundingBox())!;
 	await page.mouse.move(currentBox.x + currentBox.width * 0.4, currentBox.y + currentBox.height * 0.4);
 	await page.mouse.down();
@@ -373,7 +380,8 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 	await expect(page.getByText('Done. You used Move.')).toBeVisible();
 	await page.locator('.coach').getByRole('button', { name: 'Close' }).click();
 
-	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await page.locator('.shared-inspector').getByRole('button', { name: 'Lock Layer 1' }).click();
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
 	await page.getByRole('button', { name: 'Line', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
@@ -397,8 +405,8 @@ test('revalidates a subscribed fork lesson after frame and lock changes', async 
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 
-	const currentPane = page.locator('[data-editor-branch="current"]');
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const currentPane = page.locator('section[data-editor-branch="current"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	const forkFrames = forkPane.getByRole('group', { name: 'Frames' });
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await forkFrames.getByRole('button', { name: '2', exact: true }).click();
@@ -407,11 +415,13 @@ test('revalidates a subscribed fork lesson after frame and lock changes', async 
 	await expect(page.getByText('Drag the active layer to a new position.')).toBeVisible();
 	await forkFrames.getByRole('button', { name: '1', exact: true }).click();
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
-	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await page.locator('.shared-inspector').getByRole('button', { name: 'Lock Layer 1' }).click();
 	await expect(forkPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'false');
 	await expect(currentPane.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
 	const currentEditor = currentPane.locator('canvas.editor');
+	await currentEditor.scrollIntoViewIfNeeded();
 	const currentBox = (await currentEditor.boundingBox())!;
 	await page.mouse.move(currentBox.x + currentBox.width * 0.4, currentBox.y + currentBox.height * 0.4);
 	await page.mouse.down();
@@ -430,9 +440,10 @@ test('completes a fork Eraser lesson when the action removes its last pixel', as
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	await expect(forkPane.getByRole('button', { name: 'Eraser', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	const forkEditor = forkPane.locator('canvas.editor');
+	await forkEditor.scrollIntoViewIfNeeded();
 	const forkBox = (await forkEditor.boundingBox())!;
 	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
 	await expect(page.getByText('Done. You used Eraser.')).toBeVisible();
@@ -480,16 +491,17 @@ test('keeps active Stamp lesson data through Compare creation, reset, and swap',
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name: 'Reset fork' }).click();
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await page.getByRole('button', { name: 'Swap with fork' }).click();
-	await expect(page.locator('[data-editor-branch="current"]').getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.locator('section[data-editor-branch="current"]').getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
 	const forkEditor = forkPane.locator('canvas.editor');
+	await forkEditor.scrollIntoViewIfNeeded();
 	const forkBox = (await forkEditor.boundingBox())!;
 	await forkEditor.click({ position: { x: forkBox.width * 0.7, y: forkBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();
@@ -524,8 +536,9 @@ test('closes a paint lesson when Apply as current locks its layer', async ({ pag
 	await openFreshEditor(page);
 	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
-	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+	await page.locator('.shared-inspector').getByRole('button', { name: 'Lock Layer 1' }).click();
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
 	await page.getByRole('button', { name: 'Line', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
@@ -547,9 +560,10 @@ test('closes a Move lesson when Apply as current makes its layer blank', async (
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	await forkPane.getByRole('button', { name: 'Eraser', exact: true }).click();
 	const forkEditor = forkPane.locator('canvas.editor');
+	await forkEditor.scrollIntoViewIfNeeded();
 	const forkBox = (await forkEditor.boundingBox())!;
 	await page.mouse.click(forkBox.x + forkBox.width * 0.4, forkBox.y + forkBox.height * 0.4);
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
@@ -585,16 +599,18 @@ test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page 
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
-	const forkPane = page.locator('[data-editor-branch="fork"]');
+	const forkPane = page.locator('section[data-editor-branch="fork"]');
 	await expect(forkPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveCount(0);
 	const forkEditor = forkPane.locator('canvas.editor');
+	await forkEditor.scrollIntoViewIfNeeded();
 	const forkBox = (await forkEditor.boundingBox())!;
 	await forkEditor.click({ position: { x: forkBox.width * 0.7, y: forkBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toHaveCount(0);
 
-	const currentPane = page.locator('[data-editor-branch="current"]');
+	const currentPane = page.locator('section[data-editor-branch="current"]');
 	await expect(currentPane.getByRole('button', { name: 'Stamp', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	const currentEditor = currentPane.locator('canvas.editor');
+	await currentEditor.scrollIntoViewIfNeeded();
 	const currentBox = (await currentEditor.boundingBox())!;
 	await currentEditor.click({ position: { x: currentBox.width * 0.7, y: currentBox.height * 0.7 } });
 	await expect(page.getByText('Done. You used Stamp.')).toBeVisible();

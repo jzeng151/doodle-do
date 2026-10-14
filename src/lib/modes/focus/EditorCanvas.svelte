@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { flushSync } from 'svelte';
+	import { flushSync, onMount } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { combinedOnionSequence, drawOnionGhost, ONION_NEXT_COLOR, ONION_PREV_COLOR } from '$lib/render/onion';
 	import { brushBounds, canvasPoint, floatingFrameCanvas } from '../canvas';
@@ -34,12 +34,22 @@
 
 	$effect(() => {
 		void session.version;
+		fitOnce();
+	});
+
+	onMount(() => {
+		const observer = new ResizeObserver(fitOnce);
+		observer.observe(scrollEl);
+		return () => observer.disconnect();
+	});
+
+	function fitOnce() {
 		const { width, height } = session.doc.meta;
 		const dimensions = `${width}x${height}`;
-		if (!scrollEl || !canvasEl || dimensions === session.fitCheckedDimensions) return;
+		if (!scrollEl || !canvasEl || !scrollEl.clientWidth || !scrollEl.clientHeight || dimensions === session.fitCheckedDimensions) return;
 		session.fitCheckedDimensions = dimensions;
 		fitCanvas(true);
-	});
+	}
 
 	function fitCanvas(onlyShrink = false) {
 		const { width, height } = session.doc.meta;
@@ -681,7 +691,7 @@
 	.canvas-status { display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 4px 8px; background: var(--paper); font-size: .6875rem; }
 	.canvas-status span { margin-right: auto; }
 	@media (max-width: 860px) {
-		.canvas-area { flex: none; min-height: 360px; }
+		.canvas-area { flex: none; width: 100%; min-height: 360px; }
 	}
 	.scroll {
 		position: relative;

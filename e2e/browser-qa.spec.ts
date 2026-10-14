@@ -133,6 +133,7 @@ test('unsaved fork edits share New, Open, and close protection across modes', as
 	const modes = page.getByRole('group', { name: 'Workspace mode' });
 	await modes.getByRole('button', { name: 'Compare', exact: true }).click();
 	const fork = page.locator('[data-editor-branch="fork"]');
+	await page.getByRole('button', { name: 'Edit B', exact: true }).click();
 	await fork.getByRole('button', { name: 'Add layer', exact: true }).click();
 	await modes.getByRole('button', { name: 'Focus', exact: true }).click();
 	for (const name of ['New animation', 'Open']) {

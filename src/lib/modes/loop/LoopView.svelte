@@ -145,6 +145,13 @@
 			aria-label="Animation frame"
 		/>
 		<span class="counter">{playFrame + 1} / {frameCount}</span>
+	</div>
+	<div class="preview-settings" role="group" aria-label="Preview settings">
+		<span>Preview settings · exports keep saved timing</span>
+		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => selectTag(e.currentTarget.value)}>
+			<option value="">All frames</option>
+			{#each tags as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
+		</select></label>
 		<label>
 			Speed
 			<select
@@ -182,18 +189,6 @@
 			/>
 		</label>
 	</div>
-	<div class="tag-controls" aria-label="Animation tags">
-		<label>Clip<select bind:value={session.activeAnimationTagName} onchange={(e) => selectTag(e.currentTarget.value)}>
-			<option value="">All frames</option>
-			{#each tags as tag}<option value={tag.name}>{tag.name} ({tag.from + 1}–{tag.to + 1})</option>{/each}
-		</select></label>
-		<label>Name<input maxlength="32" bind:value={tagName} /></label>
-		<label>Direction<select bind:value={tagDirection}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
-		<label>Repeats<input type="number" min="0" max="99" bind:value={tagRepeats} title="0 means continuous preview" /></label>
-		<button disabled={!tagName.trim()} onclick={() => session.addAnimationTag({ name: tagName, from: rangeStart, to: rangeEnd, direction: tagDirection, repeats: tagRepeats })}>Save clip</button>
-		<button disabled={!session.activeAnimationTagName} onclick={() => session.deleteAnimationTag(session.activeAnimationTagName)}>Delete clip</button>
-	</div>
-
 	<div class="filmstrip" role="group" aria-label="Filmstrip">
 		{#each { length: frameCount } as _, i (i)}
 			<button
@@ -211,6 +206,17 @@
 			</button>
 		{/each}
 	</div>
+	<details class="saved-settings">
+		<summary>Saved clip settings</summary>
+	<div class="tag-controls" aria-label="Animation tags">
+		<label>Name<input maxlength="32" bind:value={tagName} /></label>
+		<label>Direction<select bind:value={tagDirection}><option value="forward">Forward</option><option value="reverse">Reverse</option><option value="ping-pong">Ping-pong</option></select></label>
+		<label>Repeats<input type="number" min="0" max="99" bind:value={tagRepeats} title="0 means continuous preview" /></label>
+		<button disabled={!tagName.trim()} onclick={() => session.addAnimationTag({ name: tagName, from: rangeStart, to: rangeEnd, direction: tagDirection, repeats: tagRepeats })}>Save clip</button>
+		<button disabled={!session.activeAnimationTagName} onclick={() => session.deleteAnimationTag(session.activeAnimationTagName)}>Delete clip</button>
+	</div>
+
+	</details>
 </div>
 
 <style>
@@ -230,7 +236,8 @@
 	.loop-mode > :global(*) { flex-shrink: 0; }
 	.hero {
 		image-rendering: pixelated;
-		max-height: 60vh;
+		max-height: clamp(120px, calc(100dvh - 400px), 512px);
+		object-fit: contain;
 		max-width: 90%;
 		background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 16px 16px;
 		border: 3px solid var(--edge);
@@ -245,6 +252,12 @@
 		width: min(760px, 100%);
 		flex-wrap: wrap;
 	}
+	.preview-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: min(960px, 100%); font-size: .75rem; }
+	.preview-settings > span { width: 100%; color: var(--gray); }
+	.preview-settings label { display: flex; align-items: center; gap: 4px; }
+	.preview-settings input { width: 3.5rem; }
+	.saved-settings { width: min(960px, 100%); }
+	summary { cursor: pointer; padding: 8px 0; }
 	.tag-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-top: .5rem; }
 	.tag-controls label { display: grid; gap: .2rem; font-size: .6875rem; font-weight: 700; }
 	.tag-controls input { width: 7rem; }
@@ -255,14 +268,6 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	.controls label {
-		display: flex;
-		gap: 0.35rem;
-		align-items: center;
-		white-space: nowrap;
-	}
-	.controls input[type='number'] { width: 3.5rem; }
-	.controls select { width: 4.5rem; }
 	.filmstrip {
 		display: flex;
 		gap: 6px;

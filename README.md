@@ -23,7 +23,7 @@ Doodle-Do is local-first: there are no accounts or uploads, autosaves stay in th
 
 ### Compare versions
 
-Compare creates an independent fork beside the current animation. Edit both versions, play them together, then save or export either one—or apply the fork when it wins.
+Compare creates an independent fork beside the current animation, or loads a second project or sprite strip. A/B selects the shared inspector; Link zoom matches the editing scale. Edit both versions, play them together, then save or export either one—or apply the fork when it wins.
 
 ![Doodle-Do Compare view playing four-frame and five-frame chicken walk cycles side by side](static/screenshots/compare.gif)
 

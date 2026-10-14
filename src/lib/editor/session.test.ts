@@ -6,6 +6,24 @@ vi.stubGlobal('$state', <T>(value: T) => value);
 
 const paintTools = ['pencil', 'line', 'rectangle', 'ellipse', 'fill'] as const;
 
+it('loads an independent comparison and preserves its clip across mode changes', () => {
+	const current = createDoc({ name: 'Current', width: 16, height: 16, palette: ['#000000'] });
+	const session = new EditorSession(current);
+	const comparison = createDoc({ name: 'Original', width: 8, height: 8, palette: ['#ffffff'] });
+	comparison.meta.tags = [{ name: 'hop', from: 1, to: 1, direction: 'reverse', repeats: 0 }];
+	session.loadComparison(comparison);
+	session.comparisonSession!.selectAnimationTag('hop');
+	session.setMode('compare');
+	session.setMode('focus');
+	session.setMode('compare');
+	expect(session.doc).toBe(current);
+	expect(session.comparisonSession!.activeAnimationTagName).toBe('hop');
+	expect(session.comparisonSession!.loopPlaybackMode).toBe('reverse');
+	session.resetComparisonFork();
+	expect(session.comparisonFromFile).toBe(false);
+	expect(session.comparisonSession!.doc.meta.name).toBe('Current');
+});
+
 it('renames a layer with undo and rejects blank names', () => {
 	const session = new EditorSession(createDoc({ width: 4, height: 4, palette: ['#000000'] }));
 	const original = session.frame.layers[0].name;

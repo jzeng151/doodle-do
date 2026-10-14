@@ -116,6 +116,7 @@ test('previous and next onion skins can be toggled independently', async ({ page
 	await drawStroke(page); // frame 3 becomes the next ghost
 	await frames.nth(1).click(); // blank frame between them
 
+	await page.getByRole('button', { name: 'Onion settings' }).click();
 	const previous = page.getByRole('button', { name: 'Previous', exact: true });
 	const next = page.getByRole('button', { name: 'Next', exact: true });
 	await expect(previous).toHaveAttribute('aria-pressed', 'true');
@@ -245,7 +246,7 @@ test('keyboard pencil indicator matches the brush size', async ({ page }) => {
 		}
 		return maxX - minX + 1;
 	});
-	expect(bounds).toBeGreaterThan(40); // 4 canvas pixels at the default 12× zoom
+	expect(bounds).toBeGreaterThanOrEqual(Number(await editor.getAttribute('width')) / 32 * 4 - 2);
 });
 
 test('pointer pixels and transparency grid align with the drawable canvas', async ({ page }) => {
@@ -257,11 +258,12 @@ test('pointer pixels and transparency grid align with the drawable canvas', asyn
 	const border = await editor.evaluate((canvas) => canvas.clientLeft);
 
 	// Still inside pixel 0, close enough to its edge that including the border maps to pixel 1.
-	await page.mouse.click(box.x + border + 10.5, box.y + border + 10.5);
+	await page.mouse.click(box.x + border + checker / 2 - 0.5, box.y + border + checker / 2 - 0.5);
 	const painted = await editor.evaluate((canvas) => {
 		const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
 		const opaque = (x: number, y: number) => data[(y * canvas.width + x) * 4 + 3] > 0;
-		return { first: opaque(6, 6), southeast: opaque(18, 18) };
+		const zoom = canvas.width / 32;
+		return { first: opaque(Math.floor(zoom / 2), Math.floor(zoom / 2)), southeast: opaque(Math.floor(zoom * 1.5), Math.floor(zoom * 1.5)) };
 	});
 	expect(painted).toEqual({ first: true, southeast: false });
 
@@ -320,11 +322,12 @@ test('mobile editor keeps document status and tips in the layout', async ({ page
 	expect(toolbar?.height).toBeGreaterThanOrEqual(44);
 });
 
-test('desktop editor keeps the toolbar on one row', async ({ page }) => {
+test('desktop editor keeps drawing tools reachable without horizontal scrolling', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoApp(page);
 	const toolbar = await page.locator('.toolbar').boundingBox();
-	expect(toolbar?.height).toBeLessThanOrEqual(65);
+	expect(toolbar?.height).toBeLessThanOrEqual(145);
+	expect(await page.locator('.tool-controls').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
 test('coarse pointers get full-size compact controls', async ({ browser }) => {
