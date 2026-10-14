@@ -103,3 +103,18 @@ test('phone comparison canvases retain usable space above their inspectors', asy
 		await expect(pane.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 	}
 });
+
+
+test('fork save shortcut suggests a separate filename', async ({ page }) => {
+ await page.goto('/canvas');
+ await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Compare', exact: true }).click();
+ await page.evaluate(() => {
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: async (options: { suggestedName: string }) => {
+   (window as typeof window & { suggestedName?: string }).suggestedName = options.suggestedName;
+   return { createWritable: async () => ({ write: async () => {}, close: async () => {} }) };
+  } });
+ });
+ await page.locator('section[data-editor-branch="fork"] canvas.editor').focus();
+ await page.keyboard.press('Control+s');
+ await expect.poll(() => page.evaluate(() => (window as typeof window & { suggestedName?: string }).suggestedName)).toBe('Untitled-fork.doodledo');
+});

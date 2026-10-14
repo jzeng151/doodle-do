@@ -129,7 +129,7 @@
 		run('Save', async () => {
 			const savingSession = editor;
 			const commits = savingSession.unsavedCommits;
-			if (!(await saveProjectToDisk(savingSession.doc))) return;
+			if (!(await saveProjectToDisk(savingSession.doc, editor === session ? undefined : `${(editor.doc.meta.name || 'untitled').replace(/[^\w-]+/g, '-')}-fork`))) return;
 			savingSession.savedToDiskAt = new Date(); // resets the T15 reminder clock
 			savingSession.unsavedCommits -= commits;
 		}, editor);
@@ -242,7 +242,7 @@
 			<p>Ctrl/Cmd + S: save project<br />Ctrl/Cmd + Z: undo<br />Ctrl/Cmd + Shift + Z: redo</p>
 			<p>With canvas focus: {TOOLBAR_TOOLS.map((tool) => `${tool.key} ${tool.label}`).join(' · ')}.</p>
 			<p>Arrow keys: move pixel cursor. Space/Enter: use tool. Page Up/Down: change frame. 1–4: change view. X: swap colors. O: onion skin. [ / ]: brush size.</p>
-			<p>Ctrl/Cmd + A: select all. D: deselect; Shift + D: reselect. J: extract selection. Shift + I: invert selection. Alt + arrows: move selection.</p>
+			<p>Ctrl/Cmd + A: select all. Ctrl/Cmd + D: deselect. Ctrl/Cmd + Shift + D: reselect. Ctrl/Cmd + J: extract selection. Ctrl/Cmd + Shift + I: invert selection. Alt + arrows: move selection.</p>
 		</details>
 		</ActionMenu>
 	</div>

@@ -32,6 +32,16 @@ describe('ToolbarPreferences', () => {
 		expect(preferences.needsChooser).toBe(false);
 	});
 
+	it('keeps the first-run default after tips appear and after reset', () => {
+		const storage = fakeStorage();
+		const preferences = new ToolbarPreferences(storage);
+		storage.setItem('doodledo.tips', '{}');
+		expect(new ToolbarPreferences(storage).snapshot.layout).toBe('essentials');
+		preferences.chooseLayout('full');
+		preferences.reset();
+		expect(new ToolbarPreferences(storage).snapshot.layout).toBe('essentials');
+	});
+
 	it('keeps existing installations on Full without opening the chooser', () => {
 		const storage = fakeStorage();
 		storage.setItem('doodledo.tips', JSON.stringify({ counts: { T01: 1 } }));
@@ -40,7 +50,7 @@ describe('ToolbarPreferences', () => {
 
 		expect(preferences.snapshot.layout).toBe('full');
 		expect(preferences.needsChooser).toBe(false);
-		expect(storage.getItem('doodledo.toolbar')).toBeNull();
+		expect(new ToolbarPreferences(storage).snapshot).toEqual(preferences.snapshot);
 	});
 
 	it('persists custom group visibility, tool visibility, and tool order', () => {
@@ -108,6 +118,6 @@ describe('ToolbarPreferences', () => {
 
 		expect(listener).toHaveBeenCalledTimes(2);
 		expect(preferences.snapshot).toEqual(defaultToolbarPreferences());
-		expect(storage.getItem('doodledo.toolbar')).toBeNull();
+		expect(new ToolbarPreferences(storage).snapshot).toEqual(preferences.snapshot);
 	});
 });

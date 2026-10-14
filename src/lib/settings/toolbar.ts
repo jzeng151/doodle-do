@@ -107,6 +107,7 @@ export class ToolbarPreferences {
 
 	constructor(private readonly injectedStorage?: StorageLike) {
 		this.state = this.load();
+		this.save();
 	}
 
 	private storage(): StorageLike | null {
@@ -197,12 +198,7 @@ export class ToolbarPreferences {
 
 	reset(): void {
 		this.state = defaultToolbarPreferences();
-		try {
-			this.storage()?.removeItem(STORAGE_KEY);
-		} catch {
-			// Reset still applies in memory when storage is unavailable.
-		}
-		for (const listener of this.listeners) listener(this.snapshot);
+		this.save();
 	}
 
 	subscribe(listener: Subscriber): () => void {

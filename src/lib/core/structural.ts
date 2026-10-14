@@ -478,7 +478,7 @@ export class LayerVisibilityCommand implements Command {
 
 export class LayerPropertyCommand implements Command {
 	readonly kind: string;
-	readonly byteSize = 64;
+	readonly byteSize: number;
 
 	constructor(
 		private readonly frameIndex: number,
@@ -488,6 +488,8 @@ export class LayerPropertyCommand implements Command {
 		private readonly after: boolean | number | string | undefined
 	) {
 		this.kind = `layer-${property}`;
+		this.byteSize = 64 + (typeof before === 'string' ? before.length * 2 : 0)
+			+ (typeof after === 'string' ? after.length * 2 : 0);
 	}
 
 	private set(doc: Doc, value: boolean | number | string | undefined): void {
