@@ -142,7 +142,9 @@
 </div>
 
 	<div class="shared-inspector" data-editor-branch={session.comparisonActiveSide}>
-		<SidePanel session={active} />
+		{#key active}
+			<SidePanel session={active} />
+		{/key}
 	</div>
 </div>
 

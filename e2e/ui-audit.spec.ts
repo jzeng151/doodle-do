@@ -205,3 +205,25 @@ for (const [width, height] of [[16, 64], [64, 16]]) {
   expect((await page.getByRole('region', { name: 'Canvas viewport' }).boundingBox())!.height).toBeGreaterThan(200);
  });
 }
+
+
+test('switching comparison sides clears a pending palette removal', async ({ page }) => {
+ await page.goto('/canvas');
+ await page.locator('canvas.editor').focus();
+ await page.keyboard.press('Space');
+ await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Compare', exact: true }).click();
+ const palette = page.locator('.shared-inspector .palette-panel');
+ const colors = palette.locator('.swatch:not(.eraser)');
+ await colors.first().click();
+ await palette.getByRole('button', { name: 'Palette options' }).click();
+ await palette.getByRole('button', { name: 'Remove', exact: true }).click();
+ await expect(palette.locator('.hint')).toBeVisible();
+ await page.getByRole('button', { name: 'Edit B', exact: true }).click();
+ await expect(palette.locator('.hint')).toHaveCount(0);
+ await colors.nth(1).click();
+ await expect(colors).toHaveCount(16);
+ await expect(colors.first()).toHaveAttribute('aria-label', 'Color #140c1c');
+ await page.getByRole('button', { name: 'Edit A', exact: true }).click();
+ await expect(palette.locator('.hint')).toHaveCount(0);
+ await expect(colors).toHaveCount(16);
+});
