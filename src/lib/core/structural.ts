@@ -483,14 +483,14 @@ export class LayerPropertyCommand implements Command {
 	constructor(
 		private readonly frameIndex: number,
 		private readonly layerIndex: number,
-		private readonly property: 'locked' | 'opacity',
-		private readonly before: boolean | number | undefined,
-		private readonly after: boolean | number | undefined
+		private readonly property: 'locked' | 'opacity' | 'name',
+		private readonly before: boolean | number | string | undefined,
+		private readonly after: boolean | number | string | undefined
 	) {
 		this.kind = `layer-${property}`;
 	}
 
-	private set(doc: Doc, value: boolean | number | undefined): void {
+	private set(doc: Doc, value: boolean | number | string | undefined): void {
 		Object.assign(doc.frames[this.frameIndex].layers[this.layerIndex], { [this.property]: value });
 	}
 

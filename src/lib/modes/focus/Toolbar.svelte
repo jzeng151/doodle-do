@@ -6,11 +6,9 @@
 		TOOLBAR_TOOLS,
 		toolbarPreferences,
 		type ToolbarGroupId,
-		type ToolbarLayout,
 		type ToolbarToolId
 	} from '$lib/settings/toolbar';
-	import ToolbarLayoutDialog from './ToolbarLayoutDialog.svelte';
-	import ToolbarSettings from './ToolbarSettings.svelte';
+		import ToolbarSettings from './ToolbarSettings.svelte';
 
 	let {
 		session,
@@ -26,7 +24,6 @@
 	const stampTool = TOOLBAR_TOOLS.find(({ id }) => id === 'stamp')!;
 	const tools = $derived(session.stamp ? [...baseTools, stampTool] : baseTools);
 	let preferences = $state(toolbarPreferences.snapshot);
-	let layoutDialog: ToolbarLayoutDialog | undefined;
 	let toolbarSettings: ToolbarSettings | undefined;
 	let moreToolsEl: HTMLElement;
 	const moreToolsId = $props.id();
@@ -79,10 +76,6 @@
 		return SELECT_TOOLS.includes(tool) && session.mode !== 'focus' && session.mode !== 'compare';
 	}
 
-	function chooseLayout(layout: ToolbarLayout) {
-		toolbarPreferences.chooseLayout(layout);
-		if (layout === 'custom') requestAnimationFrame(() => toolbarSettings?.open());
-	}
 
 	function setCustomGroups(groups: ToolbarGroupId[]) {
 		for (const id of TOOLBAR_GROUP_IDS) toolbarPreferences.setGroupVisible(id, groups.includes(id));
@@ -111,7 +104,6 @@
 			preferences = next;
 			if (next.layout === 'essentials') session.selectionMode = 'replace';
 		});
-		if (toolbarPreferences.needsChooser) requestAnimationFrame(() => layoutDialog?.open());
 		return stop;
 	});
 </script>
@@ -358,7 +350,6 @@
 		>{tool.shortLabel}</button>
 	{/each}
 </section>
-<ToolbarLayoutDialog bind:this={layoutDialog} onChoose={chooseLayout} />
 
 <style>
 	.toolbar {

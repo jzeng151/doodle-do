@@ -2,16 +2,20 @@ import { expect, test } from '@playwright/test';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+async function chooseToolbar(page: import('@playwright/test').Page, layout: string) {
+	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
+	await page.locator('.settings').getByText(layout, { exact: true }).click();
+	await page.locator('.settings').getByRole('button', { name: 'Close' }).click();
+}
+
 async function openFreshEditor(page: import('@playwright/test').Page) {
 	await page.goto('/canvas');
 	await page.locator('canvas.editor').waitFor();
 }
 
-test('chooses an Essentials toolbar and reaches hidden tools', async ({ page }) => {
+test('starts with Essentials and reaches hidden tools without onboarding', async ({ page }) => {
 	await openFreshEditor(page);
-	const chooser = page.getByRole('dialog', { name: 'Choose your drawing toolbar' });
-	await expect(chooser).toBeVisible();
-	await chooser.getByRole('button', { name: 'Choose Essentials' }).click();
+	await expect(page.getByRole('dialog', { name: 'Choose your drawing toolbar' })).toHaveCount(0);
 
 	await expect(page.getByRole('button', { name: 'Pencil', exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Line', exact: true })).toBeHidden();
@@ -59,14 +63,8 @@ test('reorders tools in a custom toolbar and restores the order', async ({ page 
 for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as const) {
 	test(`keeps Select effective after switching from ${layout} with ${mode} to Essentials`, async ({ page }) => {
 		await openFreshEditor(page);
-		await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-			.getByRole('button', { name: `Choose ${layout}` })
-			.click();
+		await chooseToolbar(page, layout);
 		const settings = page.locator('.settings');
-		if (layout === 'Custom') {
-			await expect(settings).toBeVisible();
-			await settings.getByRole('button', { name: 'Close' }).click();
-		}
 		const editor = page.locator('canvas.editor');
 		const box = (await editor.boundingBox())!;
 		const point = (x: number, y: number) => ({
@@ -113,9 +111,7 @@ for (const [layout, mode] of [['Full', 'Subtract'], ['Custom', 'Intersect']] as 
 
 test('resets selection mode in both Compare panes when either chooses Essentials', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const editorBox = (await editor.boundingBox())!;
 	await page.mouse.click(
@@ -192,11 +188,10 @@ test('resets selection mode in both Compare panes when either chooses Essentials
 test.describe('with a coarse pointer', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
-	test('keeps the toolbar chooser Skip target at least 44px tall', async ({ page }) => {
+	test('keeps optional toolbar customization at least 44px tall', async ({ page }) => {
 		await openFreshEditor(page);
 		expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-		const skip = page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-			.getByRole('button', { name: 'Skip and keep Full' });
+		const skip = page.getByRole('button', { name: 'Toolbar', exact: true });
 		expect(await skip.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
 	});
 
@@ -216,9 +211,7 @@ test.describe('with a coarse pointer', () => {
 
 test('disables Focus-only tools in the Grid More tools menu', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
 	const settings = page.locator('.settings');
 	await settings.getByText('Custom', { exact: true }).click();
@@ -236,9 +229,7 @@ test('disables Focus-only tools in the Grid More tools menu', async ({ page }) =
 
 test('completes a user-started lesson after a real canvas action', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await expect(page.getByText('Draw at least one pixel.')).toBeVisible();
 
@@ -262,9 +253,7 @@ for (const [tool, mode, task] of [
 ] as const) {
 	test(`closes an incomplete ${tool} lesson when switching to ${mode}`, async ({ page }) => {
 		await openFreshEditor(page);
-		await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-			.getByRole('button', { name: 'Choose Full' })
-			.click();
+		await chooseToolbar(page, 'Full');
 		await page.getByRole('button', { name: tool, exact: true }).click();
 		await page.getByRole('button', { name: 'Learn', exact: true }).click();
 		await expect(page.getByText(task)).toBeVisible();
@@ -280,9 +269,7 @@ for (const [tool, mode, task] of [
 
 test('requires distinct endpoints for Line, Rectangle, and Ellipse lessons', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	for (const [button, lesson, task] of [
@@ -328,9 +315,7 @@ test('keeps the lesson coach clear of an active tip on narrow screens', async ({
 
 test('resyncs a reused Compare fork before activating a context-sensitive lesson', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('group', { name: 'Frames' }).getByRole('button', { name: '2', exact: true }).click();
 	await page.getByTitle('Add layer').click();
 	const editor = page.locator('canvas.editor');
@@ -361,9 +346,7 @@ test('resyncs a reused Compare fork before activating a context-sensitive lesson
 
 test('keeps fork lessons off blank and locked reused contexts', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -406,9 +389,7 @@ test('keeps fork lessons off blank and locked reused contexts', async ({ page })
 
 test('revalidates a subscribed fork lesson after frame and lock changes', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -441,9 +422,7 @@ test('revalidates a subscribed fork lesson after frame and lock changes', async 
 
 test('completes a fork Eraser lesson when the action removes its last pixel', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -461,9 +440,7 @@ test('completes a fork Eraser lesson when the action removes its last pixel', as
 
 test('closes an incomplete paint lesson when its active layer is locked', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Line', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
@@ -473,9 +450,7 @@ test('closes an incomplete paint lesson when its active layer is locked', async 
 
 test('closes an incomplete Move lesson after another tool clears its layer', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -491,9 +466,7 @@ test('closes an incomplete Move lesson after another tool clears its layer', asy
 
 test('keeps active Stamp lesson data through Compare creation, reset, and swap', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -524,9 +497,7 @@ test('keeps active Stamp lesson data through Compare creation, reset, and swap',
 
 test('closes an active Stamp lesson when Apply as current discards its stamp', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -551,9 +522,7 @@ test('closes an active Stamp lesson when Apply as current discards its stamp', a
 
 test('closes a paint lesson when Apply as current locks its layer', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 	const forkPane = page.locator('[data-editor-branch="fork"]');
 	await forkPane.getByRole('button', { name: 'Lock Layer 1' }).click();
@@ -573,9 +542,7 @@ test('closes a paint lesson when Apply as current locks its layer', async ({ pag
 
 test('closes a Move lesson when Apply as current makes its layer blank', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
 	await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
@@ -600,9 +567,7 @@ test('closes a Move lesson when Apply as current makes its layer blank', async (
 
 test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Compare', exact: true }).click();
 	await page.getByRole('button', { name: 'Focus', exact: true }).click();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -637,9 +602,7 @@ test('does not copy a Stamp lesson beyond a reused fork palette', async ({ page 
 
 test('selection lessons start and advance in Replace mode', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Select', exact: true }).click();
 	const selectionMode = page.getByRole('group', { name: 'Selection mode' });
 	await selectionMode.getByRole('button', { name: 'Subtract', exact: true }).click();
@@ -654,9 +617,7 @@ test('selection lessons start and advance in Replace mode', async ({ page }) => 
 
 test('completes the Select lesson only after the marquee moves', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Select', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	const editor = page.locator('canvas.editor');
@@ -680,9 +641,7 @@ test('completes the Select lesson only after the marquee moves', async ({ page }
 test('keeps every tool lesson reachable in a short viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 740, height: 320 });
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
 	await page.getByRole('button', { name: 'Open tool lessons' }).click();
 
@@ -700,9 +659,7 @@ test('keeps every tool lesson reachable in a short viewport', async ({ page }) =
 
 test('completes the Lasso lesson with keyboard canvas controls', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	const editor = page.locator('canvas.editor');
 	await editor.focus();
 	await page.keyboard.press('l');
@@ -733,9 +690,7 @@ test('completes the Lasso lesson with keyboard canvas controls', async ({ page }
 
 test('completes the Polygon lesson only for a nondegenerate keyboard selection', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Full' })
-		.click();
+	await chooseToolbar(page, 'Full');
 	await page.getByRole('button', { name: 'Polygon', exact: true }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	const editor = page.locator('canvas.editor');
@@ -765,9 +720,7 @@ test('completes the Polygon lesson only for a nondegenerate keyboard selection',
 
 test('explains lessons that need artwork before they can start', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	await page.getByRole('button', { name: 'Toolbar', exact: true }).click();
 	await page.getByRole('button', { name: 'Open tool lessons' }).click();
 	const lessons = page.getByRole('dialog', { name: 'Tool lessons' });
@@ -778,9 +731,7 @@ test('explains lessons that need artwork before they can start', async ({ page }
 
 test('evaluates lesson availability only while the lessons dialog is open', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	const lessons = page.locator('dialog').filter({ hasText: 'Pick one short task.' });
 	await expect(lessons).toBeHidden();
 	await expect(lessons.locator('li')).toHaveCount(0);
@@ -801,9 +752,7 @@ test('evaluates lesson availability only while the lessons dialog is open', asyn
 
 test('explains that drawing lessons need an unlocked active layer', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	await page.getByRole('button', { name: 'Lock Layer 1' }).click();
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	const pencil = page.getByRole('dialog', { name: 'Tool lessons' }).getByRole('listitem').first();
@@ -813,9 +762,7 @@ test('explains that drawing lessons need an unlocked active layer', async ({ pag
 
 test('clears the active lesson when a new workspace replaces the old one', async ({ page }) => {
 	await openFreshEditor(page);
-	await page.getByRole('dialog', { name: 'Choose your drawing toolbar' })
-		.getByRole('button', { name: 'Choose Essentials' })
-		.click();
+	await chooseToolbar(page, 'Essentials');
 	await page.getByRole('button', { name: 'Learn', exact: true }).click();
 	const editor = page.locator('canvas.editor');
 	const box = (await editor.boundingBox())!;
@@ -824,6 +771,7 @@ test('clears the active lesson when a new workspace replaces the old one', async
 	await page.getByRole('button', { name: 'Next lesson' }).click();
 	await expect(page.getByText('Drag across the canvas to draw a line.')).toBeVisible();
 
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New animation', exact: true }).click();
 	await page.getByRole('button', { name: 'Discard and continue' }).click();
 	await page.getByRole('dialog', { name: 'New animation' }).getByRole('button', { name: '32×32' }).click();

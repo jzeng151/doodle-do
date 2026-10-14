@@ -64,8 +64,8 @@ function flags<T extends string>(ids: readonly T[]): Record<T, boolean> {
 
 export function defaultToolbarPreferences(): ToolbarPreferenceState {
 	return {
-		layout: 'full',
-		chooserSeen: false,
+		layout: 'essentials',
+		chooserSeen: true,
 		toolOrder: [...TOOL_IDS],
 		toolVisibility: flags(TOOL_IDS),
 		groupVisibility: flags(TOOLBAR_GROUP_IDS)
@@ -124,7 +124,7 @@ export class ToolbarPreferences {
 			const saved = storage?.getItem(STORAGE_KEY);
 			if (saved !== null && saved !== undefined) return normalize(JSON.parse(saved));
 			const defaults = defaultToolbarPreferences();
-			defaults.chooserSeen = storage !== null && storage.getItem(EXISTING_INSTALL_KEY) !== null;
+			if (storage?.getItem(EXISTING_INSTALL_KEY) != null) defaults.layout = 'full';
 			return defaults;
 		} catch {
 			return defaultToolbarPreferences();

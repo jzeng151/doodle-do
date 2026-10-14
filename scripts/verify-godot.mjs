@@ -120,6 +120,7 @@ try {
 
 	const downloads = [];
 	page.on('download', (d) => downloads.push(d));
+	await page.getByRole('button', { name: 'Export', exact: true }).click();
 	await page.getByRole('button', { name: 'Export sheet' }).click();
 	while (downloads.length < 3) await new Promise((r) => setTimeout(r, 100));
 	for (const d of downloads) {

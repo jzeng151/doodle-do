@@ -38,6 +38,11 @@
 		const dimensions = `${width}x${height}`;
 		if (!scrollEl || !canvasEl || dimensions === session.fitCheckedDimensions) return;
 		session.fitCheckedDimensions = dimensions;
+		fitCanvas(true);
+	});
+
+	function fitCanvas(onlyShrink = false) {
+		const { width, height } = session.doc.meta;
 		const borderW = canvasEl.offsetWidth - canvasEl.clientWidth;
 		const borderH = canvasEl.offsetHeight - canvasEl.clientHeight;
 		const viewport = scrollEl.getBoundingClientRect();
@@ -49,8 +54,8 @@
 				Math.min((availableW - borderW) / width, (availableH - borderH) / height) * 100
 			) / 100
 		);
-		if (session.zoom > fitZoom) session.zoom = fitZoom;
-	});
+		if (!onlyShrink || session.zoom > fitZoom) session.zoom = Math.min(24, fitZoom);
+	}
 
 	function repaint() {
 		if (!canvasEl) return;
@@ -624,6 +629,7 @@
 	}
 </script>
 
+<div class="canvas-area">
 <div
 	class="scroll"
 	class:panning={cameraPan !== null}
@@ -663,7 +669,20 @@
 	></canvas>
 </div>
 
+	<div class="canvas-status" role="group" aria-label="Canvas size and scale">
+		<span>{(session.version, session.doc.meta.width)} × {session.doc.meta.height} px</span>
+		<button onclick={() => fitCanvas()}>Fit</button>
+		<button title="One screen pixel per artwork pixel" onclick={() => (session.zoom = 1)}>100%</button>
+	</div>
+</div>
+
 <style>
+	.canvas-area { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+	.canvas-status { display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 4px 8px; background: var(--paper); font-size: .6875rem; }
+	.canvas-status span { margin-right: auto; }
+	@media (max-width: 860px) {
+		.canvas-area { flex: none; min-height: 360px; }
+	}
 	.scroll {
 		position: relative;
 		overflow: auto; /* pan = scroll */
@@ -671,6 +690,7 @@
 		place-items: center;
 		flex: 1;
 		min-height: 0;
+		min-width: 0;
 		background-color: var(--paper-2);
 		background-image: radial-gradient(rgba(17, 17, 17, 0.3) 0.8px, transparent 1px);
 		background-size: 9px 9px;

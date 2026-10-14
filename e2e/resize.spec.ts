@@ -20,6 +20,7 @@ test('resize changes an existing canvas via a preset', async ({ page }) => {
 	await gotoApp(page);
 	// default doc is 32×32
 	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(32 * ZOOM));
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '48×48' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
@@ -34,6 +35,7 @@ test('resize changes an existing canvas via a preset', async ({ page }) => {
 test('resize supports 512×512 and fits it to the viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 800, height: 600 });
 	await gotoApp(page);
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.locator('input[type=number]').first().fill('600');
@@ -65,6 +67,7 @@ test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	const yAxis = page.getByLabel('Y axis');
 	await axis.fill('20');
 	await yAxis.fill('20');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: '16×16' }).click();
@@ -84,6 +87,7 @@ test('mirror axes stay valid and follow resize history', async ({ page }) => {
 	if (!box) throw new Error('no editor canvas');
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 	await expect(axis).toHaveValue('7.5');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '48×48' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Resize' }).click();
@@ -94,6 +98,7 @@ test('mirror axis edits survive lossy scaled resize history', async ({ page }) =
 	await gotoApp(page);
 	await page.getByRole('button', { name: 'Mirror X' }).click();
 	const axis = page.getByLabel('X axis');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.locator('input[type=number]').first().fill('64');
@@ -125,6 +130,7 @@ test('mirror axis edits survive lossy crop resize history', async ({ page }) => 
 	await gotoApp(page);
 	await page.getByRole('button', { name: 'Mirror X' }).click();
 	const axis = page.getByLabel('X axis');
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'Resize' }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: '48×48' }).click();
@@ -140,6 +146,7 @@ test('New warns before discarding unsaved work, but not on a clean doc', async (
 	await gotoApp(page);
 
 	// clean doc: New goes straight to the size picker, no discard warning
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	await expect(page.getByRole('button', { name: 'Discard and continue' })).toHaveCount(0);
 	await expect(page.getByRole('dialog').getByRole('button', { name: '16×16' })).toBeVisible();
@@ -147,12 +154,14 @@ test('New warns before discarding unsaved work, but not on a clean doc', async (
 
 	// after an edit, New warns; Cancel keeps the current canvas intact
 	await draw(page);
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	await expect(page.getByText("aren't saved to disk")).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel' }).click();
 	await expect(page.locator('canvas.editor')).toHaveAttribute('width', String(32 * ZOOM));
 
 	// confirming discards and opens the size picker → a fresh 16×16 doc
+	await page.getByRole('button', { name: 'File', exact: true }).click();
 	await page.getByRole('banner').getByRole('button', { name: 'New' }).click();
 	await page.getByRole('button', { name: 'Discard and continue' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: '16×16' }).click();

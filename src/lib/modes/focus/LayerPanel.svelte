@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MAX_LAYERS } from '$lib/core/document';
 	import type { EditorSession } from '$lib/editor/session.svelte';
+	import ActionMenu from '../ActionMenu.svelte';
 	import SendLayerDialog from './SendLayerDialog.svelte';
 
 	let { session }: { session: EditorSession } = $props();
@@ -8,7 +9,8 @@
 	let sendDialog: SendLayerDialog;
 
 	// top layer first in the list, like every art tool
-	const layers = $derived((session.version, session.currentFrame, [...session.frame.layers].reverse()));
+	const layers = $derived((session.version, session.currentFrame, session.frame.layers.map((layer) => ({ ...layer })).reverse()));
+	const selectedLayer = $derived((session.version, session.currentFrame, session.currentLayer, { ...session.frame.layers[session.currentLayer] }));
 	const layerCount = $derived(layers.length);
 	const frameCount = $derived((session.version, session.doc.frames.length));
 	const mergeBlocked = $derived((session.version, session.currentFrame, session.currentLayer, session.mergeLayerDownBlockedReason));
@@ -24,25 +26,27 @@
 		<div class="actions" role="group" aria-label="Layer actions">
 			<button aria-label="Add layer" title="Add layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.addLayer()}>+</button>
 			<button aria-label="Clone layer" title="Clone layer" disabled={layerCount >= MAX_LAYERS} onclick={() => session.duplicateLayer()}>⧉</button>
+			<button aria-label="Delete layer" title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
+			<ActionMenu label="More layer actions" buttonText="More">
 			<button
 				aria-label="Extract selection to layer"
 				title="Extract selection to layer (Ctrl+J)"
 				disabled={layerCount >= MAX_LAYERS || !session.hasSelection}
 				onclick={() => session.extractSelectionToLayer()}
 			>
-				⇱
+				Extract selection
 			</button>
-			<button aria-label="Delete layer" title="Delete layer" disabled={layerCount <= 1} onclick={() => session.deleteLayer()}>−</button>
+
 			<button
 				aria-label="Move layer up"
 				title="Move layer up"
 				disabled={session.currentLayer >= layerCount - 1}
 				onclick={() => session.moveLayer(1)}
 			>
-				↑
+				Move up
 			</button>
 			<button aria-label="Move layer down" title="Move layer down" disabled={session.currentLayer === 0} onclick={() => session.moveLayer(-1)}>
-				↓
+				Move down
 			</button>
 			<button
 				aria-label="Merge into layer below"
@@ -50,7 +54,7 @@
 				disabled={!!mergeBlocked}
 				onclick={() => session.mergeLayerDown()}
 			>
-				⤵
+				Merge down
 			</button>
 			<button
 				aria-label="Send layer to another frame"
@@ -58,8 +62,10 @@
 				disabled={frameCount < 2}
 				onclick={() => sendDialog.open()}
 			>
-				⇒
+				Send to frame
 			</button>
+		<label>Name<input aria-label="Layer name" value={selectedLayer.name} onchange={(e) => { session.renameLayer(session.currentLayer, e.currentTarget.value); e.currentTarget.value = selectedLayer.name; }} /></label>
+			</ActionMenu>
 		</div>
 	</header>
 	<ul aria-label="Layers">
@@ -83,19 +89,22 @@
 					{layer.visible ? '👁' : '—'}
 				</button>
 				<button disabled={effectiveLocked && !layer.locked} aria-pressed={effectiveLocked} aria-label={effectiveLocked && !layer.locked ? `${layer.name} locked by linked cel` : `${layer.locked ? 'Unlock' : 'Lock'} ${layer.name}`} title={effectiveLocked && !layer.locked ? 'Locked by linked cel' : layer.locked ? 'Unlock layer' : 'Lock layer'} onclick={() => session.setLayerLocked(realIndex(di), !layer.locked)}>{effectiveLocked ? '🔒' : '○'}</button>
-				<label class="opacity" title={`${layer.name} opacity`}><span class="sr-only">{layer.name} opacity</span><input type="range" min="0" max="1" step="0.05" value={layer.opacity ?? 1} onchange={(e) => session.setLayerOpacity(realIndex(di), e.currentTarget.valueAsNumber)} /></label>
 			</li>
 		{/each}
 	</ul>
+	<div class="properties">
+		<label class="opacity">Opacity<input aria-label={`${selectedLayer.name} opacity`} type="range" min="0" max="1" step="0.05" value={selectedLayer.opacity ?? 1} onchange={(e) => session.setLayerOpacity(session.currentLayer, e.currentTarget.valueAsNumber)} /></label>
+	</div>
 </section>
 
 <SendLayerDialog bind:this={sendDialog} {session} />
 
 <style>
+	.layers { display: flex; flex-direction: column; min-height: 132px; }
 	.layers header {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 4px;
 	}
 	h2 {
 		font-size: 0.6875rem;
@@ -106,7 +115,7 @@
 	}
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(8, minmax(0, 1fr));
+		grid-template-columns: repeat(3, 28px) 1fr;
 		gap: 4px;
 	}
 	.actions button {
@@ -115,7 +124,11 @@
 	}
 	ul {
 		list-style: none;
-		margin: 0.5rem 0 0;
+		margin: 0.5rem 0;
+		min-height: 32px;
+		max-height: 180px;
+		overflow-y: auto;
+		flex: 1;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
@@ -137,9 +150,13 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
-	.opacity { display: flex; align-items: center; width: 54px; }
-	.opacity input { width: 100%; }
+	.properties { display: grid; gap: 4px; }
+	.properties label { display: flex; align-items: center; gap: 6px; }
+	.properties input { min-width: 0; width: 100%; }
+	.opacity { display: flex; align-items: center; }
+	.opacity input { width: 100%; min-height: 24px; }
 	@media (pointer: coarse) {
+		.opacity input { min-height: 44px; }
 		.actions { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
 		.actions button { min-width: 44px; }
 	}

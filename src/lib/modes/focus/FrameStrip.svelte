@@ -88,6 +88,16 @@
 		>
 			→
 		</button>
+		<label>
+			FPS
+			<input
+				type="number"
+				min="1"
+				max="24"
+				value={session.doc.meta.fps}
+				onchange={(e) => session.setFps(e.currentTarget.valueAsNumber)}
+			/>
+		</label>
 		<label title="Per-frame duration; blank uses the global FPS">
 			ms
 			<input

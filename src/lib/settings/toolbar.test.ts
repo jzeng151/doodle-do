@@ -21,10 +21,10 @@ function fakeStorage(initial?: string): Storage & { data: Map<string, string> } 
 }
 
 describe('ToolbarPreferences', () => {
-	it('starts full and requests the chooser until a layout is chosen', () => {
+	it('starts with Essentials without an interrupting chooser', () => {
 		const preferences = new ToolbarPreferences(fakeStorage());
 		expect(preferences.snapshot).toEqual(defaultToolbarPreferences());
-		expect(preferences.needsChooser).toBe(true);
+		expect(preferences.needsChooser).toBe(false);
 
 		preferences.chooseLayout('essentials');
 

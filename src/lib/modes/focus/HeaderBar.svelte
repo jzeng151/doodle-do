@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate, goto } from '$app/navigation';
 	import type { EditorSession } from '$lib/editor/session.svelte';
-	import { downloadBlob, openFromDisk, saveProjectToDisk } from '$lib/io/files';
+	import { downloadBlob, openFromDisk, openChickenExample, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
 	import { exportFramePngs } from '$lib/io/export/frames';
 	import { doodledoJson, renderSheet, sheetLayout, texturePackerJson } from '$lib/io/export/spritesheet';
@@ -9,6 +9,8 @@
 	import { DEFAULT_PALETTE } from '$lib/core/palette';
 	import { tips } from '$lib/learn/tips';
 	import { onMount } from 'svelte';
+	import ActionMenu from '../ActionMenu.svelte';
+	import { TOOLBAR_TOOLS } from '$lib/settings/toolbar';
 	import ModeSwitcher from '../ModeSwitcher.svelte';
 	import NewDocDialog from './NewDocDialog.svelte';
 	import ResizeDialog from './ResizeDialog.svelte';
@@ -29,6 +31,7 @@
 	let allowNavigation = false;
 	let tipsHidden = $state(false);
 	const documentName = $derived((session.version, session.doc.meta.name));
+	const showExample = $derived(documentName === 'Untitled' && session.unsavedCommits === 0 && !session.savedToDiskAt);
 
 	// Browser autosave does not replace an explicit "Save project" to disk.
 	const DISCARD_NEW = "You have changes that aren't saved to disk. Start a new animation anyway?";
@@ -75,14 +78,15 @@
 		return (session.doc.meta.name || 'untitled').replace(/[^\w-]+/g, '-');
 	}
 
-	async function run(label: string, fn: () => Promise<void>) {
+	async function run(label: string, fn: () => Promise<void>, editor = session) {
+		if (busy) return;
 		busy = true;
 		busyLabel = `${label} in progress…`;
 		error = '';
 		try {
-			session.lineEnd();
-			session.shapeEnd();
-			session.commitFloating(); // save/export must see the stamped document
+			editor.lineEnd();
+			editor.shapeEnd();
+			editor.commitFloating(); // save/export must see the stamped document
 			await fn();
 		} catch (e) {
 			error = `${label} failed: ${e instanceof Error ? e.message : e}`;
@@ -121,14 +125,14 @@
 			downloadBlob(await exportFramePngs(session.doc, session.compositor), `${baseName()}-frames.zip`);
 		});
 
-	const saveClick = () =>
+	const saveClick = (editor = session) =>
 		run('Save', async () => {
-			const savingSession = session;
+			const savingSession = editor;
 			const commits = savingSession.unsavedCommits;
 			if (!(await saveProjectToDisk(savingSession.doc))) return;
 			savingSession.savedToDiskAt = new Date(); // resets the T15 reminder clock
 			savingSession.unsavedCommits -= commits;
-		});
+		}, editor);
 	async function openClick() {
 		if (hasUnsavedWork() && !(await confirm.open(DISCARD_OPEN))) return;
 		run('Open', async () => {
@@ -140,6 +144,20 @@
 	async function newClick() {
 		if (hasUnsavedWork() && !(await confirm.open(DISCARD_NEW))) return;
 		newDialog.open();
+	}
+
+	async function exampleClick() {
+		if (hasUnsavedWork() && !(await confirm.open(DISCARD_OPEN))) return;
+		await run('Load example', async () => onOpenDoc(await openChickenExample(), true));
+	}
+
+	function saveShortcut(event: KeyboardEvent) {
+		if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+		event.preventDefault();
+		const target = event.target as HTMLElement;
+		const editor = session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
+			? session.comparisonSession ?? session : session;
+		void saveClick(editor);
 	}
 
 	function createNew(width: number, height: number) {
@@ -154,6 +172,8 @@
 		session.rename((e.currentTarget as HTMLInputElement).value);
 	}
 </script>
+
+<svelte:window onkeydown={saveShortcut} />
 
 <header class="bar">
 	<a class="home" href="/" aria-label="Doodle-Do home">
@@ -172,6 +192,8 @@
 		{/if}
 	</span>
 	<div class="actions" aria-busy={busy}>
+		{#if showExample}<button onclick={exampleClick} disabled={busy}>Try chicken example</button>{/if}
+		<ActionMenu label="File">
 		<button onclick={newClick}>New animation</button>
 		<button onclick={() => resizeDialog.open(session.doc.meta.width, session.doc.meta.height)} title="Change the canvas size">
 			Resize
@@ -183,13 +205,18 @@
 		>
 			Open
 		</button>
+			{#if !showExample}<button onclick={exampleClick} disabled={busy}>Try chicken example</button>{/if}
+		</ActionMenu>
 		<button
-			onclick={saveClick}
+			onclick={() => saveClick()}
 			disabled={busy}
-			title="Save an editable project file to disk"
+			title="Save an editable project file to disk (Ctrl/Cmd+S)"
+			aria-keyshortcuts="Control+s Meta+s"
 		>
 			Save project
 		</button>
+		<ActionMenu label="Export">
+		<p>Sprite sheet: one PNG, TexturePacker JSON, and Doodle-Do JSON. Allow all three downloads.</p>
 		<button onclick={exportSheet} disabled={busy} title="PNG sprite sheet with JSON for Phaser and Godot">
 			Export sheet
 		</button>
@@ -199,6 +226,8 @@
 		<button onclick={exportFramesClick} disabled={busy} title="Individual frame PNGs, zipped">
 			Export frames
 		</button>
+		</ActionMenu>
+		<ActionMenu label="Help">
 		<button
 			class:active={!tipsHidden}
 			aria-pressed={!tipsHidden}
@@ -207,6 +236,14 @@
 		>
 			Tips
 		</button>
+		<details>
+			<summary>Keyboard shortcuts</summary>
+			<p>Ctrl/Cmd + S: save project<br />Ctrl/Cmd + Z: undo<br />Ctrl/Cmd + Shift + Z: redo</p>
+			<p>With canvas focus: {TOOLBAR_TOOLS.map((tool) => `${tool.key} ${tool.label}`).join(' · ')}.</p>
+			<p>Arrow keys: move pixel cursor. Space/Enter: use tool. Page Up/Down: change frame. 1–4: change view. X: swap colors. O: onion skin. [ / ]: brush size.</p>
+			<p>Ctrl/Cmd + A: select all. D: deselect; Shift + D: reselect. J: extract selection. Shift + I: invert selection. Alt + arrows: move selection.</p>
+		</details>
+		</ActionMenu>
 	</div>
 </header>
 
@@ -219,7 +256,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem;
+		gap: 0.5rem;
 		padding: 0.5rem 0.85rem;
 		border-bottom: 4px solid var(--edge);
 		background: var(--paper);
@@ -237,12 +274,9 @@
 	}
 	.status {
 		flex: 1;
-		font-size: 0.625rem;
-		font-weight: 800;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		opacity: 0.7;
-		flex-basis: 14rem;
+		font-size: 0.6875rem;
+		color: var(--gray);
+		flex-basis: 10rem;
 		overflow-wrap: anywhere;
 	}
 	.actions {
@@ -253,7 +287,7 @@
 		.bar { flex-wrap: wrap; }
 		.status { order: 3; flex: 1 1 12rem; min-width: 10rem; }
 		.actions { width: 100%; overflow-x: auto; padding-bottom: .15rem; }
-		.actions button { white-space: nowrap; }
+		.actions :global(button) { white-space: nowrap; }
 	}
 	@media (max-width: 620px) {
 		.name { order: 3; width: 100%; }

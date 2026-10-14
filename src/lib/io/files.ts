@@ -130,3 +130,9 @@ export function openFromDisk(): Promise<Doc | null> {
 		input.click();
 	});
 }
+
+export async function openChickenExample(): Promise<Doc> {
+	const response = await fetch('/assets/chicken-walk.png');
+	if (!response.ok) throw new Error('Chicken example could not be loaded. Try again.');
+	return docFromStrip(new File([await response.blob()], 'chicken-example.png', { type: 'image/png' }), undefined);
+}

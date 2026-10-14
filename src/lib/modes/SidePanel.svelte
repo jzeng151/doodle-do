@@ -11,24 +11,26 @@
 </script>
 
 <aside>
+	<PalettePanel {session} />
+	<LayerPanel {session} />
 	<LoopPreview {session} />
 	{#if session.tiledDrawing}<TilePreview {session} />{/if}
-	<LayerPanel {session} />
-	<PalettePanel {session} />
 </aside>
 
 <style>
 	aside {
-		width: 232px;
-		padding: 10px;
+		width: 248px;
+		padding: 8px;
+		flex-shrink: 0;
 		border-left: 3px solid var(--edge);
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 		overflow-y: auto;
 		background: var(--paper-2);
 	}
-	aside :global(section) { padding: .8rem; background: var(--paper); border: 2px solid var(--ink); }
+	aside :global(section) { padding: 4px; background: var(--paper); flex-shrink: 0; }
+	aside :global(.layers) { flex: 1; flex-shrink: 1; }
 	@media (max-width: 860px) {
 		aside { width: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); border-left: 0; border-top: 4px solid var(--edge); overflow: visible; }
 		aside :global(section) { min-width: 0; }
