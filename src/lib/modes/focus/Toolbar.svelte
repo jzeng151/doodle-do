@@ -48,17 +48,25 @@
 	const canRedo = $derived((session.version, session.bus.canRedo));
 	const canvasWidth = $derived((session.version, session.doc.meta.width));
 	const canvasHeight = $derived((session.version, session.doc.meta.height));
-	const zoomLabel = $derived(`${Number(session.zoom.toFixed(2))}×`);
+	const zoomLabel = $derived(`${Number((session.mode === 'grid' ? session.gridZoom : session.zoom).toFixed(2))}×`);
 	const mirrorDrawingTools: Tool[] = ['pencil', 'eraser', 'line', 'rectangle', 'ellipse'];
 	const supportsDrawingMirror = $derived(mirrorDrawingTools.includes(session.tool));
 	const supportsSelectionMirror = $derived(SELECT_TOOLS.includes(session.tool));
 	const clampOnionRange = (value: number) => Math.max(1, Math.min(8, Math.round(value) || 1));
 
 	function zoomOut() {
+		if (session.mode === 'grid') {
+			session.zoomGridBy(-1);
+			return;
+		}
 		session.zoom = Math.max(0.25, session.zoom - (session.zoom <= 1 ? 0.25 : 2));
 	}
 
 	function zoomIn() {
+		if (session.mode === 'grid') {
+			session.zoomGridBy(1);
+			return;
+		}
 		session.zoom = Math.min(24, session.zoom + (session.zoom < 1 ? 0.25 : 2));
 	}
 

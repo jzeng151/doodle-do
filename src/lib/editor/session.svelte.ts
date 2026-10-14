@@ -391,6 +391,11 @@ export class EditorSession {
 		if (forkTool !== 'stamp' || fork.stamp) fork.tool = forkTool;
 	}
 
+	zoomGridBy(step: number): void {
+		const maximum = Math.max(12, this.gridZoom, Math.floor(96 / Math.max(this.doc.meta.width, this.doc.meta.height)));
+		this.gridZoom = Math.max(1, Math.min(maximum, this.gridZoom + step));
+	}
+
 	selectFrame(index: number): void {
 		if (index === this.currentFrame) {
 			this.bulkFrames = [];
