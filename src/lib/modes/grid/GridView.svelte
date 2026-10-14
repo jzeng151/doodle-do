@@ -241,11 +241,11 @@
 <div class="middle">
 	<div class="grid-area">
 		<div class="grid-tools">
-			<button aria-label="Smaller tiles" title="Smaller tiles" onclick={() => (session.gridZoom = Math.max(1, session.gridZoom - 1))}>
+			<button aria-label="Smaller tiles" title="Smaller tiles" onclick={() => session.zoomGridBy(-1)}>
 				−
 			</button>
 			<span class="zoom">{session.gridZoom}×</span>
-			<button aria-label="Larger tiles" title="Larger tiles" onclick={() => (session.gridZoom = Math.min(12, session.gridZoom + 1))}>
+			<button aria-label="Larger tiles" title="Larger tiles" onclick={() => session.zoomGridBy(1)}>
 				+
 			</button>
 		</div>

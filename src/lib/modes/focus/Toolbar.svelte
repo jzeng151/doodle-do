@@ -56,7 +56,7 @@
 
 	function zoomOut() {
 		if (session.mode === 'grid') {
-			session.gridZoom = Math.max(1, session.gridZoom - 1);
+			session.zoomGridBy(-1);
 			return;
 		}
 		session.zoom = Math.max(0.25, session.zoom - (session.zoom <= 1 ? 0.25 : 2));
@@ -64,7 +64,7 @@
 
 	function zoomIn() {
 		if (session.mode === 'grid') {
-			session.gridZoom = Math.min(12, session.gridZoom + 1);
+			session.zoomGridBy(1);
 			return;
 		}
 		session.zoom = Math.min(24, session.zoom + (session.zoom < 1 ? 0.25 : 2));

@@ -6,6 +6,23 @@ vi.stubGlobal('$state', <T>(value: T) => value);
 
 const paintTools = ['pencil', 'line', 'rectangle', 'ellipse', 'fill'] as const;
 
+it.each([1, 4, 7, 8, 32])('Grid zoom never shrinks a %dpx canvas when increasing', (size) => {
+	const session = new EditorSession(createDoc({ width: size, height: size, palette: ['#000000'] }));
+	const initial = session.gridZoom;
+	session.zoomGridBy(1);
+	expect(session.gridZoom).toBeGreaterThanOrEqual(initial);
+	const increased = session.gridZoom;
+	session.zoomGridBy(-1);
+	expect(session.gridZoom).toBe(increased - 1);
+	session.zoomGridBy(1);
+	expect(session.gridZoom).toBe(increased);
+	session.doc.meta.width = 32;
+	session.zoomGridBy(1);
+	expect(session.gridZoom).toBeGreaterThanOrEqual(increased);
+	session.zoomGridBy(-100);
+	expect(session.gridZoom).toBe(1);
+});
+
 function paint(session: EditorSession, tool: typeof paintTools[number], colorValue: number, secondaryColorValue?: number): void {
 	session.tool = tool;
 	if (tool === 'pencil') {
