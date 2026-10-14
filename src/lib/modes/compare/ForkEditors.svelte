@@ -160,4 +160,9 @@
 		}
 		.editor-pane + .editor-pane { border-left: 0; border-top: 4px solid var(--edge); }
 	}
+	@media (max-width: 860px) {
+		.fork-editors { grid-auto-rows: auto; }
+		.work-area { flex-direction: column; }
+		.work-area :global(.scroll) { min-height: 320px; }
+	}
 </style>
