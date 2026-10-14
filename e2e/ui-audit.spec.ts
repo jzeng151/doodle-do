@@ -1,5 +1,32 @@
 import { expect, test } from '@playwright/test';
 
+test('Save shortcut includes the focused field value', async ({ page }) => {
+	await page.goto('/canvas');
+	await page.evaluate(() => {
+		Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: async () => ({
+			createWritable: async () => ({
+				write: async (text: string) => { (window as typeof window & { savedProject?: string }).savedProject = text; },
+				close: async () => {}
+			})
+		}) });
+	});
+	for (const [label, value, path] of [
+		['Document name', 'Keyboard project', ['meta', 'name']],
+		['FPS', '12', ['meta', 'fps']],
+		['Frame duration in milliseconds', '220', ['frames', '0', 'durationMs']],
+		['Layer name', 'Keyboard layer', ['frames', '0', 'layers', '0', 'name']]
+	] as const) {
+		if (label === 'Layer name') await page.getByRole('button', { name: 'More layer actions' }).click();
+		await page.getByLabel(label, { exact: true }).fill(value);
+		await page.keyboard.press('Control+s');
+		await expect.poll(() => page.evaluate((keys) => {
+			const saved = (window as typeof window & { savedProject?: string }).savedProject;
+			if (!saved) return '';
+			return String(keys.reduce((object, key) => object[key], JSON.parse(saved)));
+		}, [...path])).toBe(value);
+	}
+});
+
 test('Grid toolbar zoom resizes tiles and preserves Focus zoom', async ({ page }) => {
 	await page.goto('/canvas');
 	const mode = page.getByRole('group', { name: 'Workspace mode', exact: true });

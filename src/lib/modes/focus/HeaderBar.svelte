@@ -157,6 +157,7 @@
 		const target = event.target as HTMLElement;
 		const editor = session.mode === 'compare' && target.closest('[data-editor-branch="fork"]')
 			? session.comparisonSession ?? session : session;
+		if (target.matches('input, select, textarea')) target.blur();
 		void saveClick(editor);
 	}
 
