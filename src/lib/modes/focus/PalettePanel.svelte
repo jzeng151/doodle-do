@@ -118,8 +118,8 @@
 	<header>
 		<h2>Palette</h2>
 	<div class="active-colors" aria-label="Active colors">
-		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
 		<span class="active-color background" class:transparent={session.backgroundColorValue === 0} style={session.backgroundColorValue ? `background:${palette[session.backgroundColorValue - 1]}` : ''} title="Background color"></span>
+		<span class="active-color foreground" class:transparent={session.colorValue === 0} style={session.colorValue ? `background:${palette[session.colorValue - 1]}` : ''} title="Foreground color"></span>
 		<button title="Swap foreground and background colors (X)" onclick={() => session.swapActiveColors()}>Swap</button>
 	</div>
 		<button
@@ -273,7 +273,7 @@
 	.active-colors { display: flex; align-items: center; gap: 2px; margin-right: 6px; }
 	.active-color { width: 24px; height: 24px; border: 2px solid var(--ink); }
 	.active-color.transparent { background: repeating-conic-gradient(var(--checker-muted) 0% 25%, var(--checker-light) 0% 50%) 0 0 / 8px 8px; }
-	.active-color.background { margin-left: -14px; margin-top: 6px; }
+	.active-color.foreground { margin-left: -14px; margin-top: 6px; }
 	.active-colors button { margin-left: auto; }
 	.swatch {
 		width: 100%;
