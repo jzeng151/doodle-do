@@ -35,6 +35,29 @@ test('starts with Essentials and reaches hidden tools without onboarding', async
 	await expect(page.getByRole('button', { name: 'More tools' })).toBeVisible();
 });
 
+test('keeps Learn beside Toolbar and expands More tools inline', async ({ page }) => {
+	await openFreshEditor(page);
+	const toolbar = page.locator('.toolbar').first();
+	const actions = toolbar.locator('.toolbar-actions');
+	await expect(actions.getByRole('button')).toHaveText(['Learn', 'Toolbar']);
+	const more = toolbar.getByRole('button', { name: 'More tools' });
+	const extra = toolbar.getByRole('region', { name: 'More drawing tools' });
+	for (const width of [1280, 600]) {
+		await page.setViewportSize({ width, height: 900 });
+		await more.click();
+		await expect(more).toHaveAttribute('aria-expanded', 'true');
+		await expect(extra.getByRole('button', { name: 'Line', exact: true })).toBeVisible();
+		const toolbarBox = (await toolbar.boundingBox())!;
+		const extraBox = (await extra.boundingBox())!;
+		expect(extraBox.x).toBeGreaterThanOrEqual(toolbarBox.x);
+		expect(extraBox.x + extraBox.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width);
+		expect(extraBox.y + extraBox.height).toBeLessThanOrEqual(toolbarBox.y + toolbarBox.height);
+		await more.click();
+		await expect(more).toHaveAttribute('aria-expanded', 'false');
+		await expect(extra).toHaveCount(0);
+	}
+});
+
 test('reorders tools in a custom toolbar and restores the order', async ({ page }) => {
 	await page.addInitScript(() => {
 		if (!localStorage.getItem('doodledo.toolbar')) {

@@ -26,7 +26,7 @@
 	const tools = $derived(session.stamp ? [...baseTools, stampTool] : baseTools);
 	let preferences = $state(toolbarPreferences.snapshot);
 	let toolbarSettings: ToolbarSettings | undefined;
-	let moreToolsEl: HTMLElement;
+	let moreToolsOpen = $state(false);
 	const moreToolsId = $props.id();
 	const orderedTools = $derived.by(() => {
 		const available = new Map(tools.map((tool) => [tool.id, tool]));
@@ -96,7 +96,7 @@
 
 	function selectHiddenTool(tool: Tool) {
 		session.setTool(tool);
-		moreToolsEl.hidePopover();
+		moreToolsOpen = false;
 	}
 
 	onMount(() => {
@@ -146,13 +146,24 @@
 				{t.shortLabel}
 			</button>
 		{/each}
-		{#if onLearn}<button title={`Practice ${activeTool.label}`} onclick={() => onLearn?.(activeTool.id)}>Learn</button>{/if}
 	</div>
 	{/if}
 	{#if hiddenTools.length}
-		<div class="group"><button popovertarget={moreToolsId}>More tools</button></div>
+		{#if moreToolsOpen}
+			<section id={moreToolsId} class="group more-tools" aria-label="More drawing tools">
+				{#each hiddenTools as tool (tool.id)}
+					<button
+						disabled={toolDisabled(tool.id)}
+						title={`${tool.description} (${tool.key})${toolDisabled(tool.id) ? '. Focus mode only' : ''}`}
+						onclick={() => selectHiddenTool(tool.id)}
+					>{tool.shortLabel}</button>
+				{/each}
+			</section>
+		{/if}
+		<div class="group"><button aria-expanded={moreToolsOpen} aria-controls={moreToolsId} onclick={() => (moreToolsOpen = !moreToolsOpen)}>More tools</button></div>
 	{/if}
-	<div class="group">
+	<div class="group toolbar-actions">
+		{#if onLearn}<button title={`Practice ${activeTool.label}`} onclick={() => onLearn?.(activeTool.id)}>Learn</button>{/if}
 		<ToolbarSettings
 			bind:this={toolbarSettings}
 			layout={preferences.layout}
@@ -306,15 +317,6 @@
 
 	</div>
 </div>
-<section bind:this={moreToolsEl} id={moreToolsId} class="more-tools" popover="auto" aria-label="More drawing tools">
-	{#each hiddenTools as tool (tool.id)}
-		<button
-			disabled={toolDisabled(tool.id)}
-			title={`${tool.description} (${tool.key})${toolDisabled(tool.id) ? '. Focus mode only' : ''}`}
-			onclick={() => selectHiddenTool(tool.id)}
-		>{tool.shortLabel}</button>
-	{/each}
-</section>
 
 <style>
 	.toolbar {
@@ -341,7 +343,7 @@
 	}
 	.context-controls { width: 100%; flex-wrap: wrap; border-top: 1px solid var(--gray); padding-top: 4px; }
 	.context-controls:empty { display: none; }
-	.tool-controls :global([aria-label="Tools"]) { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+	.tool-controls :global([aria-label="Tools"]) { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; }
 	.group {
 		display: flex;
 		flex: none;
@@ -365,17 +367,7 @@
 		align-items: center;
 	}
 	label input[type='number'] { width: 4rem; }
-	.more-tools {
-		display: none;
-		max-width: min(30rem, calc(100vw - 1rem));
-		margin: .35rem 0;
-		padding: .5rem;
-		border: 3px solid var(--edge);
-		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
-	}
-	.more-tools:popover-open { display: flex; flex-wrap: wrap; gap: 4px; }
+	.toolbar-actions { margin-left: auto; }
 	@media (max-width: 720px) {
 		.toolbar { flex: none; }
 	}
