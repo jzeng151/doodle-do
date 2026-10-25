@@ -662,6 +662,30 @@ describe('dithering', () => {
 		expect(four).not.toEqual(Array.from({ length: 16 }, (_, i) => ditherValue(i % 4, (i / 4) | 0, 1, 2, 2)));
 	});
 
+	it.each([
+		[3, [1, 2, 1, 2, 1, 2, 1, 2, 1]],
+		[5, [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1]]
+	] as const)('tiles size %i through strokes and fills', (size, expected) => {
+		for (const offset of [-size, 0, size]) {
+			const tile = Array.from({ length: size * size }, (_, i) =>
+				ditherValue(i % size + offset, Math.floor(i / size) + offset, 1, 2, size));
+			expect(tile).toEqual(expected);
+		}
+		const filled = testDoc(size, size);
+		const command = floodFill(filled, 0, 0, 0, 0, 1, 0, true, 2, size)!;
+		command.do(filled);
+		expect([...filled.frames[0].layers[0].pixels]).toEqual(expected);
+		command.undo(filled);
+		expect([...filled.frames[0].layers[0].pixels]).toEqual(Array(size * size).fill(0));
+		const drawn = testDoc(size, size);
+		const stroke = new StrokeBuilder(drawn, 0, 0, 1, 1, false, 'pencil-stroke', false, 2, size);
+		for (let y = 0; y < size; y++) {
+			stroke.begin(0, y);
+			stroke.moveTo(size - 1, y);
+		}
+		expect([...drawn.frames[0].layers[0].pixels]).toEqual(expected);
+	});
+
 	it('applies the pattern to fill output', () => {
 		const doc = testDoc(2, 2);
 		const cmd = floodFill(doc, 0, 0, 0, 0, 1, 0, true, 2, 2)!;

@@ -269,7 +269,7 @@
 				Dither
 			</button>
 			{#if session.ditherEnabled}
-				<label>Pattern<select value={session.ditherSize} onchange={(e) => { session.lineEnd(); session.shapeEnd(); session.ditherSize = Number(e.currentTarget.value) as 2 | 4; }}><option value={2}>2×2</option><option value={4}>4×4</option></select></label>
+				<label>Pattern<select value={session.ditherSize} onchange={(e) => { session.lineEnd(); session.shapeEnd(); session.ditherSize = Number(e.currentTarget.value) as 2 | 3 | 4 | 5; }}>{#each [2, 3, 4, 5] as size}<option value={size}>{size}×{size}</option>{/each}</select></label>
 			{/if}
 		{/if}
 		{#if session.tool === 'rectangle' || session.tool === 'ellipse'}
