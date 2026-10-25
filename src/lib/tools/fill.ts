@@ -55,7 +55,7 @@ export function floodFill(
 	tolerance = 0,
 	contiguous = true,
 	secondaryValue?: number,
-	ditherSize: 0 | 2 | 4 = 0,
+	ditherSize: 0 | 2 | 3 | 4 | 5 = 0,
 	tiled = false
 ): PixelDiffCommand | null {
 	const { width, height } = doc.meta;

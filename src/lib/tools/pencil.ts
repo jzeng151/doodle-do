@@ -25,7 +25,7 @@ export class StrokeBuilder {
 		private readonly kind = value === 0 ? 'eraser-stroke' : 'pencil-stroke',
 		private readonly pixelPerfect = false,
 		private readonly secondaryValue?: number,
-		private readonly ditherSize: 0 | 2 | 4 = 0,
+		private readonly ditherSize: 0 | 2 | 3 | 4 | 5 = 0,
 		private readonly mirrorAxisX = (doc.meta.width - 1) / 2,
 		private readonly mirrorY = false,
 		private readonly mirrorAxisY = (doc.meta.height - 1) / 2,

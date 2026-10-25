@@ -1,17 +1,20 @@
-const BAYER_2 = [0, 2, 3, 1];
-const BAYER_4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const PATTERNS = {
+	2: [1, 0, 0, 1],
+	3: [1, 0, 1, 0, 1, 0, 1, 0, 1],
+	4: [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
+	5: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+};
 
 export function ditherValue(
 	x: number,
 	y: number,
 	primary: number,
 	secondary: number | undefined,
-	size: 0 | 2 | 4
+	size: 0 | 2 | 3 | 4 | 5
 ): number {
 	if (!size || secondary === undefined) return primary;
-	const matrix = size === 2 ? BAYER_2 : BAYER_4;
-	const threshold = matrix[(y % size + size) % size * size + (x % size + size) % size];
-	return (size === 2 ? threshold < 2 : threshold % 4 < 2)
+	const pattern = PATTERNS[size];
+	return pattern[(y % size + size) % size * size + (x % size + size) % size]
 		? primary
 		: secondary;
 }

@@ -58,6 +58,18 @@ test('keeps Learn beside Toolbar and expands More tools inline', async ({ page }
 	}
 });
 
+test('offers dither sizes from 2×2 through 5×5', async ({ page }) => {
+	await openFreshEditor(page);
+	await chooseToolbar(page, 'Full');
+	await page.getByRole('button', { name: 'Dither', exact: true }).click();
+	const pattern = page.getByRole('combobox', { name: 'Pattern', exact: true });
+	await expect(pattern.locator('option')).toHaveText(['2×2', '3×3', '4×4', '5×5']);
+	for (const size of ['2', '3', '4', '5']) {
+		await pattern.selectOption(size);
+		await expect(pattern).toHaveValue(size);
+	}
+});
+
 test('reorders tools in a custom toolbar and restores the order', async ({ page }) => {
 	await page.addInitScript(() => {
 		if (!localStorage.getItem('doodledo.toolbar')) {

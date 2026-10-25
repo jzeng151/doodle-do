@@ -95,7 +95,7 @@ export class EditorSession {
 	brushSize = $state(1);
 	pixelPerfect = $state(false);
 	ditherEnabled = $state(false);
-	ditherSize = $state<2 | 4>(2);
+	ditherSize = $state<2 | 3 | 4 | 5>(2);
 	shapeFilled = $state(false);
 	fillTolerance = $state(0);
 	fillContiguous = $state(true);
