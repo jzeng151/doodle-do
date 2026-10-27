@@ -17,7 +17,7 @@
 	let {
 		session,
 		onOpenDoc
-	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
+	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean, comparison?: Doc) => void } = $props();
 	lessonState.close();
 	let toolLessons: ToolLessons | undefined;
 

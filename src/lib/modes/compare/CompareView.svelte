@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { openFromDisk } from '$lib/io/files';
 	import ConfirmDialog from '../focus/ConfirmDialog.svelte';
@@ -6,7 +7,7 @@
 	import ForkEditors from './ForkEditors.svelte';
 
 	let { session }: { session: EditorSession } = $props();
-	let screen = $state<'edit' | 'playback'>('edit');
+	let screen = $state<'edit' | 'playback'>(untrack(() => session.comparisonFromFile) ? 'playback' : 'edit');
 	let confirm: ConfirmDialog;
 	let busy = $state(false);
 	let error = $state('');

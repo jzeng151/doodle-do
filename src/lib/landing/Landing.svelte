@@ -11,10 +11,20 @@
 
 	let motionPlaying = $state(true);
 	let exampleFrames = $state(1);
+	let comparisonPlaying = $state(true);
+	let comparisonFrame = $state(0);
+
+	$effect(() => {
+		if (!comparisonPlaying) return;
+		const timer = setInterval(() => (comparisonFrame = (comparisonFrame + 1) % 4), copy.example.frameMs);
+		return () => clearInterval(timer);
+	});
 
 	onMount(() => {
 		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		const pauseForPreference = () => media.matches && (motionPlaying = false);
+		const pauseForPreference = () => {
+			if (media.matches) { motionPlaying = false; comparisonPlaying = false; }
+		};
 		pauseForPreference();
 		media.addEventListener('change', pauseForPreference);
 		return () => media.removeEventListener('change', pauseForPreference);
@@ -45,6 +55,27 @@
 				</button>
 				<figcaption>{copy.example.note} {exampleFrames} frames · {Math.round(1000 / copy.example.frameMs)} FPS · {copy.example.frameMs} ms each.</figcaption>
 			</figure>
+		</section>
+
+		<section class="chicken-comparison strip" aria-labelledby="comparison-title">
+			<div class="section-head">
+				<h2 id="comparison-title">SMALL EDITS. DIFFERENT WALK.</h2>
+				<p>Compare the original chicken with a refined version. Look at the silhouette, wing shading, and placement of the feet. These are two edited examples you can explore in the canvas.</p>
+			</div>
+			<div class="comparison-previews">
+				<figure>
+					<figcaption><strong>Original</strong><span>4 frames · 8 FPS</span></figcaption>
+					<div class="chicken-preview"><ChickenSprite src="/assets/chicken-walk-original.png" label="original chicken walk cycle" frameIndex={comparisonFrame} scale={10} /></div>
+				</figure>
+				<figure>
+					<figcaption><strong>Refined</strong><span>4 frames · 8 FPS</span></figcaption>
+					<div class="chicken-preview"><ChickenSprite label="refined chicken walk cycle" frameIndex={comparisonFrame} scale={10} /></div>
+				</figure>
+			</div>
+			<div class="comparison-actions">
+				<button aria-pressed={comparisonPlaying} onclick={() => (comparisonPlaying = !comparisonPlaying)}>{comparisonPlaying ? 'Pause both' : 'Play both'}</button>
+				<a href="/canvas?example=chicken-comparison">Open this comparison <span aria-hidden="true">→</span></a>
+			</div>
 		</section>
 
 		<section class="strip" id="views">
@@ -84,6 +115,24 @@
 	.motion-control{position:absolute;top:.65rem;right:.65rem;z-index:1;background:var(--paper)}
 	.strip{padding:clamp(4rem,8vw,7rem) 0 0}.section-head{display:grid;grid-template-columns:minmax(260px,.6fr) 1fr;gap:clamp(2rem,8vw,7rem);align-items:start}.section-head h2{justify-self:start;padding:.3rem .65rem;background:var(--ink);color:var(--paper);font-size:clamp(1.25rem,2.5vw,1.8rem);font-weight:950;letter-spacing:-.02em}.section-head p{max-width:64ch;color:#34312d}.mode-table{margin-top:1.8rem;border:3px solid var(--ink)}.table-head,.mode-row{display:grid;grid-template-columns:7rem 1fr 1fr}.table-head{background-image:radial-gradient(var(--ink) 1.5px,transparent 1.7px);background-size:6px 6px}.table-head span{padding:.65rem .8rem;background:rgba(242,239,230,.94);font-size:.625rem;font-weight:900;letter-spacing:.12em}.mode-row>*{margin:0;padding:.9rem .8rem;border-top:2px solid var(--ink);border-right:1px solid var(--ink)}.mode-row>*:last-child{border-right:0}.mode-row strong{text-transform:uppercase}.mode-row p{font-size:.875rem;line-height:1.45}.mode-row p:last-child{background:var(--paper-2)}
 	.tips{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:2rem!important}.tips li{display:flex;flex-direction:column;gap:.8rem}.tips blockquote{position:relative;flex:1;margin:0;padding:1.2rem;background:var(--paper);border:3px solid var(--ink);border-radius:22px;font-size:.9375rem;line-height:1.5}.tips blockquote::after{content:'';position:absolute;bottom:-14px;left:28px;width:18px;height:15px;background:var(--paper);border-right:3px solid var(--ink);border-bottom:3px solid var(--ink);transform:skewX(-28deg)}.tips span{padding-left:3.5rem;color:var(--gray);font-size:.625rem;font-weight:900;letter-spacing:.14em}.output-list{margin-top:1.8rem;border:3px solid var(--ink)}.output-list>div{display:grid;grid-template-columns:12rem 1fr}.output-list>div+div{border-top:2px solid var(--ink)}.output-list strong,.output-list span{padding:.85rem 1rem}.output-list strong{background:var(--paper-2);border-right:2px solid var(--ink);text-transform:uppercase}.output-list span{font-size:.875rem}.toolbox{display:grid;grid-template-columns:.55fr 1.2fr auto;gap:clamp(1.5rem,5vw,4rem);align-items:center;margin-top:clamp(4rem,8vw,7rem);padding:clamp(1.5rem,4vw,3rem);background:var(--ink);color:var(--paper)}.toolbox h2{font-size:clamp(1.5rem,3vw,2.4rem);line-height:1}.toolbox ul{display:grid;gap:.55rem;font-size:.875rem}.toolbox li::before{content:'■';margin-right:.7rem}.inverse-button{background:var(--paper);color:var(--ink);border-color:var(--paper)}footer{display:flex;align-items:flex-start;justify-content:space-between;gap:2rem;margin-top:4rem;padding-top:1.5rem;border-top:4px solid var(--ink)}footer p{max-width:58ch;margin-top:.25rem!important;color:var(--gray);font-size:.75rem}footer nav{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.5rem;margin-inline:-12px}footer nav a{min-height:44px;padding-inline:12px;color:inherit;font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}footer .github-link{display:grid;width:44px;padding:0;place-items:start center}footer .github-link svg{width:20px;height:20px;fill:currentColor}footer .support-link{display:inline-flex;box-sizing:border-box;align-items:center;gap:.3rem;height:32px;min-height:32px;padding:0 8px;border:2px solid var(--ink);border-radius:5px;background:var(--ink);color:var(--paper);font:700 .75rem/1 "Lato",Arial,sans-serif;letter-spacing:0;text-decoration:none;text-transform:none;transform:translateY(-6px)}footer .support-link:hover{opacity:.82}
+	.comparison-previews { display: grid; grid-template-columns: 1fr 1fr; margin-top: 1.8rem; border: 3px solid var(--ink); }
+	.comparison-previews figure { min-width: 0; margin: 0; }
+	.comparison-previews figure + figure { border-left: 2px solid var(--ink); }
+	.comparison-previews figcaption { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border-bottom: 2px solid var(--ink); background: var(--paper-2); }
+	.comparison-previews figcaption strong { font-size: 1rem; }
+	.comparison-previews figcaption span { color: var(--gray); font-size: .75rem; }
+	.chicken-preview { display: grid; place-items: center; min-height: 250px; background: var(--paper); }
+	.comparison-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+	.comparison-actions button { min-height: 44px; padding: .5rem 1rem; border: 2px solid var(--ink); background: var(--paper); font: inherit; cursor: pointer; }
+	.comparison-actions a { display: inline-flex; align-items: center; gap: .75rem; min-height: 44px; color: var(--ink); font-weight: 800; text-underline-offset: .25em; }
+	.comparison-actions a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+	@media (max-width: 600px) {
+		.comparison-previews { grid-template-columns: 1fr; }
+		.comparison-previews figure + figure { border-left: 0; border-top: 2px solid var(--ink); }
+		.chicken-preview { min-height: 210px; }
+		.comparison-actions { flex-wrap: wrap; }
+	}
+
 	@media(max-width:800px){.hero{grid-template-columns:1fr;min-height:0}.pitch{padding-top:2rem}.stage{min-height:390px}.stage :global(canvas){transform:scale(.78)}.section-head{grid-template-columns:1fr;gap:1rem}.tips{grid-template-columns:1fr}.toolbox{grid-template-columns:1fr}.table-head{display:none}.mode-row{grid-template-columns:1fr}.mode-row p{grid-column:1/-1}.mode-row p:last-child{border-right:0}.output-list>div{grid-template-columns:1fr}.output-list strong{border-right:0;border-bottom:1px solid var(--ink)}}
 	@media(max-width:480px){.landing{padding-inline:.75rem}.pitch h1{font-size:clamp(2.35rem,13vw,3.6rem)}.pitch ul{display:grid}.stage{min-height:330px}.stage :global(canvas){transform:scale(.62)}.output-list span{overflow-wrap:anywhere}footer{align-items:flex-start;flex-direction:column;gap:.5rem}footer p{margin-left:0!important}}
 	@media(pointer:coarse){footer .support-link{height:44px;min-height:44px}}

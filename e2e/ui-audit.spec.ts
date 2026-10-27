@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test('loads comparison B, links zoom, and protects its edits during replacement', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.getByRole('button', { name: 'Try chicken example', exact: true }).click();
+	await page.getByRole('button', { name: 'Edit the chicken', exact: true }).click();
 	await expect(page.getByLabel('Document name')).toHaveValue('chicken-example');
 	await page.getByRole('group', { name: 'Workspace mode', exact: true }).getByRole('button', { name: 'Compare' }).click();
 	const current = page.locator('.editor-pane').first();
@@ -118,6 +119,7 @@ test('Grid toolbar zoom resizes tiles and preserves Focus zoom', async ({ page }
 test('project menus load the example, fit it, and save with the keyboard', async ({ page }) => {
 	await page.goto('/canvas');
 	await page.getByRole('button', { name: 'Try chicken example', exact: true }).click();
+	await page.getByRole('button', { name: 'Edit the chicken', exact: true }).click();
 	await expect(page.getByLabel('Document name')).toHaveValue('chicken-example');
 	await expect(page.getByRole('group', { name: 'Frames' }).getByRole('button')).toHaveCount(4);
 	await page.getByRole('button', { name: '100%', exact: true }).click();
