@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import type { EditorSession } from '$lib/editor/session.svelte';
 	import { downloadBlob, openFromDisk, openChickenExample, saveProjectToDisk } from '$lib/io/files';
 	import { exportGif } from '$lib/io/export/gif';
@@ -19,7 +19,7 @@
 	let {
 		session,
 		onOpenDoc
-	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean) => void } = $props();
+	}: { session: EditorSession; onOpenDoc: (doc: Doc | null, isNew?: boolean, comparison?: Doc) => void } = $props();
 
 	let busy = $state(false);
 	let busyLabel = $state('');
@@ -71,6 +71,12 @@
 
 	onMount(() => {
 		tipsHidden = tips.hideAll;
+		const url = new URL(location.href);
+		if (url.searchParams.get('example') === 'chicken-comparison') {
+			url.searchParams.delete('example');
+			replaceState(url, {});
+			void comparisonClick();
+		}
 		return tips.onChange(() => (tipsHidden = tips.hideAll));
 	});
 
@@ -151,6 +157,14 @@
 		await run('Load example', async () => onOpenDoc(await openChickenExample(), true));
 	}
 
+	async function comparisonClick() {
+		if (hasUnsavedWork() && !(await confirm.open('You have changes that are not saved to disk. Replace this workspace with the chicken comparison?'))) return;
+		await run('Load chicken comparison', async () => {
+			const [original, refined] = await Promise.all([openChickenExample('original'), openChickenExample('refined')]);
+			onOpenDoc(original, true, refined);
+		});
+	}
+
 	function saveShortcut(event: KeyboardEvent) {
 		if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
 		event.preventDefault();
@@ -177,6 +191,11 @@
 
 <svelte:window onkeydown={saveShortcut} />
 
+{#snippet chickenExamples()}
+	<button onclick={exampleClick} disabled={busy}>Edit the chicken</button>
+	<button onclick={comparisonClick} disabled={busy}>Compare before and after</button>
+{/snippet}
+
 <header class="bar" data-editor-branch="current">
 	<a class="home" href="/" aria-label="Doodle-Do home">
 		<img class="mark" src="/assets/chicken-standing.png" alt="" /><span class="brand">Doodle-Do</span>
@@ -194,7 +213,7 @@
 		{/if}
 	</span>
 	<div class="actions" aria-busy={busy}>
-		{#if showExample}<button onclick={exampleClick} disabled={busy}>Try chicken example</button>{/if}
+		{#if showExample}<ActionMenu label="Try chicken example">{@render chickenExamples()}</ActionMenu>{/if}
 		<ActionMenu label="File">
 		<button onclick={newClick}>New animation</button>
 		<button onclick={() => resizeDialog.open(session.doc.meta.width, session.doc.meta.height)} title="Change the canvas size">
@@ -207,7 +226,7 @@
 		>
 			Open
 		</button>
-			{#if !showExample}<button onclick={exampleClick} disabled={busy}>Try chicken example</button>{/if}
+			{#if !showExample}{@render chickenExamples()}{/if}
 		</ActionMenu>
 		<button
 			onclick={() => saveClick()}

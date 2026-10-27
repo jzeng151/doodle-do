@@ -131,8 +131,10 @@ export function openFromDisk(): Promise<Doc | null> {
 	});
 }
 
-export async function openChickenExample(): Promise<Doc> {
-	const response = await fetch('/assets/chicken-walk.png');
+export async function openChickenExample(version?: 'original' | 'refined'): Promise<Doc> {
+	const response = await fetch(version === 'original' ? '/assets/chicken-walk-original.png' : '/assets/chicken-walk.png');
 	if (!response.ok) throw new Error('Chicken example could not be loaded. Try again.');
-	return docFromStrip(new File([await response.blob()], 'chicken-example.png', { type: 'image/png' }), undefined);
+	const doc = await docFromStrip(new File([await response.blob()], 'chicken-example.png', { type: 'image/png' }), undefined);
+	if (version) doc.meta.name = version === 'original' ? 'Chicken · Original' : 'Chicken · Refined';
+	return doc;
 }

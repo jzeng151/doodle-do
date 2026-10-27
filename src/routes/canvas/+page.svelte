@@ -13,10 +13,14 @@
 	let session = $state<EditorSession | null>(null);
 	let detachAutosave: ((flushPending?: boolean) => void) | null = null;
 
-	function startSession(doc: Doc, isNew: boolean, recovered = false) {
+	function startSession(doc: Doc, isNew: boolean, recovered = false, comparison?: Doc) {
 		const replacing = session !== null;
 		detachAutosave?.(false);
 		const next = new EditorSession(doc);
+		if (comparison) {
+			next.loadComparison(comparison);
+			next.setMode('compare');
+		}
 		if (recovered) next.unsavedCommits = 1;
 		next.autosavePending = replacing;
 		detachAutosave = attachAutosave(next.bus, () => {
@@ -31,8 +35,8 @@
 		if (isNew) tips.fire('T01');
 	}
 
-	function onOpenDoc(doc: Doc | null, isNew = false) {
-		startSession(doc ?? createDefaultDoc(), isNew || !doc);
+	function onOpenDoc(doc: Doc | null, isNew = false, comparison?: Doc) {
+		startSession(doc ?? createDefaultDoc(), isNew || !doc, false, comparison);
 	}
 
 	onMount(() => {

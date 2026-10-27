@@ -3,13 +3,19 @@
 
 	let {
 		playing = false,
+		src = '/assets/chicken-walk.png',
+		label = 'white chicken walk cycle, drawn in Doodle-Do',
 		scale = 4,
 		frameMs = 125,
+		frameIndex,
 		onready
 	}: {
 		playing?: boolean;
+		src?: string;
+		label?: string;
 		scale?: number;
 		frameMs?: number;
+		frameIndex?: number;
 		onready?: (frameCount: number) => void;
 	} = $props();
 	let frame = $state(0);
@@ -25,10 +31,11 @@
 			frame = 0;
 			onready?.(frameCount);
 		};
-		image.src = '/assets/chicken-walk.png';
+		image.src = src;
 	});
 
 	$effect(() => {
+		if (frameIndex !== undefined) return;
 		if (!playing) {
 			frame = 0;
 			return;
@@ -41,14 +48,13 @@
 <span
 	class="sprite"
 	role="img"
-	aria-label={`${frameCount}-frame white chicken walk cycle, drawn in Doodle-Do`}
-	style={`width:${frameSize * scale}px;height:${frameSize * scale}px;background-size:${frameSize * frameCount * scale}px ${frameSize * scale}px;background-position:${-frameSize * scale * frame}px 0`}
+	aria-label={`${frameCount}-frame ${label}`}
+	style={`background-image:url("${src}");width:${frameSize * scale}px;height:${frameSize * scale}px;background-size:${frameSize * frameCount * scale}px ${frameSize * scale}px;background-position:${-frameSize * scale * ((frameIndex ?? frame) % frameCount)}px 0`}
 ></span>
 
 <style>
 	.sprite {
 		display: block;
-		background-image: url('/assets/chicken-walk.png');
 		background-repeat: no-repeat;
 		image-rendering: pixelated;
 	}
