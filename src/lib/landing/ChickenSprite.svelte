@@ -4,7 +4,7 @@
 	let {
 		playing = false,
 		src = '/assets/chicken-walk.png',
-		label = 'White chicken walk cycle, drawn in Doodle-Do',
+		label = 'white chicken walk cycle, drawn in Doodle-Do',
 		scale = 4,
 		frameMs = 125,
 		frameIndex,
